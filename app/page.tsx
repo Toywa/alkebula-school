@@ -114,12 +114,14 @@ export default function HomePage() {
       <section className="border-y border-slate-200 bg-white">
         <div className="container-wrap grid gap-6 py-8 md:grid-cols-4">
           {[
-            [CheckCircle2, 'Verified Educators Only'],
-            [BookOpen, 'International Curricula'],
-            [Clock3, 'Flexible Learning Schedules'],
-            [MapPin, 'Serving Families Across Kenya'],
-          ].map(([Icon, label]) => (
-            <div key={label} className="flex items-center gap-3 rounded-2xl bg-ivory px-5 py-4">
+             { Icon: CheckCircle2, label: "Verified Educators Only" },
+            { Icon: BookOpen, label: "International Curricula" },
+            { Icon: Clock3, label: "Flexible Learning Schedules" },
+            { Icon: MapPin, label: "Serving Families Across Kenya" },
+          ].map(({ Icon, label }) => (
+            <div 
+            key={label}
+             className="flex items-center gap-3 rounded-2xl bg-ivory px-5 py-4">
               <Icon className="h-5 w-5 text-gold" />
               <span className="font-medium text-slate-700">{label}</span>
             </div>
