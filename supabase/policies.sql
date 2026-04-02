@@ -1,0 +1,4 @@
+-- Add row-level security policies here.
+-- Restrict private documents to admins only.
+-- Restrict parents to linked students.
+-- Restrict educators to assigned students and their own data.

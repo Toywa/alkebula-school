@@ -1,27 +1,34 @@
-# The Alkebula School — Developer Package
+# The Alkebula School — Supabase-ready scaffold
 
-A premium Next.js website starter for The Alkebula School.
+This is a production-oriented scaffold for the next phase of The Alkebula School.
 
 ## Stack
-- Next.js 14
-- React 18
+- Next.js 14+
 - TypeScript
 - Tailwind CSS
-- Lucide React icons
+- Supabase (Auth, Postgres, Storage)
+- Vercel deployment
 
-## Run locally
-```bash
-npm install
-npm run dev
-```
+## Included
+- App Router structure
+- Public pages
+- Role-based dashboard skeletons
+- Middleware guard scaffold
+- Supabase client helpers
+- Database schema starter
+- Storage/security notes
+- API route placeholders
+- Type definitions
+- Env example
 
-## Build
-```bash
-npm run build
-npm start
-```
+## Getting started
+1. Install dependencies:
+   npm install
 
-## Notes
-- Update educator data in `components/site-data.ts`
-- Main homepage lives in `app/page.tsx`
-- Brand styling lives in `app/globals.css` and `tailwind.config.ts`
+2. Copy environment file:
+   cp .env.local.example .env.local
+
+3. Fill in your Supabase keys.
+
+4. Run locally:
+   npm run dev

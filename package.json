@@ -1,6 +1,6 @@
 {
-  "name": "alkebula-school",
-  "version": "1.0.0",
+  "name": "alkebula-school-platform",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -9,11 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "framer-motion": "^11.3.19",
-    "lucide-react": "^0.453.0",
-    "next": "14.2.16",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "@supabase/supabase-js": "^2.49.1",
+    "next": "^14.2.16",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
@@ -21,9 +20,7 @@
     "@types/react-dom": "^18.3.1",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.15",
-    "typescript": "^5.6.3"
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2"
   }
 }
-
-
