@@ -1,92 +1,84 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(request: NextRequest) {
+type EnquiryPayload = {
+  parentName: string;
+  email: string;
+  phone: string;
+  studentName: string;
+  curriculum: string;
+  level: string;
+  message: string;
+};
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  }
+
+  if (!serviceRoleKey) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as EnquiryPayload;
 
-    const educatorId = body.educatorId as string | undefined;
-    const parentName = body.parentName as string | undefined;
-    const parentEmail = body.parentEmail as string | undefined;
-    const parentPhone = body.parentPhone as string | undefined;
-    const studentName = body.studentName as string | undefined;
-    const subject = body.subject as string | undefined;
-    const preferredMode = body.preferredMode as string | undefined;
-    const preferredSchedule = body.preferredSchedule as string | undefined;
-    const message = body.message as string | undefined;
+    const requiredFields: Array<keyof EnquiryPayload> = [
+      "parentName",
+      "email",
+      "phone",
+      "studentName",
+      "curriculum",
+      "level",
+      "message",
+    ];
 
-    if (!educatorId) {
-      return NextResponse.json(
-        { ok: false, error: "Missing educatorId." },
-        { status: 400 }
-      );
+    for (const field of requiredFields) {
+      if (!body[field]?.trim()) {
+        return NextResponse.json(
+          { error: `Missing field: ${field}` },
+          { status: 400 }
+        );
+      }
     }
 
-    if (!parentName || !parentName.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "Parent name is required." },
-        { status: 400 }
-      );
-    }
+    const supabase = getAdminClient();
 
-    if (!parentEmail || !parentEmail.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "Parent email is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!studentName || !studentName.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "Student name is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!subject || !subject.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "Subject is required." },
-        { status: 400 }
-      );
-    }
-
-    const supabase = createAdminSupabaseClient();
-
-    const { data, error } = await supabase
-      .from("parent_enquiries")
-      .insert([
-        {
-          educator_id: educatorId,
-          parent_name: parentName,
-          parent_email: parentEmail,
-          parent_phone: parentPhone || null,
-          student_name: studentName,
-          subject,
-          preferred_mode: preferredMode || null,
-          preferred_schedule: preferredSchedule || null,
-          message: message || null,
-          status: "new",
-        },
-      ])
-      .select("*")
-      .single();
+    const { error } = await supabase.from("homepage_parent_enquiries").insert({
+      parent_name: body.parentName.trim(),
+      email: body.email.trim(),
+      phone: body.phone.trim(),
+      student_name: body.studentName.trim(),
+      curriculum: body.curriculum.trim(),
+      level: body.level.trim(),
+      message: body.message.trim(),
+    });
 
     if (error) {
+      console.error("Supabase insert error:", error);
       return NextResponse.json(
-        { ok: false, error: error.message || "Failed to save enquiry." },
+        { error: "Failed to save enquiry" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({
-      ok: true,
-      message: "Enquiry submitted successfully.",
-      enquiry: data,
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Parent enquiry route error:", error);
+    console.error("Parent enquiry API error:", error);
     return NextResponse.json(
-      { ok: false, error: "Unexpected server error." },
+      { error: "Invalid request" },
       { status: 500 }
     );
   }

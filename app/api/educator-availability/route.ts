@@ -1,132 +1,77 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(request: NextRequest) {
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  if (!serviceRoleKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+export async function GET() {
   try {
-    const body = await request.json();
+    const supabase = getAdminClient();
 
-    const educatorId = body.educatorId as string | undefined;
-    const periodId = body.periodId as string | undefined;
-    const slotDate = body.slotDate as string | undefined;
-    const startTime = body.startTime as string | undefined;
-    const endTime = body.endTime as string | undefined;
-    const timezone = body.timezone as string | undefined;
+    const { data, error } = await supabase
+      .from("availability")
+      .select("id, educator_id, day_of_week, start_time, end_time, created_at")
+      .order("created_at", { ascending: false });
 
-    if (!educatorId || !educatorId.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "Educator ID is required." },
-        { status: 400 }
-      );
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (!slotDate) {
-      return NextResponse.json(
-        { ok: false, error: "Slot date is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!startTime || !endTime) {
-      return NextResponse.json(
-        { ok: false, error: "Start and end time are required." },
-        { status: 400 }
-      );
-    }
-
-    const supabase = createAdminSupabaseClient();
-
-    const { data: slot, error: slotError } = await supabase
-      .from("educator_availability_slots")
-      .insert([
-        {
-          educator_id: educatorId,
-          period_id: periodId || null,
-          slot_date: slotDate,
-          start_time: startTime,
-          end_time: endTime,
-          timezone: timezone || "UTC",
-          status: "available",
-        },
-      ])
-      .select("*")
-      .single();
-
-    if (slotError) {
-      return NextResponse.json(
-        { ok: false, error: slotError.message || "Failed to save slot." },
-        { status: 500 }
-      );
-    }
-
-    if (periodId) {
-      await supabase
-        .from("educator_availability_periods")
-        .update({
-          submitted_at: new Date().toISOString(),
-          status: "submitted",
-        })
-        .eq("id", periodId);
-    }
-
-    return NextResponse.json({
-      ok: true,
-      message: "Availability slot saved successfully.",
-      slot,
-    });
+    return NextResponse.json({ data });
   } catch (error) {
-    console.error("Educator availability route error:", error);
     return NextResponse.json(
-      { ok: false, error: "Unexpected server error." },
+      { error: error instanceof Error ? error.message : "Failed to load availability" },
       { status: 500 }
     );
   }
 }
 
-export async function PATCH(request: NextRequest) {
+export async function POST(request: Request) {
   try {
     const body = await request.json();
 
-    const slotId = body.slotId as string | undefined;
-    const status = body.status as string | undefined;
+    const { educator_id, day_of_week, start_time, end_time } = body;
 
-    if (!slotId) {
+    if (!educator_id || !day_of_week || !start_time || !end_time) {
       return NextResponse.json(
-        { ok: false, error: "Slot ID is required." },
+        { error: "educator_id, day_of_week, start_time and end_time are required" },
         { status: 400 }
       );
     }
 
-    if (!status) {
-      return NextResponse.json(
-        { ok: false, error: "Status is required." },
-        { status: 400 }
-      );
-    }
-
-    const supabase = createAdminSupabaseClient();
+    const supabase = getAdminClient();
 
     const { data, error } = await supabase
-      .from("educator_availability_slots")
-      .update({ status })
-      .eq("id", slotId)
-      .select("*")
+      .from("availability")
+      .insert({
+        educator_id,
+        day_of_week,
+        start_time,
+        end_time,
+      })
+      .select()
       .single();
 
     if (error) {
-      return NextResponse.json(
-        { ok: false, error: error.message || "Failed to update slot." },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({
-      ok: true,
-      slot: data,
-    });
+    return NextResponse.json({ data });
   } catch (error) {
-    console.error("Educator availability PATCH error:", error);
     return NextResponse.json(
-      { ok: false, error: "Unexpected server error." },
+      { error: error instanceof Error ? error.message : "Failed to create slot" },
       { status: 500 }
     );
   }
