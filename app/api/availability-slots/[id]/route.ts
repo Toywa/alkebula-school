@@ -16,26 +16,27 @@ function getAdminClient() {
   });
 }
 
-export async function GET() {
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
+    const { id } = await params;
     const supabase = getAdminClient();
 
-    const { data, error } = await supabase
-      .from("educator_directory")
-      .select("id, full_name, timezone")
-      .order("full_name", { ascending: true });
+    const { error } = await supabase
+      .from("availability_slots")
+      .delete()
+      .eq("id", id);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error ? error.message : "Failed to load educators",
-      },
+      { error: error instanceof Error ? error.message : "Failed to delete slot" },
       { status: 500 }
     );
   }
