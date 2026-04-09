@@ -1,161 +1,193 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
-export async function POST(request: NextRequest) {
+type BookingPayload = {
+  parent_name: string;
+  parent_email?: string;
+  parent_phone?: string;
+  student_name: string;
+  curriculum?: string;
+  subject?: string;
+  class_level?: string;
+  educator_id: string;
+  slot_id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  timezone?: string;
+};
+
+function getAdminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  }
+
+  if (!serviceRoleKey) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+  }
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as BookingPayload;
 
-    const enquiryId = body.enquiryId as string | undefined;
-    const educatorId = body.educatorId as string | undefined;
-    const parentName = body.parentName as string | undefined;
-    const parentEmail = body.parentEmail as string | undefined;
-    const parentPhone = body.parentPhone as string | undefined;
-    const studentName = body.studentName as string | undefined;
-    const subject = body.subject as string | undefined;
-    const lessonMode = body.lessonMode as string | undefined;
-    const scheduledAt = body.scheduledAt as string | undefined;
-    const durationMinutes = Number(body.durationMinutes ?? 60);
-    const amountUsd = Number(body.amountUsd ?? 0);
-
-    if (!enquiryId) {
+    if (
+      !body.parent_name?.trim() ||
+      !body.student_name?.trim() ||
+      !body.educator_id?.trim() ||
+      !body.slot_id?.trim() ||
+      !body.date?.trim() ||
+      !body.start_time?.trim() ||
+      !body.end_time?.trim()
+    ) {
       return NextResponse.json(
-        { ok: false, error: "Missing enquiryId." },
+        { error: "Missing required booking fields" },
         { status: 400 }
       );
     }
 
-    if (!educatorId) {
+    const supabase = getAdminClient();
+
+    const { data: slot, error: slotError } = await supabase
+      .from("availability_slots")
+      .select("id, status")
+      .eq("id", body.slot_id)
+      .single();
+
+    if (slotError || !slot) {
+      return NextResponse.json({ error: "Slot not found" }, { status: 404 });
+    }
+
+    if (slot.status !== "available") {
       return NextResponse.json(
-        { ok: false, error: "Missing educatorId." },
-        { status: 400 }
+        { error: "This slot is no longer available" },
+        { status: 409 }
       );
     }
 
-    if (!parentName || !parentName.trim()) {
+    const { data: educator, error: educatorError } = await supabase
+      .from("educator_directory")
+      .select("id, full_name, hourly_rate")
+      .eq("id", body.educator_id)
+      .single();
+
+    if (educatorError || !educator) {
       return NextResponse.json(
-        { ok: false, error: "Parent name is required." },
-        { status: 400 }
+        { error: "Educator not found" },
+        { status: 404 }
       );
     }
 
-    if (!parentEmail || !parentEmail.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "Parent email is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!studentName || !studentName.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "Student name is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!subject || !subject.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "Subject is required." },
-        { status: 400 }
-      );
-    }
-
-    if (!scheduledAt) {
-      return NextResponse.json(
-        { ok: false, error: "Scheduled date/time is required." },
-        { status: 400 }
-      );
-    }
-
-    if (Number.isNaN(amountUsd) || amountUsd <= 0) {
-      return NextResponse.json(
-        { ok: false, error: "Amount in USD must be greater than 0." },
-        { status: 400 }
-      );
-    }
-
-    const supabase = createAdminSupabaseClient();
+    const hourlyRate = Number(educator.hourly_rate || 0);
 
     const { data: booking, error: bookingError } = await supabase
-      .from("bookings")
-      .insert([
-        {
-          enquiry_id: enquiryId,
-          educator_id: educatorId,
-          parent_name: parentName,
-          parent_email: parentEmail,
-          parent_phone: parentPhone || null,
-          student_name: studentName,
-          subject,
-          lesson_mode: lessonMode || null,
-          scheduled_at: scheduledAt,
-          duration_minutes: durationMinutes,
-          status: "scheduled",
-        },
-      ])
-      .select("*")
+      .from("lesson_bookings")
+      .insert({
+        educator_id: body.educator_id.trim(),
+        slot_id: body.slot_id.trim(),
+        parent_name: body.parent_name.trim(),
+        parent_email: body.parent_email?.trim() || null,
+        parent_phone: body.parent_phone?.trim() || null,
+        student_name: body.student_name.trim(),
+        curriculum: body.curriculum?.trim() || null,
+        subject: body.subject?.trim() || null,
+        class_level: body.class_level?.trim() || null,
+        booking_date: body.date.trim(),
+        start_time: body.start_time.trim(),
+        end_time: body.end_time.trim(),
+        timezone: body.timezone || "Africa/Nairobi",
+        status: "pending",
+        tutor_confirmation_status: "awaiting_confirmation",
+      })
+      .select()
       .single();
 
     if (bookingError) {
+      console.error("Booking insert error:", bookingError);
       return NextResponse.json(
-        { ok: false, error: bookingError.message || "Failed to create booking." },
+        { error: "Failed to create booking" },
         { status: 500 }
       );
     }
 
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 7);
+    const { error: slotUpdateError } = await supabase
+      .from("availability_slots")
+      .update({ status: "booked" })
+      .eq("id", body.slot_id);
 
-    const { data: invoice, error: invoiceError } = await supabase
+    if (slotUpdateError) {
+      console.error("Slot update error:", slotUpdateError);
+      return NextResponse.json(
+        { error: "Booking created but failed to lock slot" },
+        { status: 500 }
+      );
+    }
+
+    const { error: invoiceError } = await supabase
       .from("invoices")
-      .insert([
-        {
-          booking_id: booking.id,
-          parent_email: parentEmail,
-          amount_usd: amountUsd,
-          status: "pending",
-          due_date: dueDate.toISOString(),
-        },
-      ])
-      .select("*")
-      .single();
+      .insert({
+        booking_id: booking.id,
+        educator_id: body.educator_id.trim(),
+        parent_name: body.parent_name.trim(),
+        parent_email: body.parent_email?.trim() || null,
+        amount: hourlyRate,
+        currency: "KES",
+        status: "unpaid",
+        issue_date: body.date.trim(),
+        due_date: body.date.trim(),
+        timezone: body.timezone || "Africa/Nairobi",
+      });
 
     if (invoiceError) {
+      console.error("Invoice insert error:", invoiceError);
       return NextResponse.json(
-        {
-          ok: false,
-          error: invoiceError.message || "Booking created but invoice creation failed.",
-        },
+        { error: "Booking created but invoice creation failed" },
         { status: 500 }
       );
     }
 
-    const { error: enquiryStatusError } = await supabase
-      .from("parent_enquiries")
-      .update({ status: "booked" })
-      .eq("id", enquiryId);
+    const tutorIdentifier = educator.full_name || body.educator_id.trim();
 
-    if (enquiryStatusError) {
+    const { error: notificationError } = await supabase
+      .from("notifications")
+      .insert({
+        user_type: "educator",
+        user_identifier: tutorIdentifier,
+        notification_type: "booking_created",
+        title: "New booking received",
+        message: `${body.parent_name.trim()} booked a lesson for ${body.student_name.trim()} on ${body.date.trim()} from ${body.start_time.trim()} to ${body.end_time.trim()}.`,
+        status: "pending",
+        related_booking_id: booking.id,
+        timezone: body.timezone || "Africa/Nairobi",
+      });
+
+    if (notificationError) {
+      console.error("Notification insert error:", notificationError);
       return NextResponse.json(
-        {
-          ok: false,
-          error:
-            enquiryStatusError.message ||
-            "Booking and invoice created, but failed to update enquiry status.",
-        },
+        { error: "Booking created but tutor notification failed" },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      ok: true,
-      message: "Booking and invoice created successfully.",
+      success: true,
       booking,
-      invoice,
+      invoice_amount: hourlyRate,
     });
   } catch (error) {
-    console.error("Create booking route error:", error);
+    console.error("Booking API error:", error);
     return NextResponse.json(
-      { ok: false, error: "Unexpected server error." },
+      { error: "Invalid request" },
       { status: 500 }
     );
   }
