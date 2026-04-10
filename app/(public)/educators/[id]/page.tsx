@@ -37,13 +37,8 @@ function getSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!url) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
-  }
-
-  if (!anonKey) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  }
+  if (!url) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  if (!anonKey) throw new Error("Missing NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
   return createClient(url, anonKey);
 }
@@ -155,7 +150,18 @@ export default function EducatorDetailPage() {
         throw new Error(data.error || "Booking failed");
       }
 
-      setBookingState((prev) => ({ ...prev, [key]: "success" }));
+      const amountText =
+        typeof data.invoice_amount_usd === "number"
+          ? ` Invoice created: USD ${data.invoice_amount_usd}.`
+          : "";
+
+      const warningText = data.warning ? ` ${data.warning}` : "";
+
+      setBookingState((prev) => ({
+        ...prev,
+        [key]: `success|Booking created successfully.${amountText}${warningText}`,
+      }));
+
       setSlots((prev) => prev.filter((s) => s.id !== slot.id));
     } catch (error) {
       setBookingState((prev) => ({
@@ -177,10 +183,7 @@ export default function EducatorDetailPage() {
     return (
       <main className="min-h-screen bg-white px-6 py-20 text-slate-900">
         <div className="mx-auto max-w-4xl">
-          <Link
-            href="/educators"
-            className="text-sm font-semibold text-amber-700"
-          >
+          <Link href="/educators" className="text-sm font-semibold text-amber-700">
             ← Back to Educators
           </Link>
           <h1 className="mt-6 text-3xl font-semibold">
@@ -232,7 +235,7 @@ export default function EducatorDetailPage() {
 
                     {educator.hourly_rate ? (
                       <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
-                        KSh {educator.hourly_rate}/hour
+                        USD {educator.hourly_rate}/hour
                       </span>
                     ) : null}
 
@@ -254,50 +257,6 @@ export default function EducatorDetailPage() {
               <p className="mt-8 max-w-3xl text-base leading-8 text-slate-600">
                 {educator.bio ?? "Professional tutor profile coming soon."}
               </p>
-
-              <div className="mt-8">
-                <p className="text-sm font-medium text-slate-900">Curricula</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(educator.curricula ?? []).map((item) => (
-                    <span
-                      key={item}
-                      className="rounded-full bg-amber-50 px-3 py-1 text-sm text-amber-800"
-                    >
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-8">
-                <p className="text-sm font-medium text-slate-900">
-                  Levels Taught
-                </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(educator.levels_taught ?? []).map((item) => (
-                    <span
-                      key={item}
-                      className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
-                    >
-                      {item}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-8">
-                <p className="text-sm font-medium text-slate-900">Subjects</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(educator.subjects ?? []).map((subject) => (
-                    <span
-                      key={subject}
-                      className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
-                    >
-                      {subject}
-                    </span>
-                  ))}
-                </div>
-              </div>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -321,7 +280,7 @@ export default function EducatorDetailPage() {
               )}
 
               <p className="mt-6 text-sm text-slate-500">
-                Parent email and phone are collected for invoicing and booking administration. They are not displayed here on the tutor’s public profile.
+                Parent email and phone are collected for invoicing and booking administration.
               </p>
             </div>
           </div>
@@ -357,6 +316,9 @@ function SlotCard({
   const [subject, setSubject] = useState("");
   const [classLevel, setClassLevel] = useState("");
 
+  const success = bookingState.startsWith("success|");
+  const message = success ? bookingState.replace("success|", "") : bookingState;
+
   return (
     <div className="rounded-xl border border-slate-200 p-4">
       <p className="font-medium text-slate-900">{slot.slot_date}</p>
@@ -367,6 +329,7 @@ function SlotCard({
 
       <div className="mt-4 space-y-3">
         <input
+          name="parent_name"
           type="text"
           value={parentName}
           onChange={(e) => setParentName(e.target.value)}
@@ -376,23 +339,17 @@ function SlotCard({
         />
 
         <input
+          name="parent_email"
           type="email"
           value={parentEmail}
           onChange={(e) => setParentEmail(e.target.value)}
           placeholder="Parent email"
           autoComplete="email"
-          list="common-email-domains"
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
-        <datalist id="common-email-domains">
-          <option value="@gmail.com" />
-          <option value="@yahoo.com" />
-          <option value="@outlook.com" />
-          <option value="@hotmail.com" />
-          <option value="@gmail.co.uk" />
-        </datalist>
 
         <input
+          name="parent_phone"
           type="text"
           value={parentPhone}
           onChange={(e) => setParentPhone(e.target.value)}
@@ -402,6 +359,7 @@ function SlotCard({
         />
 
         <input
+          name="student_name"
           type="text"
           value={studentName}
           onChange={(e) => setStudentName(e.target.value)}
@@ -411,12 +369,12 @@ function SlotCard({
         />
 
         <input
+          name="subject"
           type="text"
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           placeholder="Subject"
           list="common-subjects"
-          autoComplete="off"
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
         <datalist id="common-subjects">
@@ -433,12 +391,12 @@ function SlotCard({
         </datalist>
 
         <input
+          name="class_level"
           type="text"
           value={classLevel}
           onChange={(e) => setClassLevel(e.target.value)}
           placeholder="Class / Level"
           list="common-levels"
-          autoComplete="off"
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
         <datalist id="common-levels">
@@ -455,12 +413,12 @@ function SlotCard({
         </datalist>
 
         <input
+          name="curriculum"
           type="text"
           value={curriculum}
           onChange={(e) => setCurriculum(e.target.value)}
           placeholder="Curriculum"
           list="common-curricula"
-          autoComplete="off"
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
         <datalist id="common-curricula">
@@ -489,15 +447,9 @@ function SlotCard({
           {bookingState === "booking" ? "Booking..." : "Book This Slot"}
         </button>
 
-        {bookingState && bookingState !== "booking" ? (
-          <p
-            className={`text-sm ${
-              bookingState === "success" ? "text-green-600" : "text-red-600"
-            }`}
-          >
-            {bookingState === "success"
-              ? "Booking created successfully."
-              : bookingState}
+        {message ? (
+          <p className={`text-sm ${success ? "text-green-600" : "text-red-600"}`}>
+            {message}
           </p>
         ) : null}
       </div>

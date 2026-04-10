@@ -88,7 +88,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const hourlyRate = Number(educator.hourly_rate || 0);
+    const hourlyRateUsd = Number(educator.hourly_rate || 0);
 
     const { data: booking, error: bookingError } = await supabase
       .from("lesson_bookings")
@@ -133,18 +133,18 @@ export async function POST(request: Request) {
       );
     }
 
+    const dueDate = `${body.date.trim()}T${body.start_time.trim()}`;
+
     const { error: invoiceError } = await supabase
-      .from("invoices")
+      .from("lesson_invoices")
       .insert({
         booking_id: booking.id,
         educator_id: body.educator_id.trim(),
         parent_name: body.parent_name.trim(),
         parent_email: body.parent_email?.trim() || null,
-        amount: hourlyRate,
-        currency: "KES",
-        status: "unpaid",
-        issue_date: body.date.trim(),
-        due_date: body.date.trim(),
+        amount_usd: hourlyRateUsd,
+        status: "pending",
+        due_date: dueDate,
         timezone: body.timezone || "Africa/Nairobi",
       });
 
@@ -173,16 +173,18 @@ export async function POST(request: Request) {
 
     if (notificationError) {
       console.error("Notification insert error:", notificationError);
-      return NextResponse.json(
-        { error: "Booking created but tutor notification failed" },
-        { status: 500 }
-      );
+      return NextResponse.json({
+        success: true,
+        booking,
+        invoice_amount_usd: hourlyRateUsd,
+        warning: "Booking and invoice created, but tutor notification failed.",
+      });
     }
 
     return NextResponse.json({
       success: true,
       booking,
-      invoice_amount: hourlyRate,
+      invoice_amount_usd: hourlyRateUsd,
     });
   } catch (error) {
     console.error("Booking API error:", error);

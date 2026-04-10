@@ -2,6 +2,9 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import Image from "next/image";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type Educator = {
   id: string;
   full_name: string;
@@ -128,9 +131,9 @@ export default async function EducatorsPage() {
                         </span>
                       ) : null}
 
-                      {educator.hourly_rate ? (
+                      {educator.hourly_rate !== null ? (
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">
-                          KSh {educator.hourly_rate}/hour
+                          USD {educator.hourly_rate}/hour
                         </span>
                       ) : null}
 
