@@ -23,6 +23,16 @@ type AdminCase = {
   created_at: string;
 };
 
+type SlotOption = {
+  id: string;
+  educator_id: string;
+  slot_date: string;
+  start_time: string;
+  end_time: string;
+  timezone: string | null;
+  status: string;
+};
+
 const STATUS_OPTIONS = [
   "pending_admin_review",
   "parent_contacted",
@@ -38,6 +48,11 @@ export default function AdminResolutionsPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [actingId, setActingId] = useState("");
   const [statusDrafts, setStatusDrafts] = useState<Record<string, string>>({});
+  const [slotOptions, setSlotOptions] = useState<Record<string, SlotOption[]>>({});
+  const [selectedNewSlot, setSelectedNewSlot] = useState<Record<string, string>>(
+    {}
+  );
+  const [loadingSlotsFor, setLoadingSlotsFor] = useState("");
 
   useEffect(() => {
     async function loadCases() {
@@ -129,14 +144,101 @@ export default function AdminResolutionsPage() {
     }
   }
 
+  async function loadRescheduleOptions(caseId: string, educatorId: string) {
+    try {
+      setLoadingSlotsFor(caseId);
+      setErrorMessage("");
+
+      const res = await fetch(
+        `/api/admin-reschedule-options?educator_id=${educatorId}`
+      );
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to load slot options");
+      }
+
+      setSlotOptions((prev) => ({
+        ...prev,
+        [caseId]: json.data || [],
+      }));
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to load slot options"
+      );
+    } finally {
+      setLoadingSlotsFor("");
+    }
+  }
+
+  async function handleFinalizeReschedule(caseId: string) {
+    const newSlotId = selectedNewSlot[caseId];
+
+    if (!newSlotId) {
+      setErrorMessage("Please choose a new slot first.");
+      return;
+    }
+
+    try {
+      setActingId(caseId);
+      setMessage("");
+      setErrorMessage("");
+
+      const res = await fetch(`/api/admin-reschedule/${caseId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          new_slot_id: newSlotId,
+        }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to finalize reschedule");
+      }
+
+      setCases((prev) =>
+        prev.map((item) =>
+          item.id === caseId
+            ? {
+                ...item,
+                booking_date: json.data.booking_date,
+                start_time: json.data.start_time,
+                end_time: json.data.end_time,
+                timezone: json.data.timezone,
+                status: "tutor_confirmed",
+                tutor_confirmation_status: "confirmed",
+                admin_resolution_status: "resolved",
+              }
+            : item
+        )
+      );
+
+      setMessage(
+        json.warning
+          ? `Booking rescheduled. ${json.warning}`
+          : "Booking rescheduled successfully."
+      );
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to finalize reschedule"
+      );
+    } finally {
+      setActingId("");
+    }
+  }
+
   return (
     <main className="min-h-screen bg-white text-slate-900">
       <section className="border-b border-slate-200 bg-gradient-to-b from-white to-slate-50">
         <div className="mx-auto max-w-6xl px-6 py-16">
           <h1 className="text-4xl font-bold">Admin Resolution Dashboard</h1>
           <p className="mt-4 max-w-3xl text-slate-600">
-            Review tutor reschedule requests, engage parents, and move each case
-            through the appropriate resolution path without harming booking integrity.
+            Review tutor reschedule requests, engage parents, assign a new slot,
+            and resolve each case without breaking booking integrity.
           </p>
         </div>
       </section>
@@ -244,11 +346,58 @@ export default function AdminResolutionsPage() {
                   <button
                     onClick={() => handleUpdate(item.id)}
                     disabled={actingId === item.id}
-                    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
+                    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700"
                   >
                     {actingId === item.id ? "Updating..." : "Update Case"}
                   </button>
+
+                  <button
+                    onClick={() => loadRescheduleOptions(item.id, item.educator_id)}
+                    disabled={loadingSlotsFor === item.id}
+                    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
+                  >
+                    {loadingSlotsFor === item.id
+                      ? "Loading slots..."
+                      : "Load New Slot Options"}
+                  </button>
                 </div>
+
+                {slotOptions[item.id]?.length ? (
+                  <div className="mt-6 rounded-xl border border-slate-200 p-4">
+                    <p className="text-sm font-medium text-slate-900">
+                      Choose a new slot
+                    </p>
+
+                    <select
+                      value={selectedNewSlot[item.id] || ""}
+                      onChange={(e) =>
+                        setSelectedNewSlot((prev) => ({
+                          ...prev,
+                          [item.id]: e.target.value,
+                        }))
+                      }
+                      className="mt-3 w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
+                    >
+                      <option value="">Select available slot</option>
+                      {slotOptions[item.id].map((slot) => (
+                        <option key={slot.id} value={slot.id}>
+                          {slot.slot_date} | {slot.start_time} - {slot.end_time} |{" "}
+                          {slot.timezone}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={() => handleFinalizeReschedule(item.id)}
+                      disabled={actingId === item.id}
+                      className="mt-4 rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white"
+                    >
+                      {actingId === item.id
+                        ? "Rescheduling..."
+                        : "Assign New Slot and Finalize"}
+                    </button>
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
