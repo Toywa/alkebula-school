@@ -18,6 +18,8 @@ type ParentBooking = {
   status: string | null;
   tutor_confirmation_status: string | null;
   admin_resolution_status: string | null;
+  parent_response: string | null;
+  parent_response_at: string | null;
   created_at: string;
 };
 
@@ -41,6 +43,8 @@ export default function ParentBookingsPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [actingBookingId, setActingBookingId] = useState("");
+  const [actingInvoiceId, setActingInvoiceId] = useState("");
 
   async function handleLookup(e: React.FormEvent) {
     e.preventDefault();
@@ -50,8 +54,12 @@ export default function ParentBookingsPage() {
 
     try {
       const [bookingsRes, invoicesRes] = await Promise.all([
-        fetch(`/api/parent-bookings?parent_email=${encodeURIComponent(parentEmail)}`),
-        fetch(`/api/parent-invoices?parent_email=${encodeURIComponent(parentEmail)}`),
+        fetch(
+          `/api/parent-bookings?parent_email=${encodeURIComponent(parentEmail)}`
+        ),
+        fetch(
+          `/api/parent-invoices?parent_email=${encodeURIComponent(parentEmail)}`
+        ),
       ]);
 
       const bookingsJson = await bookingsRes.json();
@@ -77,6 +85,105 @@ export default function ParentBookingsPage() {
     }
   }
 
+  async function refreshHistory() {
+    if (!parentEmail.trim()) return;
+
+    try {
+      const [bookingsRes, invoicesRes] = await Promise.all([
+        fetch(
+          `/api/parent-bookings?parent_email=${encodeURIComponent(parentEmail)}`
+        ),
+        fetch(
+          `/api/parent-invoices?parent_email=${encodeURIComponent(parentEmail)}`
+        ),
+      ]);
+
+      const bookingsJson = await bookingsRes.json();
+      const invoicesJson = await invoicesRes.json();
+
+      if (!bookingsRes.ok) {
+        throw new Error(bookingsJson.error || "Failed to refresh bookings");
+      }
+
+      if (!invoicesRes.ok) {
+        throw new Error(invoicesJson.error || "Failed to refresh invoices");
+      }
+
+      setBookings(bookingsJson.data || []);
+      setInvoices(invoicesJson.data || []);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to refresh parent history"
+      );
+    }
+  }
+
+  async function handleParentResponse(
+    bookingId: string,
+    action: "accept_reschedule" | "request_admin_help"
+  ) {
+    try {
+      setActingBookingId(bookingId);
+      setMessage("");
+      setErrorMessage("");
+
+      const res = await fetch(`/api/parent-response/${bookingId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to update booking response");
+      }
+
+      setMessage(
+        action === "accept_reschedule"
+          ? "You accepted the new lesson time."
+          : "Admin has been notified to help with this booking."
+      );
+
+      await refreshHistory();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to update booking response"
+      );
+    } finally {
+      setActingBookingId("");
+    }
+  }
+
+  async function handleMarkPaid(invoiceId: string) {
+    try {
+      setActingInvoiceId(invoiceId);
+      setMessage("");
+      setErrorMessage("");
+
+      const res = await fetch(`/api/parent-pay/${invoiceId}`, {
+        method: "PATCH",
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to update invoice payment");
+      }
+
+      setMessage("Invoice marked as paid.");
+      await refreshHistory();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to update invoice payment"
+      );
+    } finally {
+      setActingInvoiceId("");
+    }
+  }
+
   const invoiceMap = useMemo(() => {
     const map = new Map<string, ParentInvoice>();
     for (const invoice of invoices) {
@@ -91,7 +198,8 @@ export default function ParentBookingsPage() {
         <div className="mx-auto max-w-5xl px-6 py-16">
           <h1 className="text-4xl font-bold">Parent Booking History</h1>
           <p className="mt-4 max-w-3xl text-slate-600">
-            View your booked lessons, booking statuses, and invoice details in one place.
+            View your booked lessons, booking statuses, invoice details, and
+            reschedule responses in one place.
           </p>
         </div>
       </section>
@@ -147,7 +255,8 @@ export default function ParentBookingsPage() {
                         {booking.student_name || "Student"}
                       </h2>
                       <p className="mt-1 text-sm text-slate-600">
-                        {booking.booking_date} | {booking.start_time} - {booking.end_time}
+                        {booking.booking_date} | {booking.start_time} -{" "}
+                        {booking.end_time}
                       </p>
                     </div>
 
@@ -168,6 +277,12 @@ export default function ParentBookingsPage() {
                       booking.admin_resolution_status !== "not_required" ? (
                         <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-800">
                           {booking.admin_resolution_status}
+                        </span>
+                      ) : null}
+
+                      {booking.parent_response ? (
+                        <span className="rounded-full bg-green-50 px-3 py-1 text-green-800">
+                          parent: {booking.parent_response}
                         </span>
                       ) : null}
                     </div>
@@ -192,28 +307,82 @@ export default function ParentBookingsPage() {
                     <p className="text-sm font-medium text-slate-900">Invoice</p>
 
                     {invoice ? (
-                      <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm text-slate-700">
-                        <div>
-                          <span className="font-medium">Amount:</span>{" "}
-                          {typeof invoice.amount_usd === "number"
-                            ? `USD ${invoice.amount_usd}`
-                            : "—"}
+                      <>
+                        <div className="mt-3 grid gap-3 md:grid-cols-3 text-sm text-slate-700">
+                          <div>
+                            <span className="font-medium">Amount:</span>{" "}
+                            {typeof invoice.amount_usd === "number"
+                              ? `USD ${invoice.amount_usd}`
+                              : "—"}
+                          </div>
+                          <div>
+                            <span className="font-medium">Status:</span>{" "}
+                            {invoice.status || "—"}
+                          </div>
+                          <div>
+                            <span className="font-medium">Due date:</span>{" "}
+                            {invoice.due_date || "—"}
+                          </div>
                         </div>
-                        <div>
-                          <span className="font-medium">Status:</span>{" "}
-                          {invoice.status || "—"}
-                        </div>
-                        <div>
-                          <span className="font-medium">Due date:</span>{" "}
-                          {invoice.due_date || "—"}
-                        </div>
-                      </div>
+
+                        {invoice.status !== "paid" && (
+                          <button
+                            onClick={() => handleMarkPaid(invoice.id)}
+                            disabled={actingInvoiceId === invoice.id}
+                            className="mt-4 rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white"
+                          >
+                            {actingInvoiceId === invoice.id
+                              ? "Updating..."
+                              : "Mark as Paid"}
+                          </button>
+                        )}
+                      </>
                     ) : (
                       <p className="mt-3 text-sm text-slate-600">
                         No invoice visible yet for this booking.
                       </p>
                     )}
                   </div>
+
+                  {booking.status === "reschedule_requested" && (
+                    <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                      <p className="text-sm font-medium text-amber-900">
+                        This lesson has been rescheduled and needs your response.
+                      </p>
+
+                      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                        <button
+                          onClick={() =>
+                            handleParentResponse(
+                              booking.id,
+                              "accept_reschedule"
+                            )
+                          }
+                          disabled={actingBookingId === booking.id}
+                          className="rounded-xl bg-green-700 px-4 py-2 text-sm font-semibold text-white"
+                        >
+                          {actingBookingId === booking.id
+                            ? "Updating..."
+                            : "Accept New Time"}
+                        </button>
+
+                        <button
+                          onClick={() =>
+                            handleParentResponse(
+                              booking.id,
+                              "request_admin_help"
+                            )
+                          }
+                          disabled={actingBookingId === booking.id}
+                          className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+                        >
+                          {actingBookingId === booking.id
+                            ? "Updating..."
+                            : "I Need Help / Contact Admin"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })
