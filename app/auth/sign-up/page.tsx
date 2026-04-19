@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
+type UserRole = "parent" | "educator" | "admin" | null;
+
+function getDashboardPath(role: UserRole) {
+  if (role === "admin") return "/admin/resolutions";
+  if (role === "educator") return "/educator/bookings";
+  return "/parent/bookings";
+}
+
 export default function SignUpPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -22,7 +30,7 @@ export default function SignUpPage() {
     try {
       const supabase = getSupabaseBrowserClient();
 
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
@@ -35,6 +43,11 @@ export default function SignUpPage() {
 
       if (error) {
         throw new Error(error.message);
+      }
+
+      if (data.session?.user) {
+        window.location.href = getDashboardPath(role as UserRole);
+        return;
       }
 
       setMessage(

@@ -4,6 +4,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
+type UserRole = "parent" | "educator" | "admin" | null;
+
+function getDashboardPath(role: UserRole) {
+  if (role === "admin") return "/admin/resolutions";
+  if (role === "educator") return "/educator/bookings";
+  return "/parent/bookings";
+}
+
 export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +28,7 @@ export default function SignInPage() {
     try {
       const supabase = getSupabaseBrowserClient();
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: email.trim(),
         password,
       });
@@ -29,7 +37,9 @@ export default function SignInPage() {
         throw new Error(error.message);
       }
 
+      const role = (data.user?.user_metadata?.role as UserRole) || "parent";
       setMessage("Signed in successfully.");
+      window.location.href = getDashboardPath(role);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to sign in"
