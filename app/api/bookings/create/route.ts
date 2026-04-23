@@ -1,95 +1,73 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import { sendBookingEmails } from "@/lib/email";
 
-export async function POST(request: NextRequest) {
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "Booking route is alive",
+    hasResendKey: !!process.env.RESEND_API_KEY,
+    hasEmailFrom: !!process.env.EMAIL_FROM,
+    hasAdminEmail: !!process.env.ADMIN_EMAIL,
+    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+}
+
+export async function POST(req: Request) {
   try {
-    const body = await request.json();
-
-    const supabase = createAdminSupabaseClient();
+    const body = await req.json();
 
     const {
-      enquiryId,
-      educatorId,
-      parentName,
       parentEmail,
-      parentPhone,
+      tutorEmail,
       studentName,
       subject,
-      lessonMode,
-      scheduledAt,
-      durationMinutes,
-      amountUsd,
+      date,
+      time,
     } = body;
 
-    // 1. CREATE BOOKING
-    const { data: booking, error: bookingError } = await supabase
+    const { data, error } = await supabase
       .from("bookings")
       .insert([
         {
-          enquiry_id: enquiryId,
-          educator_id: educatorId,
-          parent_name: parentName,
           parent_email: parentEmail,
-          parent_phone: parentPhone || null,
+          tutor_email: tutorEmail,
           student_name: studentName,
           subject,
-          lesson_mode: lessonMode,
-          scheduled_at: scheduledAt,
-          duration_minutes: durationMinutes,
-          status: "scheduled",
+          date,
+          time,
         },
       ])
-      .select("*")
+      .select()
       .single();
 
-    if (bookingError || !booking) {
-      return NextResponse.json(
-        { ok: false, error: bookingError?.message || "Booking failed" },
-        { status: 500 }
-      );
+    if (error) {
+      console.error("Booking error:", error);
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // 2. CREATE INVOICE
-    const dueDate = new Date();
-    dueDate.setDate(dueDate.getDate() + 7);
-
-    const { data: invoice, error: invoiceError } = await supabase
-      .from("invoices")
-      .insert([
-        {
-          booking_id: booking.id,
-          parent_email: parentEmail,
-          amount_usd: amountUsd,
-          status: "pending",
-          due_date: dueDate.toISOString(),
-        },
-      ])
-      .select("*")
-      .single();
-
-    // 🚨 IMPORTANT: FORCE ERROR TO SHOW
-    if (invoiceError || !invoice) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "INVOICE FAILED: " + (invoiceError?.message || "Unknown error"),
-        },
-        { status: 500 }
-      );
-    }
+    const emailResult = await sendBookingEmails({
+      parentEmail,
+      tutorEmail,
+      studentName,
+      subject,
+      date,
+      time,
+    });
 
     return NextResponse.json({
-      ok: true,
-      booking,
-      invoice,
+      success: true,
+      booking: data,
+      emailResult,
     });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: error instanceof Error ? error.message : "Unexpected error",
-      },
-      { status: 500 }
-    );
+  } catch (err) {
+    console.error("Server error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

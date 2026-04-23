@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { sendBookingEmails } from "@/lib/email";
 
 type BookingPayload = {
   parent_name: string;
@@ -21,19 +22,26 @@ function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!url) {
-    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
-  }
-
-  if (!serviceRoleKey) {
-    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
-  }
+  if (!url) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
+  if (!serviceRoleKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
 
   return createClient(url, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
+  });
+}
+
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "Bookings route is alive",
+    hasResendKey: !!process.env.RESEND_API_KEY,
+    hasEmailFrom: !!process.env.EMAIL_FROM,
+    hasAdminEmail: !!process.env.ADMIN_EMAIL,
+    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
   });
 }
 
@@ -156,6 +164,24 @@ export async function POST(request: Request) {
       );
     }
 
+    let emailWarning: string | null = null;
+
+    const emailResult = await sendBookingEmails({
+      parentEmail: body.parent_email?.trim() || "",
+      tutorEmail: process.env.ADMIN_EMAIL || "",
+      studentName: body.student_name.trim(),
+      subject: body.subject?.trim() || "General Lesson",
+      date: body.date.trim(),
+      time: `${body.start_time.trim()} - ${body.end_time.trim()}`,
+    });
+
+    if (!emailResult.success) {
+      console.error("Booking email failed:", emailResult);
+      emailWarning = `Booking saved, but email delivery failed: ${emailResult.error}`;
+    } else {
+      console.log("Booking email succeeded:", emailResult);
+    }
+
     const tutorIdentifier = educator.full_name || body.educator_id.trim();
 
     const { error: notificationError } = await supabase
@@ -171,20 +197,19 @@ export async function POST(request: Request) {
         timezone: body.timezone || "Africa/Nairobi",
       });
 
+    const warningParts: string[] = [];
     if (notificationError) {
-      console.error("Notification insert error:", notificationError);
-      return NextResponse.json({
-        success: true,
-        booking,
-        invoice_amount_usd: hourlyRateUsd,
-        warning: "Booking and invoice created, but tutor notification failed.",
-      });
+      warningParts.push("Tutor notification logging failed.");
+    }
+    if (emailWarning) {
+      warningParts.push(emailWarning);
     }
 
     return NextResponse.json({
       success: true,
       booking,
       invoice_amount_usd: hourlyRateUsd,
+      warning: warningParts.length ? warningParts.join(" ") : undefined,
     });
   } catch (error) {
     console.error("Booking API error:", error);
