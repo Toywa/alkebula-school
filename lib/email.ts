@@ -5,8 +5,12 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 type BookingEmailParams = {
   parentEmail: string;
   tutorEmail: string;
+  parentName?: string;
+  tutorName?: string;
   studentName: string;
   subject: string;
+  curriculum?: string;
+  classLevel?: string;
   date: string;
   time: string;
 };
@@ -39,11 +43,71 @@ function extractErrorMessage(result: any, label: string) {
   return null;
 }
 
+function wrapEmail(title: string, intro: string, body: string) {
+  return `
+    <div style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+      <div style="max-width:680px;margin:0 auto;padding:32px 16px;">
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;">
+          <div style="padding:28px 32px;border-bottom:1px solid #e2e8f0;background:linear-gradient(to bottom,#ffffff,#f8fafc);">
+            <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:#64748b;font-weight:700;">
+              The Alkebula School
+            </div>
+            <h1 style="margin:14px 0 0 0;font-size:32px;line-height:1.1;color:#0f172a;">
+              ${title}
+            </h1>
+            <p style="margin:16px 0 0 0;font-size:16px;line-height:1.7;color:#475569;">
+              ${intro}
+            </p>
+          </div>
+
+          <div style="padding:28px 32px;">
+            ${body}
+          </div>
+
+          <div style="padding:22px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;">
+            <p style="margin:0;font-size:13px;line-height:1.7;color:#64748b;">
+              The Alkebula School<br/>
+              Extraordinary Learning. Proven Results.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function detailsBlock(items: Array<{ label: string; value: string }>) {
+  const rows = items
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:10px 0;font-weight:700;color:#0f172a;width:160px;vertical-align:top;">
+            ${item.label}
+          </td>
+          <td style="padding:10px 0;color:#334155;">
+            ${item.value}
+          </td>
+        </tr>
+      `
+    )
+    .join("");
+
+  return `
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+      ${rows}
+    </table>
+  `;
+}
+
 export async function sendBookingEmails({
   parentEmail,
   tutorEmail,
+  parentName,
+  tutorName,
   studentName,
   subject,
+  curriculum,
+  classLevel,
   date,
   time,
 }: BookingEmailParams): Promise<EmailSendResult> {
@@ -61,21 +125,80 @@ export async function sendBookingEmails({
     admin?: unknown;
   } = {};
 
+  const replyTo = process.env.ADMIN_EMAIL || undefined;
+
+  const parentHtml = wrapEmail(
+    "Lesson Booking Confirmed",
+    `Hello${parentName ? ` ${parentName}` : ""}, your lesson booking has been received successfully.`,
+    `
+      <div style="margin-bottom:20px;color:#334155;font-size:15px;line-height:1.8;">
+        We’re pleased to confirm your booking. Below are the lesson details.
+      </div>
+
+      <div style="padding:20px 22px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+        ${detailsBlock([
+          { label: "Student", value: studentName },
+          { label: "Subject", value: subject },
+          { label: "Curriculum", value: curriculum || "Not specified" },
+          { label: "Class / Level", value: classLevel || "Not specified" },
+          { label: "Date", value: date },
+          { label: "Time", value: time },
+          { label: "Tutor", value: tutorName || "Assigned Tutor" },
+        ])}
+      </div>
+    `
+  );
+
+  const tutorHtml = wrapEmail(
+    "New Lesson Booking",
+    `A new lesson booking has been assigned to you.`,
+    `
+      <div style="margin-bottom:20px;color:#334155;font-size:15px;line-height:1.8;">
+        Please review the lesson details below and prepare accordingly.
+      </div>
+
+      <div style="padding:20px 22px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+        ${detailsBlock([
+          { label: "Student", value: studentName },
+          { label: "Subject", value: subject },
+          { label: "Curriculum", value: curriculum || "Not specified" },
+          { label: "Class / Level", value: classLevel || "Not specified" },
+          { label: "Date", value: date },
+          { label: "Time", value: time },
+          { label: "Parent", value: parentName || "Parent" },
+        ])}
+      </div>
+    `
+  );
+
+  const adminHtml = wrapEmail(
+    "New Booking Created",
+    `A new booking has just been created on The Alkebula School platform.`,
+    `
+      <div style="padding:20px 22px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+        ${detailsBlock([
+          { label: "Student", value: studentName },
+          { label: "Parent Email", value: parentEmail || "Not supplied" },
+          { label: "Tutor Email", value: tutorEmail || "Not supplied" },
+          { label: "Tutor", value: tutorName || "Assigned Tutor" },
+          { label: "Subject", value: subject },
+          { label: "Curriculum", value: curriculum || "Not specified" },
+          { label: "Class / Level", value: classLevel || "Not specified" },
+          { label: "Date", value: date },
+          { label: "Time", value: time },
+        ])}
+      </div>
+    `
+  );
+
   try {
     if (parentEmail) {
       const parentResult = await resend.emails.send({
         from: process.env.EMAIL_FROM,
         to: parentEmail,
-        subject: "Lesson Booking Confirmed",
-        html: `
-          <h2>Booking Confirmed</h2>
-          <p>Dear Parent,</p>
-          <p>Your lesson has been successfully booked.</p>
-          <p><strong>Student:</strong> ${studentName}</p>
-          <p><strong>Subject:</strong> ${subject}</p>
-          <p><strong>Date:</strong> ${date}</p>
-          <p><strong>Time:</strong> ${time}</p>
-        `,
+        replyTo,
+        subject: "Your lesson booking is confirmed",
+        html: parentHtml,
       });
 
       results.parent = parentResult;
@@ -90,15 +213,9 @@ export async function sendBookingEmails({
       const tutorResult = await resend.emails.send({
         from: process.env.EMAIL_FROM,
         to: tutorEmail,
-        subject: "New Lesson Booking",
-        html: `
-          <h2>New Booking Assigned</h2>
-          <p>A new lesson has been booked.</p>
-          <p><strong>Student:</strong> ${studentName}</p>
-          <p><strong>Subject:</strong> ${subject}</p>
-          <p><strong>Date:</strong> ${date}</p>
-          <p><strong>Time:</strong> ${time}</p>
-        `,
+        replyTo,
+        subject: "You have a new lesson booking",
+        html: tutorHtml,
       });
 
       results.tutor = tutorResult;
@@ -113,12 +230,9 @@ export async function sendBookingEmails({
       const adminResult = await resend.emails.send({
         from: process.env.EMAIL_FROM,
         to: process.env.ADMIN_EMAIL,
-        subject: "New Booking Created",
-        html: `
-          <h2>Booking Created</h2>
-          <p>${studentName} - ${subject}</p>
-          <p>${date} at ${time}</p>
-        `,
+        replyTo,
+        subject: "New booking created",
+        html: adminHtml,
       });
 
       results.admin = adminResult;

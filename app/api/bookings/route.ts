@@ -85,7 +85,7 @@ export async function POST(request: Request) {
 
     const { data: educator, error: educatorError } = await supabase
       .from("educator_directory")
-      .select("id, full_name, hourly_rate")
+      .select("id, full_name, hourly_rate, email")
       .eq("id", body.educator_id)
       .single();
 
@@ -168,9 +168,13 @@ export async function POST(request: Request) {
 
     const emailResult = await sendBookingEmails({
       parentEmail: body.parent_email?.trim() || "",
-      tutorEmail: process.env.ADMIN_EMAIL || "",
+      tutorEmail: educator.email?.trim() || "",
+      parentName: body.parent_name.trim(),
+      tutorName: educator.full_name || "Tutor",
       studentName: body.student_name.trim(),
       subject: body.subject?.trim() || "General Lesson",
+      curriculum: body.curriculum?.trim() || "",
+      classLevel: body.class_level?.trim() || "",
       date: body.date.trim(),
       time: `${body.start_time.trim()} - ${body.end_time.trim()}`,
     });
@@ -203,6 +207,9 @@ export async function POST(request: Request) {
     }
     if (emailWarning) {
       warningParts.push(emailWarning);
+    }
+    if (!educator.email) {
+      warningParts.push("Tutor email missing in educator_directory.");
     }
 
     return NextResponse.json({
