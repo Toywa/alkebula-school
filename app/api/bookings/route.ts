@@ -37,11 +37,6 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     message: "Bookings route is alive",
-    hasResendKey: !!process.env.RESEND_API_KEY,
-    hasEmailFrom: !!process.env.EMAIL_FROM,
-    hasAdminEmail: !!process.env.ADMIN_EMAIL,
-    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
-    hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
   });
 }
 
@@ -66,6 +61,7 @@ export async function POST(request: Request) {
 
     const supabase = getAdminClient();
 
+    // ✅ 1. Validate slot
     const { data: slot, error: slotError } = await supabase
       .from("availability_slots")
       .select("id, status")
@@ -83,9 +79,12 @@ export async function POST(request: Request) {
       );
     }
 
+    // ✅ 2. Validate educator + APPROVAL LOCK
     const { data: educator, error: educatorError } = await supabase
       .from("educator_directory")
-      .select("id, full_name, hourly_rate, email")
+      .select(
+        "id, full_name, hourly_rate, email, approval_status, is_public"
+      )
       .eq("id", body.educator_id)
       .single();
 
@@ -96,8 +95,23 @@ export async function POST(request: Request) {
       );
     }
 
+    // 🔒 CRITICAL PROTECTION LAYER
+    if (
+      educator.approval_status !== "approved" ||
+      educator.is_public !== true
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "This tutor is not approved for bookings yet.",
+        },
+        { status: 403 }
+      );
+    }
+
     const hourlyRateUsd = Number(educator.hourly_rate || 0);
 
+    // ✅ 3. Create booking
     const { data: booking, error: bookingError } = await supabase
       .from("lesson_bookings")
       .insert({
@@ -128,44 +142,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const { error: slotUpdateError } = await supabase
+    // ✅ 4. Lock slot
+    await supabase
       .from("availability_slots")
       .update({ status: "booked" })
       .eq("id", body.slot_id);
 
-    if (slotUpdateError) {
-      console.error("Slot update error:", slotUpdateError);
-      return NextResponse.json(
-        { error: "Booking created but failed to lock slot" },
-        { status: 500 }
-      );
-    }
-
+    // ✅ 5. Create invoice
     const dueDate = `${body.date.trim()}T${body.start_time.trim()}`;
 
-    const { error: invoiceError } = await supabase
-      .from("lesson_invoices")
-      .insert({
-        booking_id: booking.id,
-        educator_id: body.educator_id.trim(),
-        parent_name: body.parent_name.trim(),
-        parent_email: body.parent_email?.trim() || null,
-        amount_usd: hourlyRateUsd,
-        status: "pending",
-        due_date: dueDate,
-        timezone: body.timezone || "Africa/Nairobi",
-      });
+    await supabase.from("lesson_invoices").insert({
+      booking_id: booking.id,
+      educator_id: body.educator_id.trim(),
+      parent_name: body.parent_name.trim(),
+      parent_email: body.parent_email?.trim() || null,
+      amount_usd: hourlyRateUsd,
+      status: "pending",
+      due_date: dueDate,
+      timezone: body.timezone || "Africa/Nairobi",
+    });
 
-    if (invoiceError) {
-      console.error("Invoice insert error:", invoiceError);
-      return NextResponse.json(
-        { error: "Booking created but invoice creation failed" },
-        { status: 500 }
-      );
-    }
-
-    let emailWarning: string | null = null;
-
+    // ✅ 6. Send emails
     const emailResult = await sendBookingEmails({
       parentEmail: body.parent_email?.trim() || "",
       tutorEmail: educator.email?.trim() || "",
@@ -181,42 +178,26 @@ export async function POST(request: Request) {
 
     if (!emailResult.success) {
       console.error("Booking email failed:", emailResult);
-      emailWarning = `Booking saved, but email delivery failed: ${emailResult.error}`;
-    } else {
-      console.log("Booking email succeeded:", emailResult);
     }
 
+    // ✅ 7. Notification
     const tutorIdentifier = educator.full_name || body.educator_id.trim();
 
-    const { error: notificationError } = await supabase
-      .from("notifications")
-      .insert({
-        user_type: "educator",
-        user_identifier: tutorIdentifier,
-        notification_type: "booking_created",
-        title: "New booking received",
-        message: `${body.parent_name.trim()} booked a lesson for ${body.student_name.trim()} on ${body.date.trim()} from ${body.start_time.trim()} to ${body.end_time.trim()}.`,
-        status: "pending",
-        related_booking_id: booking.id,
-        timezone: body.timezone || "Africa/Nairobi",
-      });
-
-    const warningParts: string[] = [];
-    if (notificationError) {
-      warningParts.push("Tutor notification logging failed.");
-    }
-    if (emailWarning) {
-      warningParts.push(emailWarning);
-    }
-    if (!educator.email) {
-      warningParts.push("Tutor email missing in educator_directory.");
-    }
+    await supabase.from("notifications").insert({
+      user_type: "educator",
+      user_identifier: tutorIdentifier,
+      notification_type: "booking_created",
+      title: "New booking received",
+      message: `${body.parent_name.trim()} booked a lesson for ${body.student_name.trim()} on ${body.date.trim()} from ${body.start_time.trim()} to ${body.end_time.trim()}.`,
+      status: "pending",
+      related_booking_id: booking.id,
+      timezone: body.timezone || "Africa/Nairobi",
+    });
 
     return NextResponse.json({
       success: true,
       booking,
       invoice_amount_usd: hourlyRateUsd,
-      warning: warningParts.length ? warningParts.join(" ") : undefined,
     });
   } catch (error) {
     console.error("Booking API error:", error);

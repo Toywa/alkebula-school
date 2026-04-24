@@ -4,10 +4,9 @@ import Link from "next/link";
 import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-type UserRole = "parent" | "educator" | "admin" | null;
+type UserRole = "parent" | "educator";
 
 function getDashboardPath(role: UserRole) {
-  if (role === "admin") return "/admin/resolutions";
   if (role === "educator") return "/educator/bookings";
   return "/parent/bookings";
 }
@@ -16,7 +15,7 @@ export default function SignUpPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("parent");
+  const [role, setRole] = useState<UserRole>("parent");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -41,18 +40,17 @@ export default function SignUpPage() {
         },
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
+      if (error) throw new Error(error.message);
 
       if (data.session?.user) {
-        window.location.href = getDashboardPath(role as UserRole);
+        window.location.href = getDashboardPath(role);
         return;
       }
 
       setMessage(
         "Account created. Please check your email for confirmation if email verification is enabled."
       );
+
       setFullName("");
       setEmail("");
       setPassword("");
@@ -76,7 +74,8 @@ export default function SignUpPage() {
             </p>
             <h1 className="mt-3 text-3xl font-bold">Create account</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Set up your account to begin using the platform.
+              Parents and educators can create accounts here. Admin access is
+              restricted.
             </p>
           </div>
 
@@ -124,12 +123,11 @@ export default function SignUpPage() {
               <label className="mb-2 block text-sm font-medium">Account type</label>
               <select
                 value={role}
-                onChange={(e) => setRole(e.target.value)}
+                onChange={(e) => setRole(e.target.value as UserRole)}
                 className="w-full rounded-xl border border-slate-300 px-4 py-3"
               >
                 <option value="parent">Parent</option>
-                <option value="educator">Tutor</option>
-                <option value="admin">Admin</option>
+                <option value="educator">Tutor / Educator</option>
               </select>
             </div>
 
@@ -138,21 +136,16 @@ export default function SignUpPage() {
               disabled={loading}
               className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white"
             >
-              {loading ? "Creating account..." : "Sign Up"}
+              {loading ? "Creating account..." : "Create Account"}
             </button>
           </form>
 
           {message ? <p className="mt-4 text-sm text-green-600">{message}</p> : null}
-          {errorMessage ? (
-            <p className="mt-4 text-sm text-red-600">{errorMessage}</p>
-          ) : null}
+          {errorMessage ? <p className="mt-4 text-sm text-red-600">{errorMessage}</p> : null}
 
           <p className="mt-6 text-sm text-slate-600">
             Already have an account?{" "}
-            <Link
-              href="/auth/sign-in"
-              className="font-medium text-amber-700 hover:text-amber-800"
-            >
+            <Link href="/auth/sign-in" className="font-medium text-amber-700">
               Sign in
             </Link>
           </p>

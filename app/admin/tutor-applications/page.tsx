@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type Application = {
   id: string;
@@ -20,15 +21,49 @@ type InterviewFormState = {
   interview_notes: string;
 };
 
+const ADMIN_ALLOWED_EMAILS = ["sunscapecars@gmail.com"];
+
 export default function TutorApplicationsAdminPage() {
+  const [authorized, setAuthorized] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
   const [applications, setApplications] = useState<Application[]>([]);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState("");
-  const [interviewForms, setInterviewForms] = useState<
-    Record<string, InterviewFormState>
-  >({});
+  const [interviewForms, setInterviewForms] = useState<Record<string, InterviewFormState>>({});
+
+  useEffect(() => {
+    async function checkAdmin() {
+      const supabase = getSupabaseBrowserClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        window.location.href = "/auth/sign-in";
+        return;
+      }
+
+      const email = user.email?.toLowerCase() || "";
+
+      if (!ADMIN_ALLOWED_EMAILS.includes(email)) {
+        setAuthorized(false);
+        setCheckingAuth(false);
+        return;
+      }
+
+      setAuthorized(true);
+      setCheckingAuth(false);
+    }
+
+    checkAdmin();
+  }, []);
+
+  useEffect(() => {
+    if (authorized) loadApplications();
+  }, [authorized]);
 
   async function loadApplications() {
     setLoading(true);
@@ -57,10 +92,6 @@ export default function TutorApplicationsAdminPage() {
     setInterviewForms(initialForms);
     setLoading(false);
   }
-
-  useEffect(() => {
-    loadApplications();
-  }, []);
 
   function updateInterviewForm(
     id: string,
@@ -94,9 +125,7 @@ export default function TutorApplicationsAdminPage() {
 
       const data = await res.json();
 
-      if (!res.ok) {
-        throw new Error(data.error || "Update failed");
-      }
+      if (!res.ok) throw new Error(data.error || "Update failed");
 
       setMessage(successMessage);
       await loadApplications();
@@ -120,10 +149,30 @@ export default function TutorApplicationsAdminPage() {
       {
         action: "schedule_interview",
         interview_at: new Date(form.interview_at).toISOString(),
-        interview_notes:
-          form.interview_notes || "Interview scheduled by admin.",
+        interview_notes: form.interview_notes || "Interview scheduled by admin.",
       },
       "Interview scheduled."
+    );
+  }
+
+  if (checkingAuth) {
+    return (
+      <main className="min-h-screen bg-white px-6 py-20 text-slate-900">
+        <div className="mx-auto max-w-4xl">Checking admin access...</div>
+      </main>
+    );
+  }
+
+  if (!authorized) {
+    return (
+      <main className="min-h-screen bg-white px-6 py-20 text-slate-900">
+        <div className="mx-auto max-w-4xl rounded-2xl border border-red-200 bg-red-50 p-8">
+          <h1 className="text-3xl font-bold text-red-800">Access denied</h1>
+          <p className="mt-4 text-red-700">
+            This page is restricted to approved platform administrators only.
+          </p>
+        </div>
+      </main>
     );
   }
 
@@ -148,10 +197,7 @@ export default function TutorApplicationsAdminPage() {
         ) : (
           <div className="mt-8 space-y-6">
             {applications.map((app) => (
-              <div
-                key={app.id}
-                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-              >
+              <div key={app.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h2 className="text-2xl font-semibold">{app.full_name}</h2>
@@ -166,23 +212,12 @@ export default function TutorApplicationsAdminPage() {
                 </div>
 
                 <div className="mt-5 grid gap-3 text-sm text-slate-700 md:grid-cols-2">
-                  <div>
-                    <span className="font-medium">Bio:</span>{" "}
-                    {app.proposed_public_bio || "—"}
-                  </div>
-                  <div>
-                    <span className="font-medium">Subjects:</span>{" "}
-                    {app.subjects?.join(", ") || "—"}
-                  </div>
-                  <div>
-                    <span className="font-medium">Curricula:</span>{" "}
-                    {app.curricula?.join(", ") || "—"}
-                  </div>
+                  <div><span className="font-medium">Bio:</span> {app.proposed_public_bio || "—"}</div>
+                  <div><span className="font-medium">Subjects:</span> {app.subjects?.join(", ") || "—"}</div>
+                  <div><span className="font-medium">Curricula:</span> {app.curricula?.join(", ") || "—"}</div>
                   <div>
                     <span className="font-medium">Applied:</span>{" "}
-                    {app.created_at
-                      ? new Date(app.created_at).toLocaleString()
-                      : "—"}
+                    {app.created_at ? new Date(app.created_at).toLocaleString() : "—"}
                   </div>
                 </div>
 
@@ -198,11 +233,7 @@ export default function TutorApplicationsAdminPage() {
                         type="datetime-local"
                         value={interviewForms[app.id]?.interview_at || ""}
                         onChange={(e) =>
-                          updateInterviewForm(
-                            app.id,
-                            "interview_at",
-                            e.target.value
-                          )
+                          updateInterviewForm(app.id, "interview_at", e.target.value)
                         }
                         className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
                       />
@@ -216,11 +247,7 @@ export default function TutorApplicationsAdminPage() {
                         type="text"
                         value={interviewForms[app.id]?.interview_notes || ""}
                         onChange={(e) =>
-                          updateInterviewForm(
-                            app.id,
-                            "interview_notes",
-                            e.target.value
-                          )
+                          updateInterviewForm(app.id, "interview_notes", e.target.value)
                         }
                         placeholder="e.g. Google Meet / phone interview / documents to verify"
                         className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
