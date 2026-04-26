@@ -1,123 +1,154 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
-function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ADMIN_ALLOWED_EMAILS = [
+  "sunscapecars@gmail.com",
+  "davidmusilah@gmail.com",
+];
 
-  if (!url) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
-  if (!serviceRoleKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+async function getAuthClient() {
+  const cookieStore = await cookies();
 
-  return createClient(url, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // safe to ignore
+          }
+        },
+      },
+    }
+  );
 }
 
-type UpdatePayload = {
-  action: "schedule_interview" | "reject" | "approve";
-  admin_notes?: string;
-  interview_at?: string;
-  interview_notes?: string;
-  rejection_reason?: string;
-};
+function getAdminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
+
+async function requireAdmin() {
+  const supabase = await getAuthClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
+  const email = user.email?.toLowerCase() || "";
+
+  if (!ADMIN_ALLOWED_EMAILS.includes(email)) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  return { ok: true };
+}
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  try {
-    const { id } = await context.params;
-    const body = (await request.json()) as UpdatePayload;
-    const supabase = getAdminClient();
+  const adminCheck = await requireAdmin();
 
-    const { data: application, error: fetchError } = await supabase
-      .from("educator_applications")
-      .select("*")
-      .eq("id", id)
-      .single();
+  if (!adminCheck.ok) {
+    return adminCheck.response;
+  }
 
-    if (fetchError || !application) {
-      return NextResponse.json({ error: "Application not found" }, { status: 404 });
-    }
+  const supabase = getAdminClient();
+  const body = await request.json();
 
-    if (body.action === "schedule_interview") {
-      const { error } = await supabase
-        .from("educator_applications")
-        .update({
-          status: "interview_scheduled",
-          admin_notes: body.admin_notes || null,
-          interview_at: body.interview_at || null,
-          interview_notes: body.interview_notes || null,
-        })
-        .eq("id", id);
+  const { data: application, error: fetchError } = await supabase
+    .from("educator_applications")
+    .select("*")
+    .eq("id", params.id)
+    .single();
 
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      return NextResponse.json({ success: true });
-    }
-
-    if (body.action === "reject") {
-      const { error } = await supabase
-        .from("educator_applications")
-        .update({
-          status: "rejected",
-          admin_notes: body.admin_notes || null,
-          rejection_reason: body.rejection_reason || null,
-        })
-        .eq("id", id);
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      return NextResponse.json({ success: true });
-    }
-
-    if (body.action === "approve") {
-      const { error: applicationError } = await supabase
-        .from("educator_applications")
-        .update({
-          status: "approved",
-          admin_notes: body.admin_notes || null,
-        })
-        .eq("id", id);
-
-      if (applicationError) {
-        return NextResponse.json({ error: applicationError.message }, { status: 500 });
-      }
-
-      const { error: upsertError } = await supabase
-        .from("educator_directory")
-        .upsert(
-          {
-            email: application.email,
-            phone: application.phone,
-            full_name: application.full_name,
-            bio: application.proposed_public_bio,
-            profile_photo_url: application.profile_photo_url,
-            city: application.city,
-            curricula: application.curricula,
-            subjects: application.subjects,
-            approval_status: "approved",
-            is_public: true,
-          },
-          { onConflict: "email" }
-        );
-
-      if (upsertError) {
-        return NextResponse.json({ error: upsertError.message }, { status: 500 });
-      }
-
-      return NextResponse.json({ success: true });
-    }
-
-    return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
-  } catch (error) {
+  if (fetchError || !application) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Update failed" },
-      { status: 500 }
+      { error: "Application not found" },
+      { status: 404 }
     );
   }
+
+  // ✅ APPROVE
+  if (body.action === "approve") {
+    await supabase.from("educator_directory").upsert({
+      email: application.email,
+      full_name: application.full_name,
+      profile_photo_url: application.profile_photo_url,
+      bio: application.proposed_public_bio,
+      city: application.city,
+      subjects: application.subjects,
+      curricula: application.curricula,
+      approval_status: "approved",
+      is_public: true,
+    });
+
+    await supabase
+      .from("educator_applications")
+      .update({ status: "approved" })
+      .eq("id", params.id);
+
+    return NextResponse.json({ success: true });
+  }
+
+  // ❌ REJECT
+  if (body.action === "reject") {
+    await supabase
+      .from("educator_applications")
+      .update({
+        status: "rejected",
+        rejection_reason: body.rejection_reason || null,
+      })
+      .eq("id", params.id);
+
+    return NextResponse.json({ success: true });
+  }
+
+  // 📅 SCHEDULE INTERVIEW
+  if (body.action === "schedule_interview") {
+    await supabase
+      .from("educator_applications")
+      .update({
+        status: "interview_scheduled",
+        interview_at: body.interview_at,
+        interview_notes: body.interview_notes || null,
+      })
+      .eq("id", params.id);
+
+    return NextResponse.json({ success: true });
+  }
+
+  return NextResponse.json(
+    { error: "Invalid action" },
+    { status: 400 }
+  );
 }

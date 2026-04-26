@@ -1,16 +1,69 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+
+const ADMIN_ALLOWED_EMAILS = [
+  "sunscapecars@gmail.com",
+  "davidmusilah@gmail.com",
+];
+
+async function getAuthClient() {
+  const cookieStore = await cookies();
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // Safe to ignore in route handlers where cookies are read-only.
+          }
+        },
+      },
+    }
+  );
+}
 
 function getAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
+  );
+}
 
-  if (!url) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL");
-  if (!serviceRoleKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY");
+async function requireAdmin() {
+  const supabase = await getAuthClient();
 
-  return createClient(url, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+
+  const email = user.email?.toLowerCase() || "";
+
+  if (!ADMIN_ALLOWED_EMAILS.includes(email)) {
+    return { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+  }
+
+  return { ok: true };
 }
 
 function sanitizeFileName(name: string) {
@@ -47,25 +100,24 @@ async function uploadFile(
 }
 
 export async function GET() {
-  try {
-    const supabase = getAdminClient();
+  const adminCheck = await requireAdmin();
 
-    const { data, error } = await supabase
-      .from("educator_applications")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ data });
-  } catch (error) {
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to load applications" },
-      { status: 500 }
-    );
+  if (!adminCheck.ok) {
+    return adminCheck.response;
   }
+
+  const supabase = getAdminClient();
+
+  const { data, error } = await supabase
+    .from("educator_applications")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data });
 }
 
 export async function POST(request: Request) {
