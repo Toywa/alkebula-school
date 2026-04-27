@@ -252,3 +252,86 @@ export async function sendBookingEmails({
     };
   }
 }
+export async function sendInterviewScheduledEmail({
+  applicantEmail,
+  applicantName,
+  interviewAt,
+  interviewNotes,
+}: {
+  applicantEmail: string;
+  applicantName: string;
+  interviewAt: string;
+  interviewNotes?: string;
+}) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+    return { success: false, error: "Missing email configuration" };
+  }
+
+  try {
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM,
+      to: applicantEmail,
+      replyTo: process.env.ADMIN_EMAIL || undefined,
+      subject: "Tutor Interview Scheduled — The Alkebula School",
+      html: `
+        <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:32px;color:#0f172a;">
+          <div style="max-width:680px;margin:auto;background:white;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;">
+            <div style="padding:28px 32px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+              <p style="font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:#64748b;font-weight:700;">
+                The Alkebula School
+              </p>
+              <h1 style="margin:12px 0 0;font-size:30px;">Interview Scheduled</h1>
+            </div>
+
+            <div style="padding:28px 32px;font-size:15px;line-height:1.8;color:#334155;">
+              <p>Dear ${applicantName},</p>
+
+              <p>
+                Thank you for applying to join The Alkebula School educator network.
+                Your tutor interview has been scheduled.
+              </p>
+
+              <div style="margin:24px 0;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+                <p><strong>Interview Date/Time:</strong> ${new Date(interviewAt).toLocaleString()}</p>
+                <p><strong>Notes:</strong> ${interviewNotes || "Further details will be shared by admin."}</p>
+              </div>
+
+              <p>
+                Please be ready to discuss your teaching experience, curriculum strength,
+                student support approach, and submitted documents.
+              </p>
+
+              <p>
+                Warm regards,<br/>
+                The Alkebula School
+              </p>
+            </div>
+
+            <div style="padding:22px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+              <p style="margin:0;font-size:13px;color:#64748b;">
+                Extraordinary Learning. Proven Results.
+              </p>
+            </div>
+          </div>
+        </div>
+      `,
+    });
+
+    if (result.error) {
+      return {
+        success: false,
+        error:
+          typeof result.error.message === "string"
+            ? result.error.message
+            : "Interview email failed",
+      };
+    }
+
+    return { success: true, result };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Interview email failed",
+    };
+  }
+}

@@ -29,8 +29,7 @@ export default function Header() {
       if (user) {
         setIsSignedIn(true);
         setUserEmail(user.email || "");
-        const userRole = (user.user_metadata?.role as UserRole) || "parent";
-        setRole(userRole);
+        setRole((user.user_metadata?.role as UserRole) || "parent");
       } else {
         setIsSignedIn(false);
         setUserEmail("");
@@ -44,14 +43,13 @@ export default function Header() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       const user = session?.user;
 
       if (user) {
         setIsSignedIn(true);
         setUserEmail(user.email || "");
-        const userRole = (user.user_metadata?.role as UserRole) || "parent";
-        setRole(userRole);
+        setRole((user.user_metadata?.role as UserRole) || "parent");
       } else {
         setIsSignedIn(false);
         setUserEmail("");
@@ -80,33 +78,35 @@ export default function Header() {
           The Alkebula School
         </Link>
 
-        <nav className="flex items-center gap-3">
-          <Link
-            href="/about"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
-          >
+        <nav className="flex flex-wrap items-center gap-3">
+          <Link href="/about" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             About
           </Link>
 
-          <Link
-            href="/faq"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
-          >
+          <Link href="/faq" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             FAQ
           </Link>
 
-          <Link
-            href="/contact"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
-          >
+          <Link href="/contact" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             Contact
+          </Link>
+
+          <Link href="/educators" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+            Find Tutors
+          </Link>
+
+          <Link
+            href="/tutors/apply"
+            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+          >
+            Apply as Tutor
           </Link>
 
           {loading ? null : isSignedIn ? (
             <>
               <Link
                 href={getDashboardPath(role)}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
               >
                 Dashboard
               </Link>
@@ -119,7 +119,7 @@ export default function Header() {
 
               <button
                 onClick={handleLogout}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
               >
                 Logout
               </button>
@@ -128,16 +128,16 @@ export default function Header() {
             <>
               <Link
                 href="/auth/sign-in"
-                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
               >
                 Sign In
               </Link>
 
               <Link
                 href="/auth/sign-up"
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
               >
-                Create Account
+                Parent Sign Up
               </Link>
             </>
           )}
