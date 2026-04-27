@@ -335,3 +335,117 @@ export async function sendInterviewScheduledEmail({
     };
   }
 }
+export async function sendInvoiceEmail({
+  parentEmail,
+  parentName,
+  studentName,
+  tutorName,
+  subject,
+  date,
+  time,
+  amountUsd,
+}: {
+  parentEmail: string;
+  parentName: string;
+  studentName: string;
+  tutorName: string;
+  subject: string;
+  date: string;
+  time: string;
+  amountUsd: number;
+}) {
+  if (!process.env.RESEND_API_KEY) {
+    return { success: false, error: "Missing RESEND_API_KEY" };
+  }
+
+  if (!process.env.EMAIL_FROM) {
+    return { success: false, error: "Missing EMAIL_FROM" };
+  }
+
+  try {
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM,
+      to: parentEmail,
+      replyTo: process.env.ADMIN_EMAIL || undefined,
+      subject: "Your Lesson Invoice — The Alkebula School",
+      html: `
+        <div style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+          <div style="max-width:680px;margin:0 auto;padding:32px 16px;">
+            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;">
+              <div style="padding:28px 32px;border-bottom:1px solid #e2e8f0;background:linear-gradient(to bottom,#ffffff,#f8fafc);">
+                <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:#64748b;font-weight:700;">
+                  The Alkebula School
+                </div>
+                <h1 style="margin:14px 0 0 0;font-size:32px;line-height:1.1;color:#0f172a;">
+                  Lesson Invoice
+                </h1>
+                <p style="margin:16px 0 0 0;font-size:16px;line-height:1.7;color:#475569;">
+                  Dear ${parentName}, your lesson booking invoice has been created.
+                </p>
+              </div>
+
+              <div style="padding:28px 32px;">
+                <div style="padding:20px 22px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                    <tr>
+                      <td style="padding:10px 0;font-weight:700;color:#0f172a;width:160px;">Student</td>
+                      <td style="padding:10px 0;color:#334155;">${studentName}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:10px 0;font-weight:700;color:#0f172a;">Tutor</td>
+                      <td style="padding:10px 0;color:#334155;">${tutorName}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:10px 0;font-weight:700;color:#0f172a;">Subject</td>
+                      <td style="padding:10px 0;color:#334155;">${subject}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:10px 0;font-weight:700;color:#0f172a;">Date</td>
+                      <td style="padding:10px 0;color:#334155;">${date}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:10px 0;font-weight:700;color:#0f172a;">Time</td>
+                      <td style="padding:10px 0;color:#334155;">${time}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:14px 0;font-weight:800;color:#0f172a;font-size:18px;">Amount Due</td>
+                      <td style="padding:14px 0;color:#0f172a;font-size:18px;font-weight:800;">USD ${amountUsd}</td>
+                    </tr>
+                  </table>
+                </div>
+
+                <p style="margin:24px 0 0 0;font-size:15px;line-height:1.8;color:#475569;">
+                  Payment instructions will be shared through the official payment channel once enabled.
+                </p>
+              </div>
+
+              <div style="padding:22px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;">
+                <p style="margin:0;font-size:13px;line-height:1.7;color:#64748b;">
+                  The Alkebula School<br/>
+                  Extraordinary Learning. Proven Results.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      `,
+    });
+
+    if (result.error) {
+      return {
+        success: false,
+        error:
+          typeof result.error.message === "string"
+            ? result.error.message
+            : "Invoice email failed",
+      };
+    }
+
+    return { success: true, result };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Invoice email failed",
+    };
+  }
+}
