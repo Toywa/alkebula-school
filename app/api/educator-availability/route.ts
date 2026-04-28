@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -16,8 +18,32 @@ function getAdminClient() {
   });
 }
 
+async function getAuthClient() {
+  const cookieStore = await cookies();
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {
+            // safe to ignore
+          }
+        },
+      },
+    }
+  );
+}
+
 type SlotPayload = {
-  educator_id: string;
   timezone: string;
   period_label: "period_1" | "period_2" | "short_notice";
   year: number;
@@ -32,11 +58,7 @@ type SlotPayload = {
   }>;
 };
 
-function toUtcIso(
-  dateStr: string,
-  timeStr: string,
-  timeZone: string
-): string {
+function toUtcIso(dateStr: string, timeStr: string, timeZone: string): string {
   const [year, month, day] = dateStr.split("-").map(Number);
   const [hour, minute] = timeStr.split(":").map(Number);
 
@@ -71,31 +93,81 @@ function toUtcIso(
   return new Date(utcGuess.getTime() + offset).toISOString();
 }
 
-export async function GET(request: Request) {
-  try {
-    const supabase = getAdminClient();
-    const { searchParams } = new URL(request.url);
-    const educatorId = searchParams.get("educator_id");
+async function getLoggedInApprovedEducator() {
+  const authClient = await getAuthClient();
 
-    let query = supabase
+  const {
+    data: { user },
+  } = await authClient.auth.getUser();
+
+  if (!user?.email) {
+    return {
+      educator: null,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
+  const supabase = getAdminClient();
+
+  const { data: educator, error } = await supabase
+    .from("educator_directory")
+    .select("id, full_name, email, timezone, approval_status, is_public")
+    .eq("email", user.email.toLowerCase())
+    .maybeSingle();
+
+  if (error || !educator) {
+    return {
+      educator: null,
+      response: NextResponse.json(
+        { error: "Approved educator profile not found." },
+        { status: 404 }
+      ),
+    };
+  }
+
+  if (educator.approval_status !== "approved" || educator.is_public !== true) {
+    return {
+      educator: null,
+      response: NextResponse.json(
+        {
+          error:
+            "Your educator profile must be approved before you can manage availability.",
+        },
+        { status: 403 }
+      ),
+    };
+  }
+
+  return { educator, response: null };
+}
+
+export async function GET() {
+  try {
+    const { educator, response } = await getLoggedInApprovedEducator();
+
+    if (!educator) {
+      return response;
+    }
+
+    const supabase = getAdminClient();
+
+    const { data, error } = await supabase
       .from("availability_slots")
       .select(
         "id, educator_id, slot_date, start_time, end_time, timezone, status, source, start_at_utc, end_at_utc, created_at"
       )
+      .eq("educator_id", educator.id)
       .order("slot_date", { ascending: true })
       .order("start_time", { ascending: true });
-
-    if (educatorId) {
-      query = query.eq("educator_id", educatorId);
-    }
-
-    const { data, error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data });
+    return NextResponse.json({
+      educator,
+      data,
+    });
   } catch (error) {
     return NextResponse.json(
       {
@@ -109,10 +181,15 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const { educator, response } = await getLoggedInApprovedEducator();
+
+    if (!educator) {
+      return response;
+    }
+
     const body = (await request.json()) as SlotPayload;
 
     if (
-      !body.educator_id ||
       !body.timezone ||
       !body.period_label ||
       !body.year ||
@@ -133,7 +210,7 @@ export async function POST(request: Request) {
     const { data: period, error: periodError } = await supabase
       .from("availability_periods")
       .insert({
-        educator_id: body.educator_id,
+        educator_id: educator.id,
         year: body.year,
         month: body.month,
         period_label: body.period_label,
@@ -150,7 +227,7 @@ export async function POST(request: Request) {
     }
 
     const rows = body.slots.map((slot) => ({
-      educator_id: body.educator_id,
+      educator_id: educator.id,
       period_id: period.id,
       slot_date: slot.slot_date,
       start_time: slot.start_time,
@@ -173,7 +250,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ data, period });
+    return NextResponse.json({ data, period, educator });
   } catch (error) {
     return NextResponse.json(
       {
