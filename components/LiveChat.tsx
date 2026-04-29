@@ -2,57 +2,171 @@
 
 import { useState } from "react";
 
+type ChatMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
 export default function LiveChat() {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"menu" | "ai">("menu");
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "assistant",
+      content:
+        "Hello, welcome to The Alkebula School. How can I help with tutoring, admissions, curriculum, or bookings today?",
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const whatsappMessage = encodeURIComponent(
     "Hello The Alkebula School, I would like to enquire about your tutoring and learning support services."
   );
 
+  async function sendMessage() {
+    const trimmed = input.trim();
+    if (!trimmed || loading) return;
+
+    setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ message: trimmed }),
+      });
+
+      const data = await res.json();
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            data.reply ||
+            data.error ||
+            "I am unable to respond right now. Please contact us on WhatsApp.",
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "I am unable to respond right now. Please contact us on WhatsApp.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
-    <>
-      <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-        {open && (
-          <div className="w-80 rounded-2xl border border-amber-200/30 bg-slate-950 p-5 text-white shadow-2xl">
-            <h3 className="text-lg font-bold text-amber-300">
-              The Alkebula School
-            </h3>
-            <p className="mt-2 text-sm text-slate-300">
-              Need help with admissions, tutoring, bookings, or curriculum
-              guidance? Choose how you would like to chat with us.
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+      {open && (
+        <div className="w-[22rem] overflow-hidden rounded-2xl border border-amber-200/30 bg-slate-950 text-white shadow-2xl">
+          <div className="border-b border-white/10 bg-white/5 p-4">
+            <h3 className="font-bold text-amber-300">The Alkebula School</h3>
+            <p className="text-xs text-slate-400">
+              Premium learning support, admissions and tutoring guidance.
             </p>
-
-            <div className="mt-5 space-y-3">
-              <a
-                href={`https://wa.me/254728866097?text=${whatsappMessage}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block rounded-xl bg-green-500 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-green-600"
-              >
-                Chat on WhatsApp
-              </a>
-
-              <button
-                type="button"
-                className="w-full rounded-xl border border-amber-200/40 px-4 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-200 hover:text-slate-950"
-                onClick={() =>
-                  alert("AI chatbot integration will be connected next.")
-                }
-              >
-                Ask AI Assistant
-              </button>
-            </div>
           </div>
-        )}
 
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          className="rounded-full bg-amber-300 px-5 py-4 font-bold text-slate-950 shadow-xl hover:bg-amber-200"
-        >
-          {open ? "Close Chat" : "Live Chat"}
-        </button>
-      </div>
-    </>
+          {mode === "menu" ? (
+            <div className="p-5">
+              <p className="text-sm text-slate-300">
+                Choose how you would like to chat with us.
+              </p>
+
+              <div className="mt-5 space-y-3">
+                <a
+                  href={`https://wa.me/254728866097?text=${whatsappMessage}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-xl bg-green-500 px-4 py-3 text-center text-sm font-semibold text-white hover:bg-green-600"
+                >
+                  Chat on WhatsApp
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => setMode("ai")}
+                  className="w-full rounded-xl border border-amber-200/40 px-4 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-200 hover:text-slate-950"
+                >
+                  Ask AI Assistant
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div className="h-80 space-y-3 overflow-y-auto p-4">
+                {messages.map((message, index) => (
+                  <div
+                    key={index}
+                    className={
+                      message.role === "user"
+                        ? "ml-auto max-w-[85%] rounded-2xl bg-amber-300 px-3 py-2 text-sm text-slate-950"
+                        : "mr-auto max-w-[85%] rounded-2xl bg-white/10 px-3 py-2 text-sm text-slate-100"
+                    }
+                  >
+                    {message.content}
+                  </div>
+                ))}
+
+                {loading && (
+                  <div className="mr-auto max-w-[85%] rounded-2xl bg-white/10 px-3 py-2 text-sm text-slate-300">
+                    Typing...
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-white/10 p-3">
+                <div className="flex gap-2">
+                  <input
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") sendMessage();
+                    }}
+                    placeholder="Type your question..."
+                    className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2 text-sm text-slate-950 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={sendMessage}
+                    disabled={loading}
+                    className="rounded-xl bg-amber-300 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-amber-200 disabled:opacity-60"
+                  >
+                    Send
+                  </button>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setMode("menu")}
+                  className="mt-3 text-xs text-slate-400 hover:text-amber-200"
+                >
+                  Back to options
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="rounded-full bg-amber-300 px-5 py-4 font-bold text-slate-950 shadow-xl hover:bg-amber-200"
+      >
+        {open ? "Close Chat" : "Live Chat"}
+      </button>
+    </div>
   );
 }
