@@ -3,12 +3,12 @@ import { LegalPage } from "@/components/LegalPage";
 import { getLegalDocument } from "@/lib/legal-content";
 
 export const metadata = {
-  title: "Terms and Conditions | The Alkebula School",
-  description: "The legal agreement governing use of The Alkebula School platform and services.",
+  title: "Refund Policy | The Alkebula School",
+  description: "How cancellations, rescheduling, credits, and refunds are handled.",
 };
 
 export default function Page() {
-  const document = getLegalDocument("terms");
+  const document = getLegalDocument("refund-policy");
   if (!document) notFound();
 
   return <LegalPage document={document} />;

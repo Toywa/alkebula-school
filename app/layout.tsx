@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import LiveChat from "@/components/LiveChat";
 
 export const metadata: Metadata = {
   title: "The Alkebula School",
@@ -20,6 +21,7 @@ export default function RootLayout({
         <Header />
         {children}
         <Footer />
+        <LiveChat />
       </body>
     </html>
   );
