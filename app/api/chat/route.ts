@@ -1,10 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(req: Request) {
   try {
     const { message } = await req.json();
@@ -16,8 +12,27 @@ export async function POST(req: Request) {
       );
     }
 
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    // 🔍 Debug (safe)
+    console.log("OpenAI key loaded:", !!apiKey);
+
+    if (!apiKey) {
+      return NextResponse.json(
+        {
+          error:
+            "AI configuration missing. Please contact us on WhatsApp: +254728866097.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const client = new OpenAI({
+      apiKey,
+    });
+
     const response = await client.responses.create({
-      model: "gpt-5.5-mini",
+      model: "gpt-4.1-mini",
       input: [
         {
           role: "system",
@@ -32,10 +47,10 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({
-      reply: response.output_text,
+      reply: response.output_text || "No response received.",
     });
-  } catch (error) {
-    console.error("Chat API error:", error);
+  } catch (error: any) {
+    console.error("Chat API error:", error?.message || error);
 
     return NextResponse.json(
       {
