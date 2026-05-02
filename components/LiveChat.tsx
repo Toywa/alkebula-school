@@ -14,15 +14,38 @@ export default function LiveChat() {
     {
       role: "assistant",
       content:
-        "Hello, welcome to The Alkebula School. How can I help with tutoring, admissions, curriculum, or bookings today?",
+        "Welcome to The Alkebula School. Before we begin, may I know your name?",
     },
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [leadStep, setLeadStep] = useState<"name" | "contact" | "done">("name");
+  const [lead, setLead] = useState({
+    name: "",
+    contact: "",
+  });
 
   const whatsappMessage = encodeURIComponent(
     "Hello The Alkebula School, I would like to enquire about your tutoring and learning support services."
   );
+
+  async function saveLead(updatedLead: { name: string; contact: string }) {
+    try {
+      await fetch("/api/leads", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: updatedLead.name,
+          email: updatedLead.contact,
+          message: "Chat initiated from AI live chat widget",
+        }),
+      });
+    } catch (error) {
+      console.error("Lead capture failed:", error);
+    }
+  }
 
   async function sendMessage() {
     const trimmed = input.trim();
@@ -30,6 +53,46 @@ export default function LiveChat() {
 
     setMessages((prev) => [...prev, { role: "user", content: trimmed }]);
     setInput("");
+
+    if (leadStep === "name") {
+      setLead((prev) => ({ ...prev, name: trimmed }));
+      setLeadStep("contact");
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Thank you. Please share your email or WhatsApp number so our team can assist you better.",
+        },
+      ]);
+
+      return;
+    }
+
+    if (leadStep === "contact") {
+      const updatedLead = {
+        ...lead,
+        contact: trimmed,
+      };
+
+      setLead(updatedLead);
+      setLeadStep("done");
+
+      await saveLead(updatedLead);
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Thank you. How can I assist you today regarding tutoring, admissions, curriculum, or academic support?",
+        },
+      ]);
+
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -67,6 +130,20 @@ export default function LiveChat() {
     }
   }
 
+  function openAiChat() {
+    setMode("ai");
+
+    if (messages.length === 0) {
+      setMessages([
+        {
+          role: "assistant",
+          content:
+            "Welcome to The Alkebula School. Before we begin, may I know your name?",
+        },
+      ]);
+    }
+  }
+
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
       {open && (
@@ -96,7 +173,7 @@ export default function LiveChat() {
 
                 <button
                   type="button"
-                  onClick={() => setMode("ai")}
+                  onClick={openAiChat}
                   className="w-full rounded-xl border border-amber-200/40 px-4 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-200 hover:text-slate-950"
                 >
                   Ask AI Assistant
@@ -134,7 +211,13 @@ export default function LiveChat() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") sendMessage();
                     }}
-                    placeholder="Type your question..."
+                    placeholder={
+                      leadStep === "name"
+                        ? "Your name..."
+                        : leadStep === "contact"
+                        ? "Email or WhatsApp..."
+                        : "Type your question..."
+                    }
                     className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2 text-sm text-slate-950 outline-none"
                   />
                   <button
