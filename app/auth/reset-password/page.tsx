@@ -4,44 +4,44 @@ import Link from "next/link";
 import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState("");
+export default function ResetPasswordPage() {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  async function handleReset(e: React.FormEvent) {
+  async function handleUpdatePassword(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setMessage("");
     setErrorMessage("");
 
     try {
+      if (password.length < 6) {
+        throw new Error("Password must be at least 6 characters.");
+      }
+
+      if (password !== confirmPassword) {
+        throw new Error("Passwords do not match.");
+      }
+
       const supabase = getSupabaseBrowserClient();
 
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        email.trim(),
-        {
-          redirectTo:
-            typeof window !== "undefined"
-              ? `${window.location.origin}/auth/reset-password`
-              : undefined,
-        }
-      );
+      const { error } = await supabase.auth.updateUser({
+        password,
+      });
 
       if (error) {
         throw new Error(error.message);
       }
 
-      setMessage(
-        "Password reset email sent. Please check your inbox and follow the link."
-      );
-      setEmail("");
+      setMessage("Password updated successfully. You can now sign in.");
+      setPassword("");
+      setConfirmPassword("");
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Failed to send reset email"
+        error instanceof Error ? error.message : "Failed to update password"
       );
     } finally {
       setLoading(false);
@@ -56,23 +56,40 @@ export default function ForgotPasswordPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
               The Alkebula School
             </p>
-            <h1 className="mt-3 text-3xl font-bold">Forgot password</h1>
+            <h1 className="mt-3 text-3xl font-bold">Set new password</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Enter your email address and we’ll send you a secure password reset link.
+              Enter and confirm your new password below.
             </p>
           </div>
 
-          <form onSubmit={handleReset} className="space-y-4">
+          <form onSubmit={handleUpdatePassword} className="space-y-4">
             <div>
-              <label className="mb-2 block text-sm font-medium">Email</label>
+              <label className="mb-2 block text-sm font-medium">
+                New password
+              </label>
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
                 required
                 className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                placeholder="you@example.com"
+                placeholder="New password"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Confirm password
+              </label>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="new-password"
+                required
+                className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                placeholder="Confirm password"
               />
             </div>
 
@@ -81,7 +98,7 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
             >
-              {loading ? "Sending..." : "Send Reset Link"}
+              {loading ? "Updating..." : "Update Password"}
             </button>
           </form>
 

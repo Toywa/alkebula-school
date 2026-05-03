@@ -7,6 +7,8 @@ type ChatMessage = {
   content: string;
 };
 
+type LeadStep = "name" | "contact" | "subject" | "level" | "challenge" | "done";
+
 export default function LiveChat() {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"menu" | "ai">("menu");
@@ -19,17 +21,21 @@ export default function LiveChat() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [leadStep, setLeadStep] = useState<"name" | "contact" | "done">("name");
+  const [leadStep, setLeadStep] = useState<LeadStep>("name");
+
   const [lead, setLead] = useState({
     name: "",
     contact: "",
+    subject: "",
+    level: "",
+    challenge: "",
   });
 
   const whatsappMessage = encodeURIComponent(
-    "Hello The Alkebula School, I would like to enquire about your tutoring and learning support services."
+    "Hello The Alkebula School, I would like to enquire about tutoring, admissions, or academic support."
   );
 
-  async function saveLead(updatedLead: { name: string; contact: string }) {
+  async function saveLead(updatedLead: typeof lead) {
     try {
       await fetch("/api/leads", {
         method: "POST",
@@ -39,7 +45,10 @@ export default function LiveChat() {
         body: JSON.stringify({
           name: updatedLead.name,
           email: updatedLead.contact,
-          message: "Chat initiated from AI live chat widget",
+          subject: updatedLead.subject,
+          level: updatedLead.level,
+          challenge: updatedLead.challenge,
+          message: "Admissions advisor chat lead",
         }),
       });
     } catch (error) {
@@ -63,7 +72,7 @@ export default function LiveChat() {
         {
           role: "assistant",
           content:
-            "Thank you. Please share your email or WhatsApp number so our team can assist you better.",
+            "Thank you. Please share your email address or WhatsApp number so our admissions team can assist you properly.",
         },
       ]);
 
@@ -71,9 +80,57 @@ export default function LiveChat() {
     }
 
     if (leadStep === "contact") {
+      setLead((prev) => ({ ...prev, contact: trimmed }));
+      setLeadStep("subject");
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Great. Which subject or area does the student need support with?",
+        },
+      ]);
+
+      return;
+    }
+
+    if (leadStep === "subject") {
+      setLead((prev) => ({ ...prev, subject: trimmed }));
+      setLeadStep("level");
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Thank you. Which level or curriculum is this for? For example: Cambridge IGCSE, Edexcel IGCSE, A Levels, IB, or general academic support.",
+        },
+      ]);
+
+      return;
+    }
+
+    if (leadStep === "level") {
+      setLead((prev) => ({ ...prev, level: trimmed }));
+      setLeadStep("challenge");
+
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content:
+            "Understood. What is the main challenge right now? For example: weak foundations, exam preparation, confidence, homework support, subject mastery, or catching up.",
+        },
+      ]);
+
+      return;
+    }
+
+    if (leadStep === "challenge") {
       const updatedLead = {
         ...lead,
-        contact: trimmed,
+        challenge: trimmed,
       };
 
       setLead(updatedLead);
@@ -86,7 +143,7 @@ export default function LiveChat() {
         {
           role: "assistant",
           content:
-            "Thank you. How can I assist you today regarding tutoring, admissions, curriculum, or academic support?",
+            "Thank you. Based on what you have shared, The Alkebula School can help through structured, premium academic support tailored to the student's subject, level, and learning needs. You can continue asking me questions here, or contact our admissions team on WhatsApp for personalized guidance.",
         },
       ]);
 
@@ -132,16 +189,6 @@ export default function LiveChat() {
 
   function openAiChat() {
     setMode("ai");
-
-    if (messages.length === 0) {
-      setMessages([
-        {
-          role: "assistant",
-          content:
-            "Welcome to The Alkebula School. Before we begin, may I know your name?",
-        },
-      ]);
-    }
   }
 
   return (
@@ -151,14 +198,14 @@ export default function LiveChat() {
           <div className="border-b border-white/10 bg-white/5 p-4">
             <h3 className="font-bold text-amber-300">The Alkebula School</h3>
             <p className="text-xs text-slate-400">
-              Premium learning support, admissions and tutoring guidance.
+              Premium admissions, tutoring and academic support guidance.
             </p>
           </div>
 
           {mode === "menu" ? (
             <div className="p-5">
               <p className="text-sm text-slate-300">
-                Choose how you would like to chat with us.
+                Choose how you would like to speak with us.
               </p>
 
               <div className="mt-5 space-y-3">
@@ -176,7 +223,7 @@ export default function LiveChat() {
                   onClick={openAiChat}
                   className="w-full rounded-xl border border-amber-200/40 px-4 py-3 text-sm font-semibold text-amber-200 hover:bg-amber-200 hover:text-slate-950"
                 >
-                  Ask AI Assistant
+                  Start Admissions Advisor
                 </button>
               </div>
             </div>
@@ -216,6 +263,12 @@ export default function LiveChat() {
                         ? "Your name..."
                         : leadStep === "contact"
                         ? "Email or WhatsApp..."
+                        : leadStep === "subject"
+                        ? "Subject..."
+                        : leadStep === "level"
+                        ? "Level / curriculum..."
+                        : leadStep === "challenge"
+                        ? "Main challenge..."
                         : "Type your question..."
                     }
                     className="min-w-0 flex-1 rounded-xl bg-white px-3 py-2 text-sm text-slate-950 outline-none"
