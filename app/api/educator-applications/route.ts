@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import crypto from "crypto";
 
 const ADMIN_ALLOWED_EMAILS = [
   "sunscapecars@gmail.com",
   "davidmusilah@gmail.com",
 ];
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 async function getAuthClient() {
   const cookieStore = await cookies();
@@ -24,9 +27,7 @@ async function getAuthClient() {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
             });
-          } catch {
-            // Safe to ignore in route handlers where cookies are read-only.
-          }
+          } catch {}
         },
       },
     }
@@ -34,16 +35,19 @@ async function getAuthClient() {
 }
 
 function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Supabase environment variables are missing.");
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 async function requireAdmin() {
@@ -54,49 +58,94 @@ async function requireAdmin() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return { ok: false, response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
   }
 
   const email = user.email?.toLowerCase() || "";
 
   if (!ADMIN_ALLOWED_EMAILS.includes(email)) {
-    return { ok: false, response: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
   }
 
   return { ok: true };
-}
-
-function sanitizeFileName(name: string) {
-  return name.replace(/[^a-zA-Z0-9.\-_]/g, "_");
 }
 
 function validateFileType(file: File, allowed: string[]) {
   return allowed.includes(file.type);
 }
 
+function validateFileSize(file: File, label: string) {
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error(`${label} must be less than 10MB.`);
+  }
+}
+
+function getExtension(file: File) {
+  const nameParts = file.name.split(".");
+  const ext = nameParts.length > 1 ? nameParts.pop()?.toLowerCase() : "";
+
+  if (ext) return ext;
+
+  if (file.type === "image/jpeg") return "jpg";
+  if (file.type === "image/png") return "png";
+  if (file.type === "application/pdf") return "pdf";
+  if (file.type === "application/msword") return "doc";
+  if (
+    file.type ===
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  ) {
+    return "docx";
+  }
+
+  return "file";
+}
+
 async function uploadFile(
   supabase: ReturnType<typeof getAdminClient>,
   bucket: string,
   folder: string,
+  label: string,
   file: File
 ) {
+  validateFileSize(file, label);
+
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
-  const filePath = `${folder}/${Date.now()}-${sanitizeFileName(file.name)}`;
+  const extension = getExtension(file);
 
-  const { error } = await supabase.storage.from(bucket).upload(filePath, buffer, {
-    contentType: file.type,
+  const safeFilePath = `${folder}/${label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")}-${crypto.randomUUID()}.${extension}`;
+
+  const { error } = await supabase.storage.from(bucket).upload(safeFilePath, buffer, {
+    contentType: file.type || "application/octet-stream",
     upsert: false,
   });
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    console.error("Storage upload error:", {
+      bucket,
+      safeFilePath,
+      message: error.message,
+    });
+
+    throw new Error(
+      `Could not upload ${label}. Please check the file type and size, then try again.`
+    );
+  }
 
   if (bucket === "educator-profile-images") {
-    const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    const { data } = supabase.storage.from(bucket).getPublicUrl(safeFilePath);
     return data.publicUrl;
   }
 
-  return filePath;
+  return safeFilePath;
 }
 
 export async function GET() {
@@ -128,7 +177,9 @@ export async function POST(request: Request) {
     const fullName = String(formData.get("full_name") || "").trim();
     const email = String(formData.get("email") || "").trim();
     const phone = String(formData.get("phone") || "").trim();
-    const proposedPublicBio = String(formData.get("proposed_public_bio") || "").trim();
+    const proposedPublicBio = String(
+      formData.get("proposed_public_bio") || ""
+    ).trim();
     const city = String(formData.get("city") || "").trim();
 
     const referee1Name = String(formData.get("referee_1_name") || "").trim();
@@ -154,7 +205,9 @@ export async function POST(request: Request) {
     const profilePhoto = formData.get("profile_photo") as File | null;
     const cvFile = formData.get("cv_file") as File | null;
     const degreeCertificate = formData.get("degree_certificate") as File | null;
-    const highSchoolCertificate = formData.get("high_school_certificate") as File | null;
+    const highSchoolCertificate = formData.get(
+      "high_school_certificate"
+    ) as File | null;
 
     if (
       !fullName ||
@@ -249,12 +302,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const folder = `${Date.now()}-${sanitizeFileName(fullName)}`;
+    const folder = `educator-applications/${crypto.randomUUID()}`;
 
     const profilePhotoUrl = await uploadFile(
       supabase,
       "educator-profile-images",
       folder,
+      "profile-photo",
       profilePhoto
     );
 
@@ -262,6 +316,7 @@ export async function POST(request: Request) {
       supabase,
       "educator-application-documents",
       folder,
+      "cv",
       cvFile
     );
 
@@ -269,6 +324,7 @@ export async function POST(request: Request) {
       supabase,
       "educator-application-documents",
       folder,
+      "degree-certificate",
       degreeCertificate
     );
 
@@ -276,6 +332,7 @@ export async function POST(request: Request) {
       supabase,
       "educator-application-documents",
       folder,
+      "high-school-certificate",
       highSchoolCertificate
     );
 
@@ -318,8 +375,15 @@ export async function POST(request: Request) {
       message: "Application submitted successfully.",
     });
   } catch (error) {
+    console.error("Educator application error:", error);
+
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Application failed" },
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Application failed. Please try again.",
+      },
       { status: 500 }
     );
   }
