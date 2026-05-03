@@ -7,6 +7,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -67,30 +69,48 @@ export default function ResetPasswordPage() {
               <label className="mb-2 block text-sm font-medium">
                 New password
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="new-password"
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                placeholder="New password"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-20"
+                  placeholder="New password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-amber-700 hover:text-amber-800"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
             <div>
               <label className="mb-2 block text-sm font-medium">
                 Confirm password
               </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                autoComplete="new-password"
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                placeholder="Confirm password"
-              />
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-20"
+                  placeholder="Confirm password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-amber-700 hover:text-amber-800"
+                >
+                  {showConfirmPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
             <button

@@ -15,6 +15,7 @@ export default function SignUpPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<UserRole>("parent");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -74,8 +75,7 @@ export default function SignUpPage() {
             </p>
             <h1 className="mt-3 text-3xl font-bold">Create account</h1>
             <p className="mt-2 text-sm text-slate-600">
-              Parents and educators can create accounts here. Admin access is
-              restricted.
+              Parents and educators can create accounts here. Admin access is restricted.
             </p>
           </div>
 
@@ -108,15 +108,24 @@ export default function SignUpPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium">Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="new-password"
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                placeholder="Create a password"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-20"
+                  placeholder="Create a password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-medium text-amber-700 hover:text-amber-800"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -140,8 +149,8 @@ export default function SignUpPage() {
             </button>
           </form>
 
-          {message ? <p className="mt-4 text-sm text-green-600">{message}</p> : null}
-          {errorMessage ? <p className="mt-4 text-sm text-red-600">{errorMessage}</p> : null}
+          {message && <p className="mt-4 text-sm text-green-600">{message}</p>}
+          {errorMessage && <p className="mt-4 text-sm text-red-600">{errorMessage}</p>}
 
           <p className="mt-6 text-sm text-slate-600">
             Already have an account?{" "}
