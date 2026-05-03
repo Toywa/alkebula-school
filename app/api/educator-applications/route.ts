@@ -5,25 +5,16 @@ import crypto from "crypto";
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 function getAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error("Supabase environment variables are missing.");
-  }
-
-  return createClient(supabaseUrl, serviceRoleKey);
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 }
 
 function validateFileSize(file: File, label: string) {
   if (file.size > MAX_FILE_SIZE) {
     throw new Error(`${label} must be less than 10MB.`);
   }
-}
-
-function getExtension(file: File) {
-  const parts = file.name.split(".");
-  return parts.length > 1 ? parts.pop() : "file";
 }
 
 async function uploadFile(
@@ -34,12 +25,11 @@ async function uploadFile(
   validateFileSize(file, label);
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const ext = getExtension(file);
 
-  const fileName = `${label}-${crypto.randomUUID()}.${ext}`;
+  const fileName = `${label}-${crypto.randomUUID()}`;
 
   const { error } = await supabase.storage
-    .from("educator-documents") // ✅ USE WORKING BUCKET
+    .from("educator-documents")
     .upload(fileName, buffer, {
       contentType: file.type || "application/octet-stream",
     });
@@ -61,41 +51,23 @@ export async function POST(req: Request) {
     const email = String(formData.get("email") || "");
     const phone = String(formData.get("phone") || "");
 
-    const profilePhoto = formData.get("profile_photo") as File;
     const cvFile = formData.get("cv_file") as File;
     const degreeCertificate = formData.get("degree_certificate") as File;
     const highSchoolCertificate = formData.get("high_school_certificate") as File;
 
-    if (!profilePhoto || !cvFile || !degreeCertificate || !highSchoolCertificate) {
+    if (!cvFile || !degreeCertificate || !highSchoolCertificate) {
       return NextResponse.json(
         { error: "Missing required files" },
         { status: 400 }
       );
     }
 
-    const profilePhotoUrl = await uploadFile(
-      supabase,
-      "profile-photo",
-      profilePhoto
-    );
+    // 🚨 PROFILE PHOTO TEMPORARILY SKIPPED
+    const profilePhotoUrl = "skipped-for-diagnosis";
 
-    const cvUrl = await uploadFile(
-      supabase,
-      "cv",
-      cvFile
-    );
-
-    const degreeUrl = await uploadFile(
-      supabase,
-      "degree",
-      degreeCertificate
-    );
-
-    const highSchoolUrl = await uploadFile(
-      supabase,
-      "high-school",
-      highSchoolCertificate
-    );
+    const cvUrl = await uploadFile(supabase, "cv", cvFile);
+    const degreeUrl = await uploadFile(supabase, "degree", degreeCertificate);
+    const highSchoolUrl = await uploadFile(supabase, "high-school", highSchoolCertificate);
 
     const { error } = await supabase
       .from("educator_applications")
