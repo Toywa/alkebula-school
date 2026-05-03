@@ -129,15 +129,13 @@ async function uploadFile(
   });
 
   if (error) {
-    console.error("Storage upload error:", {
+    console.error("❌ Storage upload error:", {
       bucket,
       safeFilePath,
       message: error.message,
     });
 
-    throw new Error(
-      `Could not upload ${label}. Please check the file type and size, then try again.`
-    );
+    throw new Error(`Upload failed for ${label}: ${error.message}`);
   }
 
   if (bucket === "educator-profile-images") {
@@ -231,9 +229,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (proposedPublicBio.length > 20) {
+    if (proposedPublicBio.length > 100) {
       return NextResponse.json(
-        { error: "Proposed public bio must not exceed 20 characters." },
+        { error: "Proposed public bio must not exceed 100 characters." },
         { status: 400 }
       );
     }
