@@ -1,94 +1,157 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import crypto from "crypto";
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 function getAdminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-}
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-function validateFileSize(file: File, label: string) {
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error(`${label} must be less than 10MB.`);
-  }
-}
-
-async function uploadFile(
-  supabase: ReturnType<typeof getAdminClient>,
-  label: string,
-  file: File
-) {
-  validateFileSize(file, label);
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const fileName = `${label}-${crypto.randomUUID()}`;
-
-  const { error } = await supabase.storage
-    .from("educator-documents")
-    .upload(fileName, buffer, {
-      contentType: file.type || "application/octet-stream",
-    });
-
-  if (error) {
-    console.error("❌ Upload error:", error.message);
-    throw new Error(`Upload failed for ${label}: ${error.message}`);
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error("Supabase environment variables are missing.");
   }
 
-  return fileName;
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
 }
 
 export async function POST(req: Request) {
   try {
     const supabase = getAdminClient();
-    const formData = await req.formData();
+    const body = await req.json();
 
-    const fullName = String(formData.get("full_name") || "");
-    const email = String(formData.get("email") || "");
-    const phone = String(formData.get("phone") || "");
+    const {
+      full_name,
+      email,
+      phone,
+      city,
+      proposed_public_bio,
+      subjects,
+      curricula,
 
-    const cvFile = formData.get("cv_file") as File;
-    const degreeCertificate = formData.get("degree_certificate") as File;
-    const highSchoolCertificate = formData.get("high_school_certificate") as File;
+      referee_1_name,
+      referee_1_email,
+      referee_1_phone,
 
-    if (!cvFile || !degreeCertificate || !highSchoolCertificate) {
+      referee_2_name,
+      referee_2_email,
+      referee_2_phone,
+
+      profile_photo_url,
+      cv_url,
+      degree_certificate_url,
+      high_school_certificate_url,
+
+      declaration_no_criminal_past,
+      declaration_internet_15mbps,
+      declaration_has_i5_laptop,
+      declaration_information_true,
+    } = body;
+
+    // ✅ BASIC VALIDATION
+    if (
+      !full_name ||
+      !email ||
+      !phone ||
+      !city ||
+      !referee_1_name ||
+      !referee_1_email ||
+      !referee_1_phone ||
+      !referee_2_name ||
+      !referee_2_email ||
+      !referee_2_phone ||
+      !profile_photo_url ||
+      !cv_url ||
+      !degree_certificate_url ||
+      !high_school_certificate_url
+    ) {
       return NextResponse.json(
-        { error: "Missing required files" },
+        { error: "Please complete all required fields." },
         { status: 400 }
       );
     }
 
-    // 🚨 PROFILE PHOTO TEMPORARILY SKIPPED
-    const profilePhotoUrl = "skipped-for-diagnosis";
+    if (proposed_public_bio && proposed_public_bio.length > 100) {
+      return NextResponse.json(
+        { error: "Proposed bio must not exceed 100 characters." },
+        { status: 400 }
+      );
+    }
 
-    const cvUrl = await uploadFile(supabase, "cv", cvFile);
-    const degreeUrl = await uploadFile(supabase, "degree", degreeCertificate);
-    const highSchoolUrl = await uploadFile(supabase, "high-school", highSchoolCertificate);
+    if (!subjects || subjects.length < 1 || subjects.length > 2) {
+      return NextResponse.json(
+        { error: "Please select 1–2 subjects." },
+        { status: 400 }
+      );
+    }
 
-    const { error } = await supabase
+    if (!curricula || curricula.length < 1) {
+      return NextResponse.json(
+        { error: "Please select at least one curriculum." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      !declaration_no_criminal_past ||
+      !declaration_internet_15mbps ||
+      !declaration_has_i5_laptop ||
+      !declaration_information_true
+    ) {
+      return NextResponse.json(
+        { error: "All declarations must be accepted." },
+        { status: 400 }
+      );
+    }
+
+    // ✅ SAVE TO DATABASE (UNCHANGED WORKFLOW)
+    const { data, error } = await supabase
       .from("educator_applications")
       .insert({
-        full_name: fullName,
+        full_name,
         email,
         phone,
-        profile_photo_url: profilePhotoUrl,
-        cv_url: cvUrl,
-        degree_certificate_url: degreeUrl,
-        high_school_certificate_url: highSchoolUrl,
-        status: "pending_review",
-      });
+        city,
+        proposed_public_bio,
+        subjects,
+        curricula,
+
+        referee_1_name,
+        referee_1_email,
+        referee_1_phone,
+
+        referee_2_name,
+        referee_2_email,
+        referee_2_phone,
+
+        profile_photo_url,
+        cv_url,
+        degree_certificate_url,
+        high_school_certificate_url,
+
+        declaration_no_criminal_past,
+        declaration_internet_15mbps,
+        declaration_has_i5_laptop,
+        declaration_information_true,
+
+        status: "pending_review", // 🔥 CRITICAL — keeps your workflow intact
+      })
+      .select()
+      .single();
 
     if (error) {
-      throw new Error(error.message);
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
-      message: "Application submitted successfully",
+      application: data,
+      message: "Application submitted successfully.",
     });
   } catch (error) {
     return NextResponse.json(
@@ -96,7 +159,7 @@ export async function POST(req: Request) {
         error:
           error instanceof Error
             ? error.message
-            : "Application failed",
+            : "Application failed.",
       },
       { status: 500 }
     );
