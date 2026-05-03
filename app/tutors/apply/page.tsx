@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 export default function TutorApplyPage() {
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -25,6 +27,12 @@ export default function TutorApplyPage() {
     setter([...values, value]);
   }
 
+  function validateFileSize(file: FormDataEntryValue | null, label: string) {
+    if (file instanceof File && file.size > MAX_FILE_SIZE) {
+      throw new Error(`${label} must be less than 5MB.`);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -37,6 +45,11 @@ export default function TutorApplyPage() {
 
       subjects.forEach((subject) => formData.append("subjects", subject));
       curricula.forEach((item) => formData.append("curricula", item));
+
+      validateFileSize(formData.get("profile_photo"), "Profile photo");
+      validateFileSize(formData.get("cv_file"), "CV");
+      validateFileSize(formData.get("degree_certificate"), "Degree / Diploma certificate");
+      validateFileSize(formData.get("high_school_certificate"), "High school certificate");
 
       formData.set(
         "declaration_no_criminal_past",
@@ -72,10 +85,18 @@ export default function TutorApplyPage() {
         body: formData,
       });
 
-      const data = await res.json();
+      let data: { error?: string; message?: string };
+
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error(
+          "Upload failed because the files may be too large. Please reduce each file to below 5MB and try again."
+        );
+      }
 
       if (!res.ok) {
-        throw new Error(data.error || "Application failed");
+        throw new Error(data.error || "Application failed. Please try again.");
       }
 
       setMessage("Application submitted successfully. Admin will review it.");
@@ -100,6 +121,15 @@ export default function TutorApplyPage() {
           publicly and allowed to publish bookable availability.
         </p>
 
+        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Upload guidance</p>
+          <p className="mt-1">
+            Please keep each uploaded file below <strong>5MB</strong>. Accepted
+            formats: profile photo JPG/PNG, CV PDF/DOC/DOCX, certificates
+            PDF/JPG/PNG.
+          </p>
+        </div>
+
         <form onSubmit={handleSubmit} className="mt-10 space-y-8">
           <div className="grid gap-6 md:grid-cols-2">
             <input name="full_name" placeholder="Full name" className="rounded-xl border border-slate-300 px-4 py-3" required />
@@ -109,7 +139,9 @@ export default function TutorApplyPage() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">Proposed public bio (max 20 characters)</label>
+            <label className="mb-2 block text-sm font-medium">
+              Proposed public bio (max 20 characters)
+            </label>
             <input
               name="proposed_public_bio"
               maxLength={20}
@@ -123,7 +155,18 @@ export default function TutorApplyPage() {
             <div>
               <p className="mb-3 text-sm font-medium">Choose 1 or 2 subjects</p>
               <div className="space-y-2">
-                {["Mathematics", "English", "Biology", "Chemistry", "Physics", "Geography", "History", "Economics", "Business Studies", "Computer Science"].map((subject) => (
+                {[
+                  "Mathematics",
+                  "English",
+                  "Biology",
+                  "Chemistry",
+                  "Physics",
+                  "Geography",
+                  "History",
+                  "Economics",
+                  "Business Studies",
+                  "Computer Science",
+                ].map((subject) => (
                   <label key={subject} className="flex items-center gap-2 text-sm">
                     <input
                       type="checkbox"
@@ -155,22 +198,30 @@ export default function TutorApplyPage() {
 
           <div className="grid gap-6 md:grid-cols-2">
             <div>
-              <label className="mb-2 block text-sm font-medium">Profile picture (JPG or PNG only)</label>
+              <label className="mb-2 block text-sm font-medium">
+                Profile picture (JPG or PNG only, max 5MB)
+              </label>
               <input name="profile_photo" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" className="w-full rounded-xl border border-slate-300 px-4 py-3" required />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">CV (PDF, DOC or DOCX only)</label>
+              <label className="mb-2 block text-sm font-medium">
+                CV (PDF, DOC or DOCX only, max 5MB)
+              </label>
               <input name="cv_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="w-full rounded-xl border border-slate-300 px-4 py-3" required />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Degree / Diploma certificate</label>
+              <label className="mb-2 block text-sm font-medium">
+                Degree / Diploma certificate (max 5MB)
+              </label>
               <input name="degree_certificate" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="w-full rounded-xl border border-slate-300 px-4 py-3" required />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">High school certificate</label>
+              <label className="mb-2 block text-sm font-medium">
+                High school certificate (max 5MB)
+              </label>
               <input name="high_school_certificate" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="w-full rounded-xl border border-slate-300 px-4 py-3" required />
             </div>
           </div>
@@ -220,7 +271,7 @@ export default function TutorApplyPage() {
           <button
             type="submit"
             disabled={loading}
-            className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+            className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Submitting..." : "Submit Application"}
           </button>
