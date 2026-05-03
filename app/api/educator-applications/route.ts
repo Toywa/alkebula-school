@@ -109,7 +109,6 @@ function getExtension(file: File) {
 async function uploadFile(
   supabase: ReturnType<typeof getAdminClient>,
   bucket: string,
-  folder: string,
   label: string,
   file: File
 ) {
@@ -119,7 +118,7 @@ async function uploadFile(
   const buffer = Buffer.from(arrayBuffer);
   const extension = getExtension(file);
 
-  const safeFilePath = `${folder}/${label
+  const safeFilePath = `${label
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")}-${crypto.randomUUID()}.${extension}`;
 
@@ -300,12 +299,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const folder = `educator-applications/${crypto.randomUUID()}`;
-
     const profilePhotoUrl = await uploadFile(
       supabase,
       "educator-profile-images",
-      folder,
       "profile-photo",
       profilePhoto
     );
@@ -313,7 +309,6 @@ export async function POST(request: Request) {
     const cvUrl = await uploadFile(
       supabase,
       "educator-application-documents",
-      folder,
       "cv",
       cvFile
     );
@@ -321,7 +316,6 @@ export async function POST(request: Request) {
     const degreeCertificateUrl = await uploadFile(
       supabase,
       "educator-application-documents",
-      folder,
       "degree-certificate",
       degreeCertificate
     );
@@ -329,7 +323,6 @@ export async function POST(request: Request) {
     const highSchoolCertificateUrl = await uploadFile(
       supabase,
       "educator-application-documents",
-      folder,
       "high-school-certificate",
       highSchoolCertificate
     );
