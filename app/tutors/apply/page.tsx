@@ -4,6 +4,7 @@ import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 export default function TutorApplyPage() {
+  console.log("SUPABASE URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
