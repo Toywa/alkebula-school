@@ -1,5 +1,35 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+
+const ADMIN_ALLOWED_EMAILS = [
+  "sunscapecars@gmail.com",
+  "davidmusilah@gmail.com",
+];
+
+async function getAuthClient() {
+  const cookieStore = await cookies();
+
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          } catch {}
+        },
+      },
+    }
+  );
+}
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -15,6 +45,53 @@ function getAdminClient() {
       persistSession: false,
     },
   });
+}
+
+async function requireAdmin() {
+  const supabase = await getAuthClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+    };
+  }
+
+  const email = user.email?.toLowerCase() || "";
+
+  if (!ADMIN_ALLOWED_EMAILS.includes(email)) {
+    return {
+      ok: false,
+      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+    };
+  }
+
+  return { ok: true };
+}
+
+export async function GET() {
+  const adminCheck = await requireAdmin();
+
+  if (!adminCheck.ok) {
+    return adminCheck.response;
+  }
+
+  const supabase = getAdminClient();
+
+  const { data, error } = await supabase
+    .from("educator_applications")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ data });
 }
 
 export async function POST(req: Request) {
@@ -50,7 +127,6 @@ export async function POST(req: Request) {
       declaration_information_true,
     } = body;
 
-    // ✅ BASIC VALIDATION
     if (
       !full_name ||
       !email ||
@@ -75,14 +151,14 @@ export async function POST(req: Request) {
 
     if (proposed_public_bio && proposed_public_bio.length > 100) {
       return NextResponse.json(
-        { error: "Proposed bio must not exceed 100 characters." },
+        { error: "Proposed public bio must not exceed 100 characters." },
         { status: 400 }
       );
     }
 
     if (!subjects || subjects.length < 1 || subjects.length > 2) {
       return NextResponse.json(
-        { error: "Please select 1–2 subjects." },
+        { error: "Please select 1 or 2 subjects." },
         { status: 400 }
       );
     }
@@ -106,7 +182,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // ✅ SAVE TO DATABASE (UNCHANGED WORKFLOW)
     const { data, error } = await supabase
       .from("educator_applications")
       .insert({
@@ -136,16 +211,13 @@ export async function POST(req: Request) {
         declaration_has_i5_laptop,
         declaration_information_true,
 
-        status: "pending_review", // 🔥 CRITICAL — keeps your workflow intact
+        status: "pending_review",
       })
       .select()
       .single();
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -157,9 +229,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error
-            ? error.message
-            : "Application failed.",
+          error instanceof Error ? error.message : "Application failed.",
       },
       { status: 500 }
     );
