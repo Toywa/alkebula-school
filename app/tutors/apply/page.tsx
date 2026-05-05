@@ -299,11 +299,30 @@ export default function TutorApplyPage() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <input name="profile_photo" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" className="rounded-xl border border-slate-300 px-4 py-3" required />
-            <input name="cv_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="rounded-xl border border-slate-300 px-4 py-3" required />
-            <input name="degree_certificate" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="rounded-xl border border-slate-300 px-4 py-3" required />
-            <input name="high_school_certificate" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="rounded-xl border border-slate-300 px-4 py-3" required />
-          </div>
+  <div>
+    <label className="mb-2 block text-sm font-medium">Profile Picture</label>
+    <p className="mb-2 text-xs text-slate-500">JPG or PNG only. Max 5MB.</p>
+    <input name="profile_photo" type="file" accept=".jpg,.jpeg,.png,image/jpeg,image/png" className="w-full rounded-xl border border-slate-300 px-4 py-3" required />
+  </div>
+
+  <div>
+    <label className="mb-2 block text-sm font-medium">CV</label>
+    <p className="mb-2 text-xs text-slate-500">PDF, DOC, or DOCX only. Max 10MB.</p>
+    <input name="cv_file" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" className="w-full rounded-xl border border-slate-300 px-4 py-3" required />
+  </div>
+
+  <div>
+    <label className="mb-2 block text-sm font-medium">University Degree / Diploma Certificate</label>
+    <p className="mb-2 text-xs text-slate-500">PDF, JPG, or PNG only. Max 10MB.</p>
+    <input name="degree_certificate" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="w-full rounded-xl border border-slate-300 px-4 py-3" required />
+  </div>
+
+  <div>
+    <label className="mb-2 block text-sm font-medium">High School Certificate</label>
+    <p className="mb-2 text-xs text-slate-500">PDF, JPG, or PNG only. Max 10MB.</p>
+    <input name="high_school_certificate" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="w-full rounded-xl border border-slate-300 px-4 py-3" required />
+  </div>
+</div>
 
           <div className="grid gap-6 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 p-5">
