@@ -238,7 +238,15 @@ export default function TutorApplyPage() {
             <input name="email" type="email" placeholder="Email" className="rounded-xl border border-slate-300 px-4 py-3" required />
             <input name="phone" placeholder="Phone number" className="rounded-xl border border-slate-300 px-4 py-3" required />
             <input name="city" placeholder="City" className="rounded-xl border border-slate-300 px-4 py-3" required />
-          </div>
+<input
+  name="hourly_rate"
+  type="number"
+  min="0"
+  step="1"
+  placeholder="Proposed hourly rate"
+  className="rounded-xl border border-slate-300 px-4 py-3"
+  required
+/>          </div>
 
           <div>
             <label className="mb-2 block text-sm font-medium">

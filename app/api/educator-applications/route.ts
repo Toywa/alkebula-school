@@ -104,7 +104,8 @@ export async function POST(req: Request) {
       email,
       phone,
       city,
-      proposed_public_bio,
+hourly_rate,
+proposed_public_bio,
       subjects,
       curricula,
 
@@ -189,7 +190,8 @@ export async function POST(req: Request) {
         email,
         phone,
         city,
-        proposed_public_bio,
+hourly_rate,
+proposed_public_bio,
         subjects,
         curricula,
 
