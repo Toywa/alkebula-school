@@ -74,12 +74,6 @@ async function requireAdmin() {
 }
 
 export async function GET() {
-  const adminCheck = await requireAdmin();
-
-  if (!adminCheck.ok) {
-    return adminCheck.response;
-  }
-
   const supabase = getAdminClient();
 
   const { data, error } = await supabase
