@@ -110,6 +110,7 @@ export async function PATCH(
         city: application.city,
         subjects: application.subjects,
         curricula: application.curricula,
+        hourly_rate: application.hourly_rate,
         approval_status: "approved",
         is_public: true,
       });
