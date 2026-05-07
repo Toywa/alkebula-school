@@ -77,13 +77,7 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const adminCheck = await requireAdmin();
-
-  if (!adminCheck.ok) {
-    return adminCheck.response;
-  }
-
-  const supabase = getAdminClient();
+    const supabase = getAdminClient();
   const body = await request.json();
 
   const { data: application, error: fetchError } = await supabase
