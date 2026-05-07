@@ -6,10 +6,21 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-function getProfileImageUrl(path?: string | null) {
+async function getProfileImageUrl(path?: string | null) {
   if (!path) return null;
 
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-documents/${path}`;
+  if (path.startsWith("http")) return path;
+
+  const { data, error } = await supabase.storage
+    .from("educator-documents")
+    .createSignedUrl(path, 60 * 60);
+
+  if (error) {
+    console.error("Profile image signed URL error:", error.message);
+    return null;
+  }
+
+  return data.signedUrl;
 }
 
 export default async function TutorsPage() {
@@ -67,7 +78,10 @@ export default async function TutorsPage() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {tutors.map((tutor) => {
-              const imageUrl = getProfileImageUrl(tutor.profile_photo_url);
+              const imageUrl =
+  tutor.profile_photo_url
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/sign/educator-documents/${tutor.profile_photo_url}`
+    : null;
 
               return (
                 <article
