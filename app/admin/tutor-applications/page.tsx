@@ -9,11 +9,22 @@ type Application = {
   email: string;
   phone: string;
   city: string;
+  hourly_rate?: number | null;
   proposed_public_bio: string;
   subjects: string[];
   curricula: string[];
   status: string;
   created_at: string;
+
+  profile_photo_url?: string | null;
+  cv_url?: string | null;
+  degree_certificate_url?: string | null;
+  high_school_certificate_url?: string | null;
+
+  signed_profile_photo_url?: string | null;
+  signed_cv_url?: string | null;
+  signed_degree_certificate_url?: string | null;
+  signed_high_school_certificate_url?: string | null;
 };
 
 type InterviewFormState = {
@@ -32,11 +43,14 @@ export default function TutorApplicationsAdminPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState("");
-  const [interviewForms, setInterviewForms] = useState<Record<string, InterviewFormState>>({});
+  const [interviewForms, setInterviewForms] = useState<
+    Record<string, InterviewFormState>
+  >({});
 
   useEffect(() => {
     async function checkAdmin() {
       const supabase = getSupabaseBrowserClient();
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -65,6 +79,23 @@ export default function TutorApplicationsAdminPage() {
     if (authorized) loadApplications();
   }, [authorized]);
 
+  async function createSignedUrl(path?: string | null) {
+    if (!path) return null;
+
+    const supabase = getSupabaseBrowserClient();
+
+    const { data, error } = await supabase.storage
+      .from("educator-documents")
+      .createSignedUrl(path, 60 * 60);
+
+    if (error) {
+      console.error("Signed URL error:", error.message);
+      return null;
+    }
+
+    return data.signedUrl;
+  }
+
   async function loadApplications() {
     setLoading(true);
     setErrorMessage("");
@@ -78,11 +109,26 @@ export default function TutorApplicationsAdminPage() {
       return;
     }
 
-    const loadedApplications = data.data || [];
+    const rawApplications: Application[] = data.data || [];
+
+    const loadedApplications = await Promise.all(
+      rawApplications.map(async (app) => ({
+        ...app,
+        signed_profile_photo_url: await createSignedUrl(app.profile_photo_url),
+        signed_cv_url: await createSignedUrl(app.cv_url),
+        signed_degree_certificate_url: await createSignedUrl(
+          app.degree_certificate_url
+        ),
+        signed_high_school_certificate_url: await createSignedUrl(
+          app.high_school_certificate_url
+        ),
+      }))
+    );
+
     setApplications(loadedApplications);
 
     const initialForms: Record<string, InterviewFormState> = {};
-    loadedApplications.forEach((app: Application) => {
+    loadedApplications.forEach((app) => {
       initialForms[app.id] = {
         interview_at: "",
         interview_notes: "",
@@ -149,7 +195,8 @@ export default function TutorApplicationsAdminPage() {
       {
         action: "schedule_interview",
         interview_at: new Date(form.interview_at).toISOString(),
-        interview_notes: form.interview_notes || "Interview scheduled by admin.",
+        interview_notes:
+          form.interview_notes || "Interview scheduled by admin.",
       },
       "Interview scheduled."
     );
@@ -180,13 +227,16 @@ export default function TutorApplicationsAdminPage() {
     <main className="min-h-screen bg-white text-slate-900">
       <section className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
         <h1 className="text-4xl font-bold">Tutor Applications</h1>
+
         <p className="mt-4 max-w-3xl text-slate-600">
           Review tutor applications, schedule interviews, reject unsuitable
           candidates, or approve educators for public listing.
         </p>
 
         {message ? <p className="mt-4 text-green-600">{message}</p> : null}
-        {errorMessage ? <p className="mt-4 text-red-600">{errorMessage}</p> : null}
+        {errorMessage ? (
+          <p className="mt-4 text-red-600">{errorMessage}</p>
+        ) : null}
 
         {loading ? (
           <p className="mt-8">Loading...</p>
@@ -197,13 +247,42 @@ export default function TutorApplicationsAdminPage() {
         ) : (
           <div className="mt-8 space-y-6">
             {applications.map((app) => (
-              <div key={app.id} className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div
+                key={app.id}
+                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <h2 className="text-2xl font-semibold">{app.full_name}</h2>
-                    <p className="mt-1 text-sm text-slate-600">{app.email}</p>
-                    <p className="text-sm text-slate-600">{app.phone}</p>
-                    <p className="text-sm text-slate-600">City: {app.city}</p>
+                  <div className="flex gap-4">
+                    {app.signed_profile_photo_url ? (
+                      <img
+                        src={app.signed_profile_photo_url}
+                        alt={app.full_name}
+                        className="h-24 w-24 rounded-2xl object-cover ring-1 ring-slate-200"
+                      />
+                    ) : (
+                      <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-slate-100 text-xs text-slate-500">
+                        No photo
+                      </div>
+                    )}
+
+                    <div>
+                      <h2 className="text-2xl font-semibold">
+                        {app.full_name}
+                      </h2>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {app.email}
+                      </p>
+                      <p className="text-sm text-slate-600">{app.phone}</p>
+                      <p className="text-sm text-slate-600">
+                        City: {app.city || "—"}
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        Proposed hourly rate:{" "}
+                        <span className="font-semibold">
+                          {app.hourly_rate ? `$${app.hourly_rate}/hour` : "—"}
+                        </span>
+                      </p>
+                    </div>
                   </div>
 
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
@@ -212,12 +291,76 @@ export default function TutorApplicationsAdminPage() {
                 </div>
 
                 <div className="mt-5 grid gap-3 text-sm text-slate-700 md:grid-cols-2">
-                  <div><span className="font-medium">Bio:</span> {app.proposed_public_bio || "—"}</div>
-                  <div><span className="font-medium">Subjects:</span> {app.subjects?.join(", ") || "—"}</div>
-                  <div><span className="font-medium">Curricula:</span> {app.curricula?.join(", ") || "—"}</div>
+                  <div>
+                    <span className="font-medium">Bio:</span>{" "}
+                    {app.proposed_public_bio || "—"}
+                  </div>
+
+                  <div>
+                    <span className="font-medium">Subjects:</span>{" "}
+                    {app.subjects?.join(", ") || "—"}
+                  </div>
+
+                  <div>
+                    <span className="font-medium">Curricula:</span>{" "}
+                    {app.curricula?.join(", ") || "—"}
+                  </div>
+
                   <div>
                     <span className="font-medium">Applied:</span>{" "}
-                    {app.created_at ? new Date(app.created_at).toLocaleString() : "—"}
+                    {app.created_at
+                      ? new Date(app.created_at).toLocaleString()
+                      : "—"}
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="font-semibold">Uploaded Documents</h3>
+
+                  <div className="mt-4 flex flex-wrap gap-3 text-sm">
+                    {app.signed_profile_photo_url ? (
+                      <a
+                        href={app.signed_profile_photo_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        View Profile Photo
+                      </a>
+                    ) : null}
+
+                    {app.signed_cv_url ? (
+                      <a
+                        href={app.signed_cv_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        View CV
+                      </a>
+                    ) : null}
+
+                    {app.signed_degree_certificate_url ? (
+                      <a
+                        href={app.signed_degree_certificate_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        View University Certificate
+                      </a>
+                    ) : null}
+
+                    {app.signed_high_school_certificate_url ? (
+                      <a
+                        href={app.signed_high_school_certificate_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
+                      >
+                        View High School Certificate
+                      </a>
+                    ) : null}
                   </div>
                 </div>
 
@@ -233,7 +376,11 @@ export default function TutorApplicationsAdminPage() {
                         type="datetime-local"
                         value={interviewForms[app.id]?.interview_at || ""}
                         onChange={(e) =>
-                          updateInterviewForm(app.id, "interview_at", e.target.value)
+                          updateInterviewForm(
+                            app.id,
+                            "interview_at",
+                            e.target.value
+                          )
                         }
                         className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
                       />
@@ -247,7 +394,11 @@ export default function TutorApplicationsAdminPage() {
                         type="text"
                         value={interviewForms[app.id]?.interview_notes || ""}
                         onChange={(e) =>
-                          updateInterviewForm(app.id, "interview_notes", e.target.value)
+                          updateInterviewForm(
+                            app.id,
+                            "interview_notes",
+                            e.target.value
+                          )
                         }
                         placeholder="e.g. Google Meet / phone interview / documents to verify"
                         className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm"
