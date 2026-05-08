@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendInterviewScheduledEmail, sendTutorApprovedEmail } from "@/lib/email";
+import {
+  sendInterviewScheduledEmail,
+  sendTutorApprovedEmail,
+} from "@/lib/email";
 
 function getAdminClient() {
   return createClient(
@@ -38,18 +41,23 @@ export async function PATCH(
   if (body.action === "approve") {
     const { error: upsertError } = await supabase
       .from("educator_directory")
-      .upsert({
-        email: application.email,
-        full_name: application.full_name,
-        profile_photo_url: application.profile_photo_url,
-        bio: application.proposed_public_bio,
-        city: application.city,
-        subjects: application.subjects,
-        curricula: application.curricula,
-        hourly_rate: application.hourly_rate,
-        approval_status: "approved",
-        is_public: true,
-      });
+      .upsert(
+        {
+          email: application.email,
+          full_name: application.full_name,
+          profile_photo_url: application.profile_photo_url,
+          bio: application.proposed_public_bio,
+          city: application.city,
+          subjects: application.subjects,
+          curricula: application.curricula,
+          hourly_rate: application.hourly_rate,
+          approval_status: "approved",
+          is_public: true,
+        },
+        {
+          onConflict: "email",
+        }
+      );
 
     if (upsertError) {
       return NextResponse.json(
