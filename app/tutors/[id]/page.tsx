@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type Tutor = {
@@ -18,16 +18,13 @@ type Tutor = {
 type Slot = {
   id: string;
   date: string;
+  slot_date?: string | null;
   start_time: string;
   end_time: string;
   is_booked: boolean;
 };
 
-export default function TutorProfilePage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function TutorProfilePage({ params }: { params: { id: string } }) {
   const [tutor, setTutor] = useState<Tutor | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +36,7 @@ export default function TutorProfilePage({
   const [studentName, setStudentName] = useState("");
   const [subject, setSubject] = useState("");
   const [curriculum, setCurriculum] = useState("");
+  const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState("");
 
   useEffect(() => {
@@ -50,6 +48,18 @@ export default function TutorProfilePage({
     if (path.startsWith("http")) return path;
 
     return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
+  }
+
+  function formatDate(date: string) {
+    return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  function formatTime(time: string) {
+    return time?.slice(0, 5);
   }
 
   async function loadTutor() {
@@ -80,7 +90,16 @@ export default function TutorProfilePage({
         .order("date", { ascending: true })
         .order("start_time", { ascending: true });
 
-      setSlots(slotData || []);
+      const cleanSlots = (slotData || []).map((slot: any) => ({
+        ...slot,
+        date: slot.date || slot.slot_date,
+      }));
+
+      setSlots(cleanSlots);
+
+      if (cleanSlots.length > 0) {
+        setSelectedDate(cleanSlots[0].date);
+      }
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to load tutor."
@@ -89,6 +108,14 @@ export default function TutorProfilePage({
       setLoading(false);
     }
   }
+
+  const availableDates = useMemo(() => {
+    return Array.from(new Set(slots.map((slot) => slot.date).filter(Boolean)));
+  }, [slots]);
+
+  const slotsForSelectedDate = useMemo(() => {
+    return slots.filter((slot) => slot.date === selectedDate);
+  }, [slots, selectedDate]);
 
   async function handleBooking(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -102,7 +129,7 @@ export default function TutorProfilePage({
       const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
 
       if (!selectedSlot) {
-        throw new Error("Please select an available slot.");
+        throw new Error("Please select an available time.");
       }
 
       const res = await fetch("/api/bookings/create", {
@@ -134,9 +161,7 @@ export default function TutorProfilePage({
       setSelectedSlotId("");
       await loadTutor();
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error ? error.message : "Booking failed."
-      );
+      setErrorMessage(error instanceof Error ? error.message : "Booking failed.");
     } finally {
       setBooking(false);
     }
@@ -266,26 +291,62 @@ export default function TutorProfilePage({
                     </option>
                   ))}
                 </select>
-
-                <select
-                  value={selectedSlotId}
-                  onChange={(e) => setSelectedSlotId(e.target.value)}
-                  className="md:col-span-2 rounded-xl border border-slate-300 px-4 py-3"
-                  required
-                >
-                  <option value="">Select available slot</option>
-                  {slots.map((slot) => (
-                    <option key={slot.id} value={slot.id}>
-                      {slot.date} — {slot.start_time} to {slot.end_time}
-                    </option>
-                  ))}
-                </select>
               </div>
 
-              {slots.length === 0 ? (
-                <p className="mt-4 text-sm text-amber-700">
-                  This tutor has not published available slots yet.
-                </p>
+              <div className="mt-6">
+                <p className="mb-3 text-sm font-semibold">Choose a date</p>
+
+                {availableDates.length === 0 ? (
+                  <p className="text-sm text-amber-700">
+                    This tutor has not published available slots yet.
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {availableDates.map((date) => (
+                      <button
+                        key={date}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDate(date);
+                          setSelectedSlotId("");
+                        }}
+                        className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                          selectedDate === date
+                            ? "border-slate-900 bg-slate-900 text-white"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="block font-semibold">{formatDate(date)}</span>
+                        <span className="text-xs opacity-80">
+                          {slots.filter((slot) => slot.date === date).length} slots
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {selectedDate && slotsForSelectedDate.length > 0 ? (
+                <div className="mt-6">
+                  <p className="mb-3 text-sm font-semibold">Choose a time</p>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {slotsForSelectedDate.map((slot) => (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => setSelectedSlotId(slot.id)}
+                        className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
+                          selectedSlotId === slot.id
+                            ? "border-emerald-700 bg-emerald-700 text-white"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               ) : null}
 
               <button
@@ -297,9 +358,7 @@ export default function TutorProfilePage({
               </button>
 
               {message ? <p className="mt-4 text-green-600">{message}</p> : null}
-              {errorMessage ? (
-                <p className="mt-4 text-red-600">{errorMessage}</p>
-              ) : null}
+              {errorMessage ? <p className="mt-4 text-red-600">{errorMessage}</p> : null}
             </form>
           </div>
         </div>
