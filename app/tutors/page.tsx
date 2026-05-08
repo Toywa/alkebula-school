@@ -8,19 +8,15 @@ const supabase = createClient(
 
 async function getProfileImageUrl(path?: string | null) {
   if (!path) return null;
-
   if (path.startsWith("http")) return path;
 
-  const { data, error } = await supabase.storage
+  const publicProfileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
+
+  const { data } = await supabase.storage
     .from("educator-documents")
     .createSignedUrl(path, 60 * 60);
 
-  if (error) {
-    console.error("Profile image signed URL error:", error.message);
-    return null;
-  }
-
-  return data.signedUrl;
+  return data?.signedUrl || publicProfileUrl;
 }
 
 export default async function TutorsPage() {
@@ -30,6 +26,13 @@ export default async function TutorsPage() {
     .eq("approval_status", "approved")
     .eq("is_public", true)
     .order("full_name", { ascending: true });
+
+  const tutorsWithImages = await Promise.all(
+    (tutors || []).map(async (tutor) => ({
+      ...tutor,
+      imageUrl: await getProfileImageUrl(tutor.profile_photo_url),
+    }))
+  );
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -69,7 +72,7 @@ export default async function TutorsPage() {
       <section className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
         {error ? (
           <p className="text-red-600">{error.message}</p>
-        ) : !tutors || tutors.length === 0 ? (
+        ) : tutorsWithImages.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
             <p className="text-lg font-medium">
               No approved tutors are publicly listed yet.
@@ -77,20 +80,15 @@ export default async function TutorsPage() {
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {tutors.map((tutor) => {
-              const imageUrl =
-  tutor.profile_photo_url
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/sign/educator-documents/${tutor.profile_photo_url}`
-    : null;
-
-              return (
-                <article
-                  key={tutor.id || tutor.email}
-                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  {imageUrl ? (
+            {tutorsWithImages.map((tutor) => (
+              <article
+                key={tutor.id || tutor.email}
+                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+              >
+                <Link href={`/tutors/${tutor.id}`}>
+                  {tutor.imageUrl ? (
                     <img
-                      src={imageUrl}
+                      src={tutor.imageUrl}
                       alt={tutor.full_name}
                       className="h-48 w-full rounded-xl object-cover"
                     />
@@ -99,41 +97,48 @@ export default async function TutorsPage() {
                       No profile photo
                     </div>
                   )}
+                </Link>
 
-                  <h2 className="mt-5 text-xl font-semibold">
-                    {tutor.full_name}
-                  </h2>
+                <h2 className="mt-5 text-xl font-semibold">
+                  {tutor.full_name}
+                </h2>
 
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {tutor.bio || "Approved Alkebula School educator."}
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  {tutor.bio || "Approved Alkebula School educator."}
+                </p>
+
+                <div className="mt-4 space-y-2 text-sm text-slate-700">
+                  <p>
+                    <span className="font-medium">City:</span>{" "}
+                    {tutor.city || "Available online"}
                   </p>
 
-                  <div className="mt-4 space-y-2 text-sm text-slate-700">
-                    <p>
-                      <span className="font-medium">City:</span>{" "}
-                      {tutor.city || "Available online"}
-                    </p>
+                  <p>
+                    <span className="font-medium">Subjects:</span>{" "}
+                    {tutor.subjects?.join(", ") || "—"}
+                  </p>
 
-                    <p>
-                      <span className="font-medium">Subjects:</span>{" "}
-                      {tutor.subjects?.join(", ") || "—"}
-                    </p>
+                  <p>
+                    <span className="font-medium">Curricula:</span>{" "}
+                    {tutor.curricula?.join(", ") || "—"}
+                  </p>
 
+                  {tutor.hourly_rate ? (
                     <p>
-                      <span className="font-medium">Curricula:</span>{" "}
-                      {tutor.curricula?.join(", ") || "—"}
+                      <span className="font-medium">Rate:</span>{" "}
+                      ${tutor.hourly_rate}/hour
                     </p>
+                  ) : null}
+                </div>
 
-                    {tutor.hourly_rate ? (
-                      <p>
-                        <span className="font-medium">Rate:</span>{" "}
-                        ${tutor.hourly_rate}/hour
-                      </p>
-                    ) : null}
-                  </div>
-                </article>
-              );
-            })}
+                <Link
+                  href={`/tutors/${tutor.id}`}
+                  className="mt-5 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  View Profile & Book
+                </Link>
+              </article>
+            ))}
           </div>
         )}
       </section>
