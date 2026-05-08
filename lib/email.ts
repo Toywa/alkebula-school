@@ -449,3 +449,120 @@ export async function sendInvoiceEmail({
     };
   }
 }
+export async function sendTutorApprovedEmail({
+  tutorEmail,
+  tutorName,
+}: {
+  tutorEmail: string;
+  tutorName: string;
+}) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+    return {
+      success: false,
+      error: "Missing email configuration",
+    };
+  }
+
+  try {
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM,
+      to: tutorEmail,
+      replyTo: process.env.ADMIN_EMAIL || undefined,
+      subject: "Your Educator Application Has Been Approved",
+      html: `
+        <div style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+          <div style="max-width:680px;margin:0 auto;padding:32px 16px;">
+            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;">
+
+              <div style="padding:28px 32px;border-bottom:1px solid #e2e8f0;background:linear-gradient(to bottom,#ffffff,#f8fafc);">
+                <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:#64748b;font-weight:700;">
+                  The Alkebula School
+                </div>
+
+                <h1 style="margin:14px 0 0 0;font-size:32px;line-height:1.1;color:#0f172a;">
+                  Application Approved
+                </h1>
+
+                <p style="margin:16px 0 0 0;font-size:16px;line-height:1.7;color:#475569;">
+                  Congratulations ${tutorName}, your educator application has been approved.
+                </p>
+              </div>
+
+              <div style="padding:28px 32px;">
+
+                <p style="font-size:15px;line-height:1.8;color:#334155;">
+                  Your educator profile is now active on The Alkebula School platform.
+                </p>
+
+                <div style="margin:28px 0;padding:22px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+                  <p style="margin:0 0 12px 0;font-size:15px;font-weight:700;color:#0f172a;">
+                    Next Step
+                  </p>
+
+                  <p style="margin:0;font-size:15px;line-height:1.8;color:#475569;">
+                    Please create your educator account using the SAME email address you used during your application.
+                  </p>
+
+                  <div style="margin-top:22px;">
+                    <a
+                      href="https://alkebulaschool.com/auth/sign-up"
+                      style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;font-size:14px;"
+                    >
+                      Create Educator Account
+                    </a>
+                  </div>
+                </div>
+
+                <div style="margin-top:28px;">
+                  <p style="font-size:15px;line-height:1.8;color:#334155;">
+                    Once signed in, you will immediately gain access to:
+                  </p>
+
+                  <ul style="margin:16px 0 0 20px;color:#475569;line-height:1.9;">
+                    <li>Educator Dashboard</li>
+                    <li>Availability Scheduling</li>
+                    <li>Upcoming Lessons</li>
+                    <li>Earnings Tracking</li>
+                    <li>Student Bookings</li>
+                  </ul>
+                </div>
+
+              </div>
+
+              <div style="padding:22px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;">
+                <p style="margin:0;font-size:13px;line-height:1.7;color:#64748b;">
+                  The Alkebula School<br/>
+                  Extraordinary Learning. Proven Results.
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      `,
+    });
+
+    if (result.error) {
+      return {
+        success: false,
+        error:
+          typeof result.error.message === "string"
+            ? result.error.message
+            : "Approval email failed",
+      };
+    }
+
+    return {
+      success: true,
+      result,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Approval email failed",
+    };
+  }
+}

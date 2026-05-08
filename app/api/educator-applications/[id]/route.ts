@@ -1,38 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-import { sendInterviewScheduledEmail } from "@/lib/email";
-
-const ADMIN_ALLOWED_EMAILS = [
-  "sunscapecars@gmail.com",
-  "davidmusilah@gmail.com",
-];
-
-async function getAuthClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch {
-            // safe to ignore
-          }
-        },
-      },
-    }
-  );
-}
+import { sendInterviewScheduledEmail, sendTutorApprovedEmail } from "@/lib/email";
 
 function getAdminClient() {
   return createClient(
@@ -47,37 +15,11 @@ function getAdminClient() {
   );
 }
 
-async function requireAdmin() {
-  const supabase = await getAuthClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return {
-      ok: false,
-      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    };
-  }
-
-  const email = user.email?.toLowerCase() || "";
-
-  if (!ADMIN_ALLOWED_EMAILS.includes(email)) {
-    return {
-      ok: false,
-      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
-    };
-  }
-
-  return { ok: true };
-}
-
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-    const supabase = getAdminClient();
+  const supabase = getAdminClient();
   const body = await request.json();
 
   const { data: application, error: fetchError } = await supabase
@@ -128,7 +70,15 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({ success: true });
+    const emailResult = await sendTutorApprovedEmail({
+      tutorEmail: application.email,
+      tutorName: application.full_name,
+    });
+
+    return NextResponse.json({
+      success: true,
+      emailResult,
+    });
   }
 
   if (body.action === "reject") {
