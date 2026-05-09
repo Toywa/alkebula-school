@@ -6,28 +6,289 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 const PROFILE_MAX_FILE_SIZE = 5 * 1024 * 1024;
 const DOCUMENT_MAX_FILE_SIZE = 10 * 1024 * 1024;
 
+type SubjectRate = {
+  curriculum_level: string;
+  subject: string;
+  hourly_rate: number;
+};
+
+const SUBJECT_CATEGORIES = [
+  {
+    label: "KEY STAGE 3 (KS3)",
+    subjects: [
+      "English Language",
+      "English Literature",
+      "French",
+      "Spanish",
+      "German",
+      "Mandarin Chinese",
+      "Arabic",
+      "Swahili",
+      "Mathematics",
+      "Further Mathematics",
+      "Computer Science",
+      "ICT",
+      "Digital Literacy",
+      "General Science",
+      "Biology",
+      "Chemistry",
+      "Physics",
+      "Environmental Science",
+      "Geography",
+      "History",
+      "Religious Studies",
+      "Global Perspectives",
+      "Citizenship",
+      "Philosophy",
+      "Economics",
+      "Business Studies",
+    ],
+  },
+  {
+    label: "CAMBRIDGE IGCSE",
+    subjects: [
+      "Biology",
+      "Chemistry",
+      "Physics",
+      "Combined Science",
+      "Environmental Management",
+      "Mathematics",
+      "Additional Mathematics",
+      "Computer Science",
+      "ICT",
+      "Statistics",
+      "Accounting",
+      "Business Studies",
+      "Economics",
+      "Geography",
+      "History",
+      "Psychology",
+      "Sociology",
+      "English First Language",
+      "English Literature",
+      "French",
+      "Spanish",
+      "German",
+      "Arabic",
+      "Swahili",
+      "Chinese",
+      "Art & Design",
+      "Drama",
+      "Music",
+      "Physical Education",
+    ],
+  },
+  {
+    label: "EDEXCEL INTERNATIONAL GCSE",
+    subjects: [
+      "Biology",
+      "Chemistry",
+      "Physics",
+      "Human Biology",
+      "Mathematics A",
+      "Mathematics B",
+      "Further Pure Mathematics",
+      "Computer Science",
+      "ICT",
+      "Accounting",
+      "Business",
+      "Economics",
+      "Geography",
+      "History",
+      "English Language A",
+      "English Literature",
+      "French",
+      "Spanish",
+      "German",
+      "Arabic",
+      "Chinese",
+      "Swahili",
+    ],
+  },
+  {
+    label: "CAMBRIDGE INTERNATIONAL A LEVELS",
+    subjects: [
+      "Biology",
+      "Chemistry",
+      "Physics",
+      "Marine Science",
+      "Mathematics",
+      "Further Mathematics",
+      "Computer Science",
+      "Information Technology",
+      "Accounting",
+      "Business",
+      "Economics",
+      "Geography",
+      "History",
+      "Law",
+      "Psychology",
+      "Sociology",
+      "English Language",
+      "English Literature",
+      "French",
+      "German",
+      "Spanish",
+      "Arabic",
+      "Art & Design",
+      "Drama",
+      "Music",
+    ],
+  },
+  {
+    label: "EDEXCEL INTERNATIONAL A LEVELS",
+    subjects: [
+      "Biology",
+      "Chemistry",
+      "Physics",
+      "Mathematics",
+      "Further Mathematics",
+      "Information Technology",
+      "Computer Science",
+      "Accounting",
+      "Business",
+      "Economics",
+      "Geography",
+      "History",
+      "Law",
+      "Psychology",
+      "English Language",
+      "English Literature",
+      "French",
+      "German",
+      "Spanish",
+      "Arabic",
+    ],
+  },
+  {
+    label: "IB MIDDLE YEARS PROGRAMME (IB MYP)",
+    subjects: [
+      "English Language & Literature",
+      "Arabic Language & Literature",
+      "French Language & Literature",
+      "English Acquisition",
+      "French Acquisition",
+      "Spanish Acquisition",
+      "Mathematics",
+      "Extended Mathematics",
+      "Integrated Sciences",
+      "Biology",
+      "Chemistry",
+      "Physics",
+      "History",
+      "Geography",
+      "Economics",
+      "Global Politics",
+      "Visual Arts",
+      "Music",
+      "Drama",
+      "Film Studies",
+    ],
+  },
+  {
+    label: "IB DIPLOMA — STANDARD LEVEL (IB SL)",
+    subjects: [
+      "Language A: Literature",
+      "Language A: Language & Literature",
+      "Business Management",
+      "Economics",
+      "Geography",
+      "History",
+      "Psychology",
+      "Biology",
+      "Chemistry",
+      "Physics",
+      "Computer Science",
+      "Mathematics: Analysis & Approaches",
+      "Mathematics: Applications & Interpretation",
+    ],
+  },
+  {
+    label: "IB DIPLOMA — HIGHER LEVEL (IB HL)",
+    subjects: [
+      "Language A: Literature",
+      "Language A: Language & Literature",
+      "Business Management",
+      "Economics",
+      "Geography",
+      "History",
+      "Psychology",
+      "Biology",
+      "Chemistry",
+      "Physics",
+      "Computer Science",
+      "Mathematics: Analysis & Approaches",
+      "Mathematics: Applications & Interpretation",
+    ],
+  },
+];
+
 export default function TutorApplyPage() {
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [curricula, setCurricula] = useState<string[]>([]);
+  const [subjectRates, setSubjectRates] = useState<SubjectRate[]>([]);
 
-  function toggleValue(
-    value: string,
-    values: string[],
-    setter: (values: string[]) => void,
-    max?: number
-  ) {
-    if (values.includes(value)) {
-      setter(values.filter((v) => v !== value));
+  function isSelected(curriculumLevel: string, subject: string) {
+    return subjectRates.some(
+      (item) =>
+        item.curriculum_level === curriculumLevel && item.subject === subject
+    );
+  }
+
+  function selectedCountForCategory(curriculumLevel: string) {
+    return subjectRates.filter(
+      (item) => item.curriculum_level === curriculumLevel
+    ).length;
+  }
+
+  function toggleSubject(curriculumLevel: string, subject: string) {
+    const alreadySelected = isSelected(curriculumLevel, subject);
+
+    if (alreadySelected) {
+      setSubjectRates((prev) =>
+        prev.filter(
+          (item) =>
+            !(
+              item.curriculum_level === curriculumLevel &&
+              item.subject === subject
+            )
+        )
+      );
       return;
     }
 
-    if (max && values.length >= max) return;
+    if (selectedCountForCategory(curriculumLevel) >= 2) {
+      setErrorMessage(
+        `You can select a maximum of 2 subjects under ${curriculumLevel}.`
+      );
+      return;
+    }
 
-    setter([...values, value]);
+    setErrorMessage("");
+    setSubjectRates((prev) => [
+      ...prev,
+      {
+        curriculum_level: curriculumLevel,
+        subject,
+        hourly_rate: 0,
+      },
+    ]);
+  }
+
+  function updateSubjectRate(
+    curriculumLevel: string,
+    subject: string,
+    hourlyRate: number
+  ) {
+    setSubjectRates((prev) =>
+      prev.map((item) =>
+        item.curriculum_level === curriculumLevel && item.subject === subject
+          ? { ...item, hourly_rate: hourlyRate }
+          : item
+      )
+    );
   }
 
   function getFile(formData: FormData, name: string) {
@@ -86,12 +347,20 @@ export default function TutorApplyPage() {
       const form = e.currentTarget;
       const formData = new FormData(form);
 
-      if (subjects.length < 1 || subjects.length > 2) {
-        throw new Error("Please choose 1 or 2 subjects.");
+      if (subjectRates.length < 1) {
+        throw new Error(
+          "Please select at least one subject and provide its hourly rate."
+        );
       }
 
-      if (curricula.length < 1) {
-        throw new Error("Please choose at least one curriculum.");
+      const invalidRate = subjectRates.find(
+        (item) => !item.hourly_rate || Number(item.hourly_rate) <= 0
+      );
+
+      if (invalidRate) {
+        throw new Error(
+          `Please enter a valid USD hourly rate for ${invalidRate.subject} under ${invalidRate.curriculum_level}.`
+        );
       }
 
       const profilePhoto = getFile(formData, "profile_photo");
@@ -183,18 +452,31 @@ export default function TutorApplyPage() {
         "educator-documents"
       );
 
+      const derivedSubjects = Array.from(
+        new Set(subjectRates.map((item) => item.subject))
+      );
+
+      const derivedCurricula = Array.from(
+        new Set(subjectRates.map((item) => item.curriculum_level))
+      );
+
+      const lowestHourlyRate = Math.min(
+        ...subjectRates.map((item) => Number(item.hourly_rate))
+      );
+
       const payload = {
         full_name: String(formData.get("full_name") || "").trim(),
         email: String(formData.get("email") || "").trim(),
         phone: String(formData.get("phone") || "").trim(),
         city: String(formData.get("city") || "").trim(),
-        hourly_rate: Number(formData.get("hourly_rate") || 0),
+        hourly_rate: lowestHourlyRate,
         proposed_public_bio: String(
           formData.get("proposed_public_bio") || ""
         ).trim(),
 
-        subjects,
-        curricula,
+        subjects: derivedSubjects,
+        curricula: derivedCurricula,
+        subject_rates: subjectRates,
 
         referee_1_name: String(formData.get("referee_1_name") || "").trim(),
         referee_1_email: String(formData.get("referee_1_email") || "").trim(),
@@ -232,8 +514,7 @@ export default function TutorApplyPage() {
       setMessage("Application submitted successfully. Admin will review it.");
       setSubmitted(true);
       form.reset();
-      setSubjects([]);
-      setCurricula([]);
+      setSubjectRates([]);
     } catch (error) {
       setMessage("");
       setErrorMessage(
@@ -246,7 +527,7 @@ export default function TutorApplyPage() {
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
-      <section className="mx-auto max-w-5xl px-6 py-16 lg:px-8 lg:py-20">
+      <section className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
         <h1 className="text-4xl font-bold">Tutor Application</h1>
 
         <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">
@@ -273,8 +554,10 @@ export default function TutorApplyPage() {
         ) : (
           <>
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-slate-700">
-              <p className="font-semibold text-slate-900">Upload guidance</p>
+              <p className="font-semibold text-slate-900">Application guidance</p>
               <p className="mt-1">
+                Select up to <strong>2 subjects per curriculum category</strong>.
+                Enter a separate <strong>USD hourly rate</strong> for each subject.
                 Profile photo should be below <strong>5MB</strong>. CV and
                 certificates should each be below <strong>10MB</strong>.
               </p>
@@ -310,22 +593,6 @@ export default function TutorApplyPage() {
                   className="rounded-xl border border-slate-300 px-4 py-3"
                   required
                 />
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium">
-                    Proposed Hourly Rate (USD)
-                  </label>
-
-                  <input
-                    name="hourly_rate"
-                    type="number"
-                    min="0"
-                    step="1"
-                    placeholder="Example: 25"
-                    className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                    required
-                  />
-                </div>
               </div>
 
               <div>
@@ -341,53 +608,90 @@ export default function TutorApplyPage() {
                 />
               </div>
 
-              <div className="grid gap-6 md:grid-cols-2">
-                <div>
-                  <p className="mb-3 text-sm font-medium">Choose 1 or 2 subjects</p>
-                  <div className="space-y-2">
-                    {[
-                      "Mathematics",
-                      "English",
-                      "Biology",
-                      "Chemistry",
-                      "Physics",
-                      "Geography",
-                      "History",
-                      "Economics",
-                      "Business Studies",
-                      "Computer Science",
-                    ].map((subject) => (
-                      <label
-                        key={subject}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={subjects.includes(subject)}
-                          onChange={() =>
-                            toggleValue(subject, subjects, setSubjects, 2)
-                          }
-                        />
-                        {subject}
-                      </label>
-                    ))}
-                  </div>
-                </div>
+              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                <h2 className="text-2xl font-semibold">
+                  Subjects & Hourly Rates
+                </h2>
 
-                <div>
-                  <p className="mb-3 text-sm font-medium">Curriculum / curricula</p>
-                  <div className="space-y-2">
-                    {["Cambridge", "Edexcel", "A Levels", "IB"].map((item) => (
-                      <label key={item} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={curricula.includes(item)}
-                          onChange={() => toggleValue(item, curricula, setCurricula)}
-                        />
-                        {item}
-                      </label>
-                    ))}
-                  </div>
+                <p className="mt-2 text-sm text-slate-600">
+                  Select up to 2 subjects in each curriculum category. Each
+                  selected subject must have its own USD hourly rate.
+                </p>
+
+                <div className="mt-6 space-y-6">
+                  {SUBJECT_CATEGORIES.map((category) => (
+                    <div
+                      key={category.label}
+                      className="rounded-2xl border border-slate-200 bg-white p-5"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h3 className="text-lg font-semibold">
+                          {category.label}
+                        </h3>
+
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                          {selectedCountForCategory(category.label)}/2 selected
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        {category.subjects.map((subject) => {
+                          const selected = isSelected(category.label, subject);
+                          const selectedItem = subjectRates.find(
+                            (item) =>
+                              item.curriculum_level === category.label &&
+                              item.subject === subject
+                          );
+
+                          return (
+                            <div
+                              key={`${category.label}-${subject}`}
+                              className={`rounded-xl border p-4 ${
+                                selected
+                                  ? "border-slate-900 bg-slate-50"
+                                  : "border-slate-200 bg-white"
+                              }`}
+                            >
+                              <label className="flex items-start gap-3 text-sm">
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() =>
+                                    toggleSubject(category.label, subject)
+                                  }
+                                  className="mt-1"
+                                />
+                                <span className="font-medium">{subject}</span>
+                              </label>
+
+                              {selected ? (
+                                <div className="mt-3">
+                                  <label className="mb-1 block text-xs font-medium text-slate-600">
+                                    Hourly rate for this subject (USD)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    value={selectedItem?.hourly_rate || ""}
+                                    onChange={(e) =>
+                                      updateSubjectRate(
+                                        category.label,
+                                        subject,
+                                        Number(e.target.value)
+                                      )
+                                    }
+                                    placeholder="Example: 25"
+                                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                                  />
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 
