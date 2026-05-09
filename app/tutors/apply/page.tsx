@@ -10,6 +10,7 @@ export default function TutorApplyPage() {
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [curricula, setCurricula] = useState<string[]>([]);
 
@@ -229,6 +230,7 @@ export default function TutorApplyPage() {
       }
 
       setMessage("Application submitted successfully. Admin will review it.");
+      setSubmitted(true);
       form.reset();
       setSubjects([]);
       setCurricula([]);
@@ -252,271 +254,294 @@ export default function TutorApplyPage() {
           publicly and allowed to publish bookable availability.
         </p>
 
-        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-slate-700">
-          <p className="font-semibold text-slate-900">Upload guidance</p>
-          <p className="mt-1">
-            Profile photo should be below <strong>5MB</strong>. CV and
-            certificates should each be below <strong>10MB</strong>.
-          </p>
-        </div>
+        {submitted ? (
+          <div className="mt-10 rounded-3xl border border-green-200 bg-green-50 p-8">
+            <h2 className="text-2xl font-bold text-green-800">
+              Application Submitted Successfully
+            </h2>
 
-        <form onSubmit={handleSubmit} className="mt-10 space-y-8">
-          <div className="grid gap-6 md:grid-cols-2">
-            <input
-              name="full_name"
-              placeholder="Full name"
-              className="rounded-xl border border-slate-300 px-4 py-3"
-              required
-            />
+            <p className="mt-4 leading-7 text-green-700">
+              Thank you for applying to join The Alkebula School educator
+              network. Our academic team will review your application and contact
+              you if your profile is shortlisted for the next stage.
+            </p>
 
-            <input
-              name="email"
-              type="email"
-              placeholder="Email"
-              className="rounded-xl border border-slate-300 px-4 py-3"
-              required
-            />
-
-            <input
-              name="phone"
-              placeholder="Phone number"
-              className="rounded-xl border border-slate-300 px-4 py-3"
-              required
-            />
-
-            <input
-              name="city"
-              placeholder="City"
-              className="rounded-xl border border-slate-300 px-4 py-3"
-              required
-            />
-
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Proposed Hourly Rate (USD)
-              </label>
-
-              <input
-                name="hourly_rate"
-                type="number"
-                min="0"
-                step="1"
-                placeholder="Example: 25"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                required
-              />
-            </div>
+            <p className="mt-4 text-sm text-green-700">
+              You may now safely close this page.
+            </p>
           </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium">
-              Proposed public bio (max 100 characters)
-            </label>
-            <input
-              name="proposed_public_bio"
-              maxLength={100}
-              placeholder="Short public bio"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              required
-            />
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <div>
-              <p className="mb-3 text-sm font-medium">Choose 1 or 2 subjects</p>
-              <div className="space-y-2">
-                {[
-                  "Mathematics",
-                  "English",
-                  "Biology",
-                  "Chemistry",
-                  "Physics",
-                  "Geography",
-                  "History",
-                  "Economics",
-                  "Business Studies",
-                  "Computer Science",
-                ].map((subject) => (
-                  <label key={subject} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={subjects.includes(subject)}
-                      onChange={() =>
-                        toggleValue(subject, subjects, setSubjects, 2)
-                      }
-                    />
-                    {subject}
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-3 text-sm font-medium">Curriculum / curricula</p>
-              <div className="space-y-2">
-                {["Cambridge", "Edexcel", "A Levels", "IB"].map((item) => (
-                  <label key={item} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={curricula.includes(item)}
-                      onChange={() => toggleValue(item, curricula, setCurricula)}
-                    />
-                    {item}
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                Profile Picture
-              </label>
-              <p className="mb-2 text-xs text-slate-500">
-                JPG or PNG only. Maximum file size: 5MB.
+        ) : (
+          <>
+            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-slate-700">
+              <p className="font-semibold text-slate-900">Upload guidance</p>
+              <p className="mt-1">
+                Profile photo should be below <strong>5MB</strong>. CV and
+                certificates should each be below <strong>10MB</strong>.
               </p>
-              <input
-                name="profile_photo"
-                type="file"
-                accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                required
-              />
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium">CV</label>
-              <p className="mb-2 text-xs text-slate-500">
-                PDF, DOC, or DOCX only. Maximum file size: 10MB.
-              </p>
-              <input
-                name="cv_file"
-                type="file"
-                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                University Degree / Diploma Certificate
-              </label>
-              <p className="mb-2 text-xs text-slate-500">
-                PDF, JPG, or PNG only. Maximum file size: 10MB.
-              </p>
-              <input
-                name="degree_certificate"
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium">
-                High School Certificate
-              </label>
-              <p className="mb-2 text-xs text-slate-500">
-                PDF, JPG, or PNG only. Maximum file size: 10MB.
-              </p>
-              <input
-                name="high_school_certificate"
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-2xl border border-slate-200 p-5">
-              <h2 className="font-semibold">Professional Referee 1</h2>
-              <div className="mt-4 space-y-3">
+            <form onSubmit={handleSubmit} className="mt-10 space-y-8">
+              <div className="grid gap-6 md:grid-cols-2">
                 <input
-                  name="referee_1_name"
-                  placeholder="Name"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                  name="full_name"
+                  placeholder="Full name"
+                  className="rounded-xl border border-slate-300 px-4 py-3"
                   required
                 />
+
                 <input
-                  name="referee_1_email"
+                  name="email"
                   type="email"
                   placeholder="Email"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                  className="rounded-xl border border-slate-300 px-4 py-3"
                   required
                 />
+
                 <input
-                  name="referee_1_phone"
-                  placeholder="Phone"
+                  name="phone"
+                  placeholder="Phone number"
+                  className="rounded-xl border border-slate-300 px-4 py-3"
+                  required
+                />
+
+                <input
+                  name="city"
+                  placeholder="City"
+                  className="rounded-xl border border-slate-300 px-4 py-3"
+                  required
+                />
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Proposed Hourly Rate (USD)
+                  </label>
+
+                  <input
+                    name="hourly_rate"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="Example: 25"
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">
+                  Proposed public bio (max 150 characters)
+                </label>
+                <input
+                  name="proposed_public_bio"
+                  maxLength={150}
+                  placeholder="Short public bio"
                   className="w-full rounded-xl border border-slate-300 px-4 py-3"
                   required
                 />
               </div>
-            </div>
 
-            <div className="rounded-2xl border border-slate-200 p-5">
-              <h2 className="font-semibold">Professional Referee 2</h2>
-              <div className="mt-4 space-y-3">
-                <input
-                  name="referee_2_name"
-                  placeholder="Name"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                  required
-                />
-                <input
-                  name="referee_2_email"
-                  type="email"
-                  placeholder="Email"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                  required
-                />
-                <input
-                  name="referee_2_phone"
-                  placeholder="Phone"
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3"
-                  required
-                />
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <p className="mb-3 text-sm font-medium">Choose 1 or 2 subjects</p>
+                  <div className="space-y-2">
+                    {[
+                      "Mathematics",
+                      "English",
+                      "Biology",
+                      "Chemistry",
+                      "Physics",
+                      "Geography",
+                      "History",
+                      "Economics",
+                      "Business Studies",
+                      "Computer Science",
+                    ].map((subject) => (
+                      <label
+                        key={subject}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={subjects.includes(subject)}
+                          onChange={() =>
+                            toggleValue(subject, subjects, setSubjects, 2)
+                          }
+                        />
+                        {subject}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-3 text-sm font-medium">Curriculum / curricula</p>
+                  <div className="space-y-2">
+                    {["Cambridge", "Edexcel", "A Levels", "IB"].map((item) => (
+                      <label key={item} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={curricula.includes(item)}
+                          onChange={() => toggleValue(item, curricula, setCurricula)}
+                        />
+                        {item}
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <div className="space-y-3 rounded-2xl border border-slate-200 p-5">
-            <label className="flex items-center gap-3 text-sm">
-              <input name="declaration_no_criminal_past" type="checkbox" />I
-              declare that I have no criminal past.
-            </label>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    Profile Picture
+                  </label>
+                  <p className="mb-2 text-xs text-slate-500">
+                    JPG or PNG only. Maximum file size: 5MB.
+                  </p>
+                  <input
+                    name="profile_photo"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                    required
+                  />
+                </div>
 
-            <label className="flex items-center gap-3 text-sm">
-              <input name="declaration_internet_15mbps" type="checkbox" />I
-              declare that I have at least 15 mbps internet connection.
-            </label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">CV</label>
+                  <p className="mb-2 text-xs text-slate-500">
+                    PDF, DOC, or DOCX only. Maximum file size: 10MB.
+                  </p>
+                  <input
+                    name="cv_file"
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                    required
+                  />
+                </div>
 
-            <label className="flex items-center gap-3 text-sm">
-              <input name="declaration_has_i5_laptop" type="checkbox" />I
-              declare that I have at least an i5 laptop.
-            </label>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    University Degree / Diploma Certificate
+                  </label>
+                  <p className="mb-2 text-xs text-slate-500">
+                    PDF, JPG, or PNG only. Maximum file size: 10MB.
+                  </p>
+                  <input
+                    name="degree_certificate"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                    required
+                  />
+                </div>
 
-            <label className="flex items-center gap-3 text-sm">
-              <input name="declaration_information_true" type="checkbox" />I
-              commit that all submitted information is correct and true.
-            </label>
-          </div>
+                <div>
+                  <label className="mb-2 block text-sm font-medium">
+                    High School Certificate
+                  </label>
+                  <p className="mb-2 text-xs text-slate-500">
+                    PDF, JPG, or PNG only. Maximum file size: 10MB.
+                  </p>
+                  <input
+                    name="high_school_certificate"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                    className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                    required
+                  />
+                </div>
+              </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? "Submitting..." : "Submit Application"}
-          </button>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 p-5">
+                  <h2 className="font-semibold">Professional Referee 1</h2>
+                  <div className="mt-4 space-y-3">
+                    <input
+                      name="referee_1_name"
+                      placeholder="Name"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                      required
+                    />
+                    <input
+                      name="referee_1_email"
+                      type="email"
+                      placeholder="Email"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                      required
+                    />
+                    <input
+                      name="referee_1_phone"
+                      placeholder="Phone"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                      required
+                    />
+                  </div>
+                </div>
 
-          {message ? <p className="text-green-600">{message}</p> : null}
-          {errorMessage ? <p className="text-red-600">{errorMessage}</p> : null}
-        </form>
+                <div className="rounded-2xl border border-slate-200 p-5">
+                  <h2 className="font-semibold">Professional Referee 2</h2>
+                  <div className="mt-4 space-y-3">
+                    <input
+                      name="referee_2_name"
+                      placeholder="Name"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                      required
+                    />
+                    <input
+                      name="referee_2_email"
+                      type="email"
+                      placeholder="Email"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                      required
+                    />
+                    <input
+                      name="referee_2_phone"
+                      placeholder="Phone"
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 rounded-2xl border border-slate-200 p-5">
+                <label className="flex items-center gap-3 text-sm">
+                  <input name="declaration_no_criminal_past" type="checkbox" />I
+                  declare that I have no criminal past.
+                </label>
+
+                <label className="flex items-center gap-3 text-sm">
+                  <input name="declaration_internet_15mbps" type="checkbox" />I
+                  declare that I have at least 15 mbps internet connection.
+                </label>
+
+                <label className="flex items-center gap-3 text-sm">
+                  <input name="declaration_has_i5_laptop" type="checkbox" />I
+                  declare that I have at least an i5 laptop.
+                </label>
+
+                <label className="flex items-center gap-3 text-sm">
+                  <input name="declaration_information_true" type="checkbox" />I
+                  commit that all submitted information is correct and true.
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {loading ? "Submitting..." : "Submit Application"}
+              </button>
+
+              {message ? <p className="text-green-600">{message}</p> : null}
+              {errorMessage ? <p className="text-red-600">{errorMessage}</p> : null}
+            </form>
+          </>
+        )}
       </section>
     </main>
   );
