@@ -1,35 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
-
-const ADMIN_ALLOWED_EMAILS = [
-  "sunscapecars@gmail.com",
-  "davidmusilah@gmail.com",
-];
-
-async function getAuthClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch {}
-        },
-      },
-    }
-  );
-}
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -47,30 +17,34 @@ function getAdminClient() {
   });
 }
 
-async function requireAdmin() {
-  const supabase = await getAuthClient();
+type SubjectRate = {
+  curriculum_level: string;
+  subject: string;
+  hourly_rate: number;
+};
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+function normalizeSubjectRates(value: unknown): SubjectRate[] {
+  if (!Array.isArray(value)) return [];
 
-  if (!user) {
-    return {
-      ok: false,
-      response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
-    };
-  }
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
 
-  const email = user.email?.toLowerCase() || "";
+      const record = item as Record<string, unknown>;
 
-  if (!ADMIN_ALLOWED_EMAILS.includes(email)) {
-    return {
-      ok: false,
-      response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
-    };
-  }
+      const curriculumLevel = String(record.curriculum_level || "").trim();
+      const subject = String(record.subject || "").trim();
+      const hourlyRate = Number(record.hourly_rate || 0);
 
-  return { ok: true };
+      if (!curriculumLevel || !subject || hourlyRate <= 0) return null;
+
+      return {
+        curriculum_level: curriculumLevel,
+        subject,
+        hourly_rate: hourlyRate,
+      };
+    })
+    .filter(Boolean) as SubjectRate[];
 }
 
 export async function GET() {
@@ -98,10 +72,12 @@ export async function POST(req: Request) {
       email,
       phone,
       city,
-hourly_rate,
-proposed_public_bio,
+      hourly_rate,
+      proposed_public_bio,
+
       subjects,
       curricula,
+      subject_rates,
 
       referee_1_name,
       referee_1_email,
@@ -121,6 +97,8 @@ proposed_public_bio,
       declaration_has_i5_laptop,
       declaration_information_true,
     } = body;
+
+    const cleanedSubjectRates = normalizeSubjectRates(subject_rates);
 
     if (
       !full_name ||
@@ -144,23 +122,42 @@ proposed_public_bio,
       );
     }
 
-    if (proposed_public_bio && proposed_public_bio.length > 100) {
+    if (proposed_public_bio && proposed_public_bio.length > 150) {
       return NextResponse.json(
-        { error: "Proposed public bio must not exceed 100 characters." },
+        { error: "Proposed public bio must not exceed 150 characters." },
         { status: 400 }
       );
     }
 
-    if (!subjects || subjects.length < 1 || subjects.length > 2) {
+    if (cleanedSubjectRates.length < 1) {
       return NextResponse.json(
-        { error: "Please select 1 or 2 subjects." },
+        {
+          error:
+            "Please select at least one subject and provide its hourly rate.",
+        },
         { status: 400 }
       );
     }
 
-    if (!curricula || curricula.length < 1) {
+    const categoryCounts = cleanedSubjectRates.reduce<Record<string, number>>(
+      (counts, item) => {
+        counts[item.curriculum_level] =
+          (counts[item.curriculum_level] || 0) + 1;
+        return counts;
+      },
+      {}
+    );
+
+    const categoryOverLimit = Object.entries(categoryCounts).find(
+      ([, count]) => count > 2
+    );
+
+    if (categoryOverLimit) {
       return NextResponse.json(
-        { error: "Please select at least one curriculum." },
+        {
+          error:
+            "Please select a maximum of 2 subjects per curriculum category.",
+        },
         { status: 400 }
       );
     }
@@ -177,6 +174,18 @@ proposed_public_bio,
       );
     }
 
+    const derivedSubjects = Array.from(
+      new Set(cleanedSubjectRates.map((item) => item.subject))
+    );
+
+    const derivedCurricula = Array.from(
+      new Set(cleanedSubjectRates.map((item) => item.curriculum_level))
+    );
+
+    const lowestHourlyRate = Math.min(
+      ...cleanedSubjectRates.map((item) => Number(item.hourly_rate))
+    );
+
     const { data, error } = await supabase
       .from("educator_applications")
       .insert({
@@ -184,10 +193,17 @@ proposed_public_bio,
         email,
         phone,
         city,
-hourly_rate,
-proposed_public_bio,
-        subjects,
-        curricula,
+
+        hourly_rate: Number(hourly_rate || lowestHourlyRate || 0),
+        proposed_public_bio,
+
+        subjects: Array.isArray(subjects) && subjects.length > 0 ? subjects : derivedSubjects,
+        curricula:
+          Array.isArray(curricula) && curricula.length > 0
+            ? curricula
+            : derivedCurricula,
+
+        subject_rates: cleanedSubjectRates,
 
         referee_1_name,
         referee_1_email,
@@ -224,8 +240,7 @@ proposed_public_bio,
   } catch (error) {
     return NextResponse.json(
       {
-        error:
-          error instanceof Error ? error.message : "Application failed.",
+        error: error instanceof Error ? error.message : "Application failed.",
       },
       { status: 500 }
     );
