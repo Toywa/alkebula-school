@@ -3,6 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
+type SubjectRate = {
+  curriculum_level: string;
+  subject: string;
+  hourly_rate: number;
+};
+
 type Tutor = {
   id: string;
   email: string;
@@ -11,6 +17,7 @@ type Tutor = {
   city: string | null;
   subjects: string[] | null;
   curricula: string[] | null;
+  subject_rates?: SubjectRate[] | null;
   hourly_rate: number | null;
   profile_photo_url: string | null;
 };
@@ -34,8 +41,7 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
 
   const [parentEmail, setParentEmail] = useState("");
   const [studentName, setStudentName] = useState("");
-  const [subject, setSubject] = useState("");
-  const [curriculum, setCurriculum] = useState("");
+  const [selectedSubjectRateIndex, setSelectedSubjectRateIndex] = useState(0);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState("");
 
@@ -79,8 +85,6 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
       }
 
       setTutor(tutorData);
-      setSubject(tutorData.subjects?.[0] || "");
-      setCurriculum(tutorData.curricula?.[0] || "");
 
       const { data: slotData } = await supabase
         .from("tutor_availability_slots")
@@ -109,6 +113,20 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
     }
   }
 
+  const subjectRateOptions = useMemo(() => {
+    if (tutor?.subject_rates && tutor.subject_rates.length > 0) {
+      return tutor.subject_rates;
+    }
+
+    return (tutor?.subjects || []).map((subject) => ({
+      curriculum_level: tutor?.curricula?.[0] || "Not specified",
+      subject,
+      hourly_rate: Number(tutor?.hourly_rate || 0),
+    }));
+  }, [tutor]);
+
+  const selectedSubjectRate = subjectRateOptions[selectedSubjectRateIndex];
+
   const availableDates = useMemo(() => {
     return Array.from(new Set(slots.map((slot) => slot.date).filter(Boolean)));
   }, [slots]);
@@ -125,6 +143,7 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
 
     try {
       if (!tutor) throw new Error("Tutor profile missing.");
+      if (!selectedSubjectRate) throw new Error("Please select a subject package.");
 
       const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
 
@@ -141,8 +160,9 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
           parentEmail,
           tutorEmail: tutor.email,
           studentName,
-          subject,
-          curriculum,
+          subject: selectedSubjectRate.subject,
+          curriculum: selectedSubjectRate.curriculum_level,
+          hourlyRate: selectedSubjectRate.hourly_rate,
           date: selectedSlot.date,
           time: `${selectedSlot.start_time}-${selectedSlot.end_time}`,
           slotId: selectedSlot.id,
@@ -208,7 +228,11 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
               {tutor.city || "Available online"}
             </p>
 
-            {tutor.hourly_rate ? (
+            {subjectRateOptions.length > 0 ? (
+              <p className="mt-4 text-sm text-slate-600">
+                Rates vary by subject and curriculum.
+              </p>
+            ) : tutor.hourly_rate ? (
               <p className="mt-4 text-lg font-semibold">
                 USD {tutor.hourly_rate}/hour
               </p>
@@ -226,20 +250,35 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
               {tutor.bio || "Approved Alkebula School educator."}
             </p>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 p-5">
-                <p className="font-semibold">Subjects</p>
-                <p className="mt-2 text-slate-600">
-                  {tutor.subjects?.join(", ") || "—"}
-                </p>
-              </div>
+            <div className="mt-6 rounded-2xl border border-slate-200 p-5">
+              <p className="font-semibold">Available Subject Packages</p>
 
-              <div className="rounded-2xl border border-slate-200 p-5">
-                <p className="font-semibold">Curricula</p>
-                <p className="mt-2 text-slate-600">
-                  {tutor.curricula?.join(", ") || "—"}
-                </p>
-              </div>
+              {subjectRateOptions.length === 0 ? (
+                <p className="mt-2 text-slate-600">No subject rates listed.</p>
+              ) : (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {subjectRateOptions.map((item, index) => (
+                    <button
+                      key={`${item.curriculum_level}-${item.subject}-${index}`}
+                      type="button"
+                      onClick={() => setSelectedSubjectRateIndex(index)}
+                      className={`rounded-xl border p-4 text-left text-sm transition ${
+                        selectedSubjectRateIndex === index
+                          ? "border-slate-900 bg-slate-900 text-white"
+                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                      }`}
+                    >
+                      <span className="block font-semibold">{item.subject}</span>
+                      <span className="mt-1 block text-xs opacity-80">
+                        {item.curriculum_level}
+                      </span>
+                      <span className="mt-2 block font-bold">
+                        USD {item.hourly_rate}/hour
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <form
@@ -247,6 +286,19 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
               className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-6"
             >
               <h3 className="text-2xl font-semibold">Request Booking</h3>
+
+              {selectedSubjectRate ? (
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
+                  <p className="font-semibold">Selected Lesson</p>
+                  <p className="mt-1 text-slate-600">
+                    {selectedSubjectRate.subject} —{" "}
+                    {selectedSubjectRate.curriculum_level}
+                  </p>
+                  <p className="mt-2 font-bold">
+                    USD {selectedSubjectRate.hourly_rate}/hour
+                  </p>
+                </div>
+              ) : null}
 
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 <input
@@ -265,32 +317,6 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
                   className="rounded-xl border border-slate-300 px-4 py-3"
                   required
                 />
-
-                <select
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="rounded-xl border border-slate-300 px-4 py-3"
-                  required
-                >
-                  {(tutor.subjects || []).map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={curriculum}
-                  onChange={(e) => setCurriculum(e.target.value)}
-                  className="rounded-xl border border-slate-300 px-4 py-3"
-                  required
-                >
-                  {(tutor.curricula || []).map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <div className="mt-6">
@@ -351,7 +377,7 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
 
               <button
                 type="submit"
-                disabled={booking || slots.length === 0}
+                disabled={booking || slots.length === 0 || !selectedSubjectRate}
                 className="mt-6 rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
               >
                 {booking ? "Booking..." : "Book Lesson"}
