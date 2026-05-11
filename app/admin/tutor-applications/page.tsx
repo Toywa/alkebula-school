@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
+type SubjectRate = {
+  curriculum_level: string;
+  subject: string;
+  hourly_rate: number;
+};
+
 type Application = {
   id: string;
   full_name: string;
@@ -13,15 +19,23 @@ type Application = {
   proposed_public_bio: string;
   subjects: string[];
   curricula: string[];
+  subject_rates?: SubjectRate[] | null;
   status: string;
   created_at: string;
+
+  referee_1_name?: string | null;
+  referee_1_email?: string | null;
+  referee_1_phone?: string | null;
+  referee_2_name?: string | null;
+  referee_2_email?: string | null;
+  referee_2_phone?: string | null;
 
   profile_photo_url?: string | null;
   cv_url?: string | null;
   degree_certificate_url?: string | null;
   high_school_certificate_url?: string | null;
 
-  signed_profile_photo_url?: string | null;
+  public_profile_photo_url?: string | null;
   signed_cv_url?: string | null;
   signed_degree_certificate_url?: string | null;
   signed_high_school_certificate_url?: string | null;
@@ -33,6 +47,13 @@ type InterviewFormState = {
 };
 
 const ADMIN_ALLOWED_EMAILS = ["sunscapecars@gmail.com"];
+
+function getPublicProfilePhotoUrl(path?: string | null) {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
+}
 
 export default function TutorApplicationsAdminPage() {
   const [authorized, setAuthorized] = useState(false);
@@ -79,7 +100,7 @@ export default function TutorApplicationsAdminPage() {
     if (authorized) loadApplications();
   }, [authorized]);
 
-  async function createSignedUrl(path?: string | null) {
+  async function createDocumentSignedUrl(path?: string | null) {
     if (!path) return null;
 
     const supabase = getSupabaseBrowserClient();
@@ -114,12 +135,12 @@ export default function TutorApplicationsAdminPage() {
     const loadedApplications = await Promise.all(
       rawApplications.map(async (app) => ({
         ...app,
-        signed_profile_photo_url: await createSignedUrl(app.profile_photo_url),
-        signed_cv_url: await createSignedUrl(app.cv_url),
-        signed_degree_certificate_url: await createSignedUrl(
+        public_profile_photo_url: getPublicProfilePhotoUrl(app.profile_photo_url),
+        signed_cv_url: await createDocumentSignedUrl(app.cv_url),
+        signed_degree_certificate_url: await createDocumentSignedUrl(
           app.degree_certificate_url
         ),
-        signed_high_school_certificate_url: await createSignedUrl(
+        signed_high_school_certificate_url: await createDocumentSignedUrl(
           app.high_school_certificate_url
         ),
       }))
@@ -229,8 +250,8 @@ export default function TutorApplicationsAdminPage() {
         <h1 className="text-4xl font-bold">Tutor Applications</h1>
 
         <p className="mt-4 max-w-3xl text-slate-600">
-          Review tutor applications, schedule interviews, reject unsuitable
-          candidates, or approve educators for public listing.
+          Review tutor applications, uploaded documents, references, subject
+          rates, interview scheduling, and approval status.
         </p>
 
         {message ? <p className="mt-4 text-green-600">{message}</p> : null}
@@ -253,14 +274,14 @@ export default function TutorApplicationsAdminPage() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="flex gap-4">
-                    {app.signed_profile_photo_url ? (
+                    {app.public_profile_photo_url ? (
                       <img
-                        src={app.signed_profile_photo_url}
+                        src={app.public_profile_photo_url}
                         alt={app.full_name}
-                        className="h-24 w-24 rounded-2xl object-cover ring-1 ring-slate-200"
+                        className="h-28 w-28 rounded-2xl object-cover ring-1 ring-slate-200"
                       />
                     ) : (
-                      <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-slate-100 text-xs text-slate-500">
+                      <div className="flex h-28 w-28 items-center justify-center rounded-2xl bg-slate-100 text-xs text-slate-500">
                         No photo
                       </div>
                     )}
@@ -277,7 +298,7 @@ export default function TutorApplicationsAdminPage() {
                         City: {app.city || "—"}
                       </p>
                       <p className="text-sm text-slate-600">
-                        Proposed hourly rate:{" "}
+                        Base / lowest rate:{" "}
                         <span className="font-semibold">
                           {app.hourly_rate ? `$${app.hourly_rate}/hour` : "—"}
                         </span>
@@ -297,6 +318,13 @@ export default function TutorApplicationsAdminPage() {
                   </div>
 
                   <div>
+                    <span className="font-medium">Applied:</span>{" "}
+                    {app.created_at
+                      ? new Date(app.created_at).toLocaleString()
+                      : "—"}
+                  </div>
+
+                  <div>
                     <span className="font-medium">Subjects:</span>{" "}
                     {app.subjects?.join(", ") || "—"}
                   </div>
@@ -305,12 +333,56 @@ export default function TutorApplicationsAdminPage() {
                     <span className="font-medium">Curricula:</span>{" "}
                     {app.curricula?.join(", ") || "—"}
                   </div>
+                </div>
 
-                  <div>
-                    <span className="font-medium">Applied:</span>{" "}
-                    {app.created_at
-                      ? new Date(app.created_at).toLocaleString()
-                      : "—"}
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="font-semibold">Subject Rates</h3>
+
+                  {app.subject_rates && app.subject_rates.length > 0 ? (
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      {app.subject_rates.map((item, index) => (
+                        <div
+                          key={`${item.curriculum_level}-${item.subject}-${index}`}
+                          className="rounded-xl border border-slate-200 bg-white p-4 text-sm"
+                        >
+                          <p className="font-semibold">{item.subject}</p>
+                          <p className="mt-1 text-slate-600">
+                            {item.curriculum_level}
+                          </p>
+                          <p className="mt-2 font-semibold text-slate-900">
+                            USD {item.hourly_rate}/hour
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-600">
+                      No detailed subject rates saved.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="font-semibold">Professional References</h3>
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+                      <p className="font-semibold">Referee 1</p>
+                      <p className="mt-2">
+                        Name: {app.referee_1_name || "—"}
+                      </p>
+                      <p>Email: {app.referee_1_email || "—"}</p>
+                      <p>Phone: {app.referee_1_phone || "—"}</p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+                      <p className="font-semibold">Referee 2</p>
+                      <p className="mt-2">
+                        Name: {app.referee_2_name || "—"}
+                      </p>
+                      <p>Email: {app.referee_2_email || "—"}</p>
+                      <p>Phone: {app.referee_2_phone || "—"}</p>
+                    </div>
                   </div>
                 </div>
 
@@ -318,9 +390,9 @@ export default function TutorApplicationsAdminPage() {
                   <h3 className="font-semibold">Uploaded Documents</h3>
 
                   <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                    {app.signed_profile_photo_url ? (
+                    {app.public_profile_photo_url ? (
                       <a
-                        href={app.signed_profile_photo_url}
+                        href={app.public_profile_photo_url}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
