@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 
+type SubjectRate = {
+  curriculum_level: string;
+  subject: string;
+  hourly_rate: number;
+};
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -17,6 +23,14 @@ async function getProfileImageUrl(path?: string | null) {
     .createSignedUrl(path, 60 * 60);
 
   return data?.signedUrl || publicProfileUrl;
+}
+
+function getSubjectRateHighlights(subjectRates?: SubjectRate[] | null) {
+  if (!Array.isArray(subjectRates) || subjectRates.length === 0) {
+    return [];
+  }
+
+  return subjectRates.slice(0, 3);
 }
 
 export default async function TutorsPage() {
@@ -80,65 +94,93 @@ export default async function TutorsPage() {
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {tutorsWithImages.map((tutor) => (
-              <article
-                key={tutor.id || tutor.email}
-                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
-              >
-                <Link href={`/tutors/${tutor.id}`}>
-                  {tutor.imageUrl ? (
-                    <img
-                      src={tutor.imageUrl}
-                      alt={tutor.full_name}
-                      className="h-48 w-full rounded-xl object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-48 items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-500">
-                      No profile photo
-                    </div>
-                  )}
-                </Link>
+            {tutorsWithImages.map((tutor) => {
+              const highlights = getSubjectRateHighlights(tutor.subject_rates);
 
-                <h2 className="mt-5 text-xl font-semibold">
-                  {tutor.full_name}
-                </h2>
-
-                <p className="mt-2 text-sm leading-6 text-slate-600">
-                  {tutor.bio || "Approved Alkebula School educator."}
-                </p>
-
-                <div className="mt-4 space-y-2 text-sm text-slate-700">
-                  <p>
-                    <span className="font-medium">City:</span>{" "}
-                    {tutor.city || "Available online"}
-                  </p>
-
-                  <p>
-                    <span className="font-medium">Subjects:</span>{" "}
-                    {tutor.subjects?.join(", ") || "—"}
-                  </p>
-
-                  <p>
-                    <span className="font-medium">Curricula:</span>{" "}
-                    {tutor.curricula?.join(", ") || "—"}
-                  </p>
-
-                  {tutor.hourly_rate ? (
-                    <p>
-                      <span className="font-medium">Rate:</span>{" "}
-                      ${tutor.hourly_rate}/hour
-                    </p>
-                  ) : null}
-                </div>
-
-                <Link
-                  href={`/tutors/${tutor.id}`}
-                  className="mt-5 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              return (
+                <article
+                  key={tutor.id || tutor.email}
+                  className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
-                  View Profile & Book
-                </Link>
-              </article>
-            ))}
+                  <Link href={`/tutors/${tutor.id}`}>
+                    {tutor.imageUrl ? (
+                      <img
+                        src={tutor.imageUrl}
+                        alt={tutor.full_name}
+                        className="h-48 w-full rounded-xl object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-48 items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-500">
+                        No profile photo
+                      </div>
+                    )}
+                  </Link>
+
+                  <h2 className="mt-5 text-xl font-semibold">
+                    {tutor.full_name}
+                  </h2>
+
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {tutor.bio || "Approved Alkebula School educator."}
+                  </p>
+
+                  <div className="mt-4 space-y-2 text-sm text-slate-700">
+                    <p>
+                      <span className="font-medium">City:</span>{" "}
+                      {tutor.city || "Available online"}
+                    </p>
+
+                    {highlights.length > 0 ? (
+                      <div>
+                        <p className="font-medium">Popular Subjects:</p>
+                        <div className="mt-2 space-y-2">
+                          {highlights.map((item, index) => (
+                            <div
+                              key={`${item.curriculum_level}-${item.subject}-${index}`}
+                              className="rounded-xl bg-slate-50 p-3"
+                            >
+                              <p className="font-semibold">{item.subject}</p>
+                              <p className="text-xs text-slate-500">
+                                {item.curriculum_level}
+                              </p>
+                              <p className="mt-1 text-sm font-semibold">
+                                USD {item.hourly_rate}/hour
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p>
+                          <span className="font-medium">Subjects:</span>{" "}
+                          {tutor.subjects?.join(", ") || "—"}
+                        </p>
+
+                        <p>
+                          <span className="font-medium">Curricula:</span>{" "}
+                          {tutor.curricula?.join(", ") || "—"}
+                        </p>
+
+                        {tutor.hourly_rate ? (
+                          <p>
+                            <span className="font-medium">Rate:</span>{" "}
+                            ${tutor.hourly_rate}/hour
+                          </p>
+                        ) : null}
+                      </>
+                    )}
+                  </div>
+
+                  <Link
+                    href={`/tutors/${tutor.id}`}
+                    className="mt-5 inline-flex rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    View Profile & Book
+                  </Link>
+                </article>
+              );
+            })}
           </div>
         )}
       </section>
