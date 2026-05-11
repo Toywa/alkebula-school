@@ -41,6 +41,11 @@ function parseTimeRange(time: string) {
   };
 }
 
+function money(value: unknown) {
+  const amount = Number(value || 0);
+  return Number.isFinite(amount) ? amount : 0;
+}
+
 export async function GET() {
   return NextResponse.json({
     ok: true,
@@ -64,6 +69,7 @@ export async function POST(req: Request) {
       studentName,
       subject,
       curriculum,
+      hourlyRate,
       date,
       time,
       slotId,
@@ -80,7 +86,7 @@ export async function POST(req: Request) {
 
     const { data: tutorProfile, error: tutorError } = await supabase
       .from("educator_directory")
-      .select("email,hourly_rate")
+      .select("email,hourly_rate,subject_rates")
       .eq("email", normalizedTutorEmail)
       .eq("approval_status", "approved")
       .eq("is_public", true)
@@ -93,8 +99,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const hourlyRate = Number(tutorProfile.hourly_rate || 0);
-    const tutorAmountDue = hourlyRate * 0.7;
+    const requestedHourlyRate = money(hourlyRate);
+    const fallbackHourlyRate = money(tutorProfile.hourly_rate);
+    const finalHourlyRate =
+      requestedHourlyRate > 0 ? requestedHourlyRate : fallbackHourlyRate;
+
+    if (finalHourlyRate <= 0) {
+      return NextResponse.json(
+        { error: "A valid hourly rate is required for this booking." },
+        { status: 400 }
+      );
+    }
+
+    const lessonAmount = finalHourlyRate;
+    const platformCommission = lessonAmount * 0.3;
+    const tutorPayoutAmount = lessonAmount * 0.7;
+
     const { startTime, endTime } = parseTimeRange(String(time));
 
     const { data: booking, error: bookingError } = await supabase
@@ -110,6 +130,11 @@ export async function POST(req: Request) {
           time,
           status: "booked",
           slot_id: slotId || null,
+
+          hourly_rate: finalHourlyRate,
+          lesson_amount: lessonAmount,
+          platform_commission: platformCommission,
+          tutor_payout_amount: tutorPayoutAmount,
         },
       ])
       .select()
@@ -133,8 +158,13 @@ export async function POST(req: Request) {
           start_time: startTime,
           end_time: endTime,
           status: "upcoming",
-          hourly_rate: hourlyRate,
-          amount_due: tutorAmountDue,
+
+          hourly_rate: finalHourlyRate,
+          amount_due: tutorPayoutAmount,
+          lesson_amount: lessonAmount,
+          platform_commission: platformCommission,
+          tutor_payout_amount: tutorPayoutAmount,
+
           payment_status: "unpaid",
         },
       ])
@@ -157,7 +187,10 @@ export async function POST(req: Request) {
     if (slotId) {
       await supabase
         .from("tutor_availability_slots")
-        .update({ is_booked: true })
+        .update({
+          is_booked: true,
+          status: "booked",
+        })
         .eq("id", slotId);
     }
 
@@ -166,6 +199,7 @@ export async function POST(req: Request) {
       tutorEmail: normalizedTutorEmail,
       studentName,
       subject,
+      curriculum,
       date,
       time,
     });
@@ -174,6 +208,12 @@ export async function POST(req: Request) {
       success: true,
       booking,
       lesson,
+      pricing: {
+        hourlyRate: finalHourlyRate,
+        lessonAmount,
+        platformCommission,
+        tutorPayoutAmount,
+      },
       emailResult,
     });
   } catch (err) {
