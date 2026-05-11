@@ -14,7 +14,10 @@ type EducatorProfile = {
 
 function getImageUrl(path?: string | null) {
   if (!path) return null;
-  if (path.startsWith("http")) return path;
+
+  if (path.startsWith("http")) {
+    return path;
+  }
 
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
 }
@@ -60,7 +63,9 @@ export default function EducatorProfilePage() {
 
       const { data, error } = await supabase
         .from("educator_directory")
-        .select("email,full_name,profile_photo_url,profile_photo_updated_at")
+        .select(
+          "email,full_name,profile_photo_url,profile_photo_updated_at"
+        )
         .eq("email", user.email.toLowerCase())
         .eq("approval_status", "approved")
         .single();
@@ -72,7 +77,9 @@ export default function EducatorProfilePage() {
       setProfile(data);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Failed to load profile."
+        error instanceof Error
+          ? error.message
+          : "Failed to load educator profile."
       );
     } finally {
       setLoading(false);
@@ -85,7 +92,9 @@ export default function EducatorProfilePage() {
     setErrorMessage("");
 
     try {
-      if (!profile) throw new Error("Profile not loaded.");
+      if (!profile) {
+        throw new Error("Profile not loaded.");
+      }
 
       if (!["image/jpeg", "image/png"].includes(file.type)) {
         throw new Error("Only JPG and PNG images are allowed.");
@@ -107,8 +116,10 @@ export default function EducatorProfilePage() {
       }
 
       const supabase = getSupabaseBrowserClient();
+
       const extension = getExtension(file);
       const safeEmail = profile.email.replace(/[^a-zA-Z0-9]/g, "-");
+
       const path = `educator-${safeEmail}-${Date.now()}.${extension}`;
 
       const { error: uploadError } = await supabase.storage
@@ -124,7 +135,9 @@ export default function EducatorProfilePage() {
 
       const res = await fetch("/api/educator/profile-photo", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           profile_photo_url: path,
         }),
@@ -133,14 +146,21 @@ export default function EducatorProfilePage() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.error || "Profile photo update failed.");
+        throw new Error(
+          data.error || "Failed to update profile picture."
+        );
       }
 
-      setMessage("Profile picture updated successfully.");
+      setMessage(
+        "Profile picture updated successfully. Your public tutor profile will now display the new image."
+      );
+
       await loadProfile();
     } catch (error) {
       setErrorMessage(
-        error instanceof Error ? error.message : "Profile photo update failed."
+        error instanceof Error
+          ? error.message
+          : "Profile photo update failed."
       );
     } finally {
       setUploading(false);
@@ -151,21 +171,30 @@ export default function EducatorProfilePage() {
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
-      <section className="mx-auto max-w-4xl px-6 py-16 lg:px-8 lg:py-20">
+      <section className="mx-auto max-w-5xl px-6 py-16 lg:px-8 lg:py-20">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
           The Alkebula School
         </p>
 
-        <h1 className="mt-4 text-4xl font-bold">Educator Profile</h1>
+        <h1 className="mt-4 text-4xl font-bold">
+          Educator Profile Picture
+        </h1>
 
-        <p className="mt-4 max-w-2xl text-slate-600">
-          Manage your educator profile picture. Profile photos may be updated
-          once per calendar month.
+        <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">
+          Upload and manage your professional educator profile picture.
+          Your profile image appears publicly on tutor listings and
+          booking pages viewed by parents and students.
         </p>
 
-        {loading ? <p className="mt-8">Loading profile...</p> : null}
+        {loading ? (
+          <p className="mt-8">Loading profile...</p>
+        ) : null}
 
-        {message ? <p className="mt-6 text-green-600">{message}</p> : null}
+        {message ? (
+          <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5 text-green-700">
+            {message}
+          </div>
+        ) : null}
 
         {errorMessage ? (
           <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
@@ -174,54 +203,113 @@ export default function EducatorProfilePage() {
         ) : null}
 
         {!loading && profile ? (
-          <div className="mt-10 rounded-3xl border border-slate-200 bg-slate-50 p-6">
-            <div className="grid gap-8 md:grid-cols-[240px_1fr]">
-              <div>
+          <div className="mt-10 grid gap-8 lg:grid-cols-[320px_1fr]">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+              <div className="overflow-hidden rounded-2xl bg-white">
                 {imageUrl ? (
-                  <img
-                    src={imageUrl}
-                    alt={profile.full_name}
-                    className="h-60 w-full rounded-2xl object-cover"
-                  />
+                  <div className="flex h-80 items-center justify-center bg-slate-50">
+                    <img
+                      src={imageUrl}
+                      alt={profile.full_name}
+                      className="h-full w-full object-contain object-center"
+                    />
+                  </div>
                 ) : (
-                  <div className="flex h-60 items-center justify-center rounded-2xl bg-white text-sm text-slate-500">
-                    No profile photo
+                  <div className="flex h-80 items-center justify-center bg-slate-100 text-sm text-slate-500">
+                    No profile photo uploaded
                   </div>
                 )}
               </div>
 
-              <div>
-                <h2 className="text-2xl font-semibold">{profile.full_name}</h2>
-                <p className="mt-2 text-sm text-slate-600">{profile.email}</p>
+              <h2 className="mt-5 text-2xl font-semibold">
+                {profile.full_name}
+              </h2>
 
-                <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-                  <p className="font-semibold">Upload New Profile Picture</p>
+              <p className="mt-2 text-sm text-slate-600">
+                {profile.email}
+              </p>
 
-                  <p className="mt-2 text-sm text-slate-600">
-                    JPG or PNG only. Maximum 5MB. You may update once per
-                    calendar month.
-                  </p>
+              {profile.profile_photo_updated_at ? (
+                <p className="mt-4 text-xs text-slate-500">
+                  Last updated:{" "}
+                  {new Date(
+                    profile.profile_photo_updated_at
+                  ).toLocaleString()}
+                </p>
+              ) : null}
+            </div>
 
-                  <input
-                    type="file"
-                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                    disabled={uploading}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) uploadPhoto(file);
-                    }}
-                    className="mt-4 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm"
-                  />
+            <div className="rounded-3xl border border-slate-200 bg-white p-6">
+              <h3 className="text-2xl font-semibold">
+                Upload New Profile Picture
+              </h3>
 
-                  {profile.profile_photo_updated_at ? (
-                    <p className="mt-3 text-xs text-slate-500">
-                      Last updated:{" "}
-                      {new Date(
-                        profile.profile_photo_updated_at
-                      ).toLocaleString()}
-                    </p>
-                  ) : null}
-                </div>
+              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                <p className="font-semibold text-amber-900">
+                  Professional Photo Guidelines
+                </p>
+
+                <ul className="mt-4 space-y-3 text-sm leading-7 text-amber-800">
+                  <li>
+                    • Use a clear professional headshot.
+                  </li>
+
+                  <li>
+                    • Face the camera directly with good lighting.
+                  </li>
+
+                  <li>
+                    • Use a plain or clean background.
+                  </li>
+
+                  <li>
+                    • Wear professional or smart-casual clothing.
+                  </li>
+
+                  <li>
+                    • Avoid selfies, passport/photo-me booth photos,
+                    filters, screenshots, sunglasses, group photos,
+                    cropped social media images, or inappropriate content.
+                  </li>
+
+                  <li>
+                    • The Alkebula School may reject or remove images
+                    that do not meet educator professionalism standards.
+                  </li>
+                </ul>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                <p className="font-medium">
+                  JPG or PNG only. Maximum file size: 5MB.
+                </p>
+
+                <p className="mt-2 text-sm text-slate-600">
+                  Profile pictures may only be updated once per
+                  calendar month.
+                </p>
+
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                  disabled={uploading}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+
+                    if (file) {
+                      uploadPhoto(file);
+                    }
+                  }}
+                  className="mt-5 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm"
+                />
+
+                <button
+                  type="button"
+                  disabled
+                  className="mt-5 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white opacity-70"
+                >
+                  {uploading ? "Uploading..." : "Ready for Upload"}
+                </button>
               </div>
             </div>
           </div>
