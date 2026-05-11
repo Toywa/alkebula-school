@@ -26,10 +26,7 @@ async function getProfileImageUrl(path?: string | null) {
 }
 
 function getSubjectRateHighlights(subjectRates?: SubjectRate[] | null) {
-  if (!Array.isArray(subjectRates) || subjectRates.length === 0) {
-    return [];
-  }
-
+  if (!Array.isArray(subjectRates) || subjectRates.length === 0) return [];
   return subjectRates.slice(0, 3);
 }
 
@@ -102,15 +99,17 @@ export default async function TutorsPage() {
                   key={tutor.id || tutor.email}
                   className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
-                  <Link href={`/tutors/${tutor.id}`}>
+                  <Link href={`/tutors/${tutor.id}`} className="block">
                     {tutor.imageUrl ? (
-                      <img
-                        src={tutor.imageUrl}
-                        alt={tutor.full_name}
-                        className="h-48 w-full rounded-xl object-cover"
-                      />
+                      <div className="flex h-64 w-full items-center justify-center overflow-hidden rounded-xl bg-slate-50">
+                        <img
+                          src={tutor.imageUrl}
+                          alt={tutor.full_name}
+                          className="h-full w-full object-contain object-center"
+                        />
+                      </div>
                     ) : (
-                      <div className="flex h-48 items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-500">
+                      <div className="flex h-64 items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-500">
                         No profile photo
                       </div>
                     )}
