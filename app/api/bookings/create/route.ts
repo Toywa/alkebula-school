@@ -195,14 +195,18 @@ export async function POST(req: Request) {
     }
 
     const emailResult = await sendBookingEmails({
-      parentEmail,
-      tutorEmail: normalizedTutorEmail,
-      studentName,
-      subject,
-      curriculum,
-      date,
-      time,
-    });
+  parentEmail,
+  tutorEmail: normalizedTutorEmail,
+  studentName,
+  subject,
+  curriculum,
+  date,
+  time,
+  hourlyRate: finalHourlyRate,
+  lessonAmount,
+  platformCommission,
+  tutorPayoutAmount,
+});
 
     return NextResponse.json({
       success: true,

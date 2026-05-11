@@ -13,6 +13,10 @@ type BookingEmailParams = {
   classLevel?: string;
   date: string;
   time: string;
+  hourlyRate?: number;
+  lessonAmount?: number;
+  platformCommission?: number;
+  tutorPayoutAmount?: number;
 };
 
 type EmailSendResult = {
@@ -24,6 +28,11 @@ type EmailSendResult = {
     admin?: unknown;
   };
 };
+
+function money(value?: number) {
+  if (!value || Number.isNaN(value)) return "Not specified";
+  return `USD ${Number(value).toFixed(2)}`;
+}
 
 function extractErrorMessage(result: any, label: string) {
   if (!result) return `${label}: unknown error`;
@@ -81,7 +90,7 @@ function detailsBlock(items: Array<{ label: string; value: string }>) {
     .map(
       (item) => `
         <tr>
-          <td style="padding:10px 0;font-weight:700;color:#0f172a;width:160px;vertical-align:top;">
+          <td style="padding:10px 0;font-weight:700;color:#0f172a;width:180px;vertical-align:top;">
             ${item.label}
           </td>
           <td style="padding:10px 0;color:#334155;">
@@ -110,6 +119,10 @@ export async function sendBookingEmails({
   classLevel,
   date,
   time,
+  hourlyRate,
+  lessonAmount,
+  platformCommission,
+  tutorPayoutAmount,
 }: BookingEmailParams): Promise<EmailSendResult> {
   if (!process.env.RESEND_API_KEY) {
     return { success: false, error: "Missing RESEND_API_KEY" };
@@ -139,13 +152,19 @@ export async function sendBookingEmails({
         ${detailsBlock([
           { label: "Student", value: studentName },
           { label: "Subject", value: subject },
-          { label: "Curriculum", value: curriculum || "Not specified" },
+          { label: "Curriculum / Level", value: curriculum || "Not specified" },
           { label: "Class / Level", value: classLevel || "Not specified" },
           { label: "Date", value: date },
           { label: "Time", value: time },
           { label: "Tutor", value: tutorName || "Assigned Tutor" },
+          { label: "Hourly Rate", value: money(hourlyRate) },
+          { label: "Lesson Amount", value: money(lessonAmount || hourlyRate) },
         ])}
       </div>
+
+      <p style="margin:22px 0 0 0;font-size:14px;line-height:1.8;color:#64748b;">
+        Payment instructions will be shared through the official payment channel once enabled.
+      </p>
     `
   );
 
@@ -161,11 +180,12 @@ export async function sendBookingEmails({
         ${detailsBlock([
           { label: "Student", value: studentName },
           { label: "Subject", value: subject },
-          { label: "Curriculum", value: curriculum || "Not specified" },
+          { label: "Curriculum / Level", value: curriculum || "Not specified" },
           { label: "Class / Level", value: classLevel || "Not specified" },
           { label: "Date", value: date },
           { label: "Time", value: time },
           { label: "Parent", value: parentName || "Parent" },
+          { label: "Tutor Payout", value: money(tutorPayoutAmount) },
         ])}
       </div>
     `
@@ -182,10 +202,14 @@ export async function sendBookingEmails({
           { label: "Tutor Email", value: tutorEmail || "Not supplied" },
           { label: "Tutor", value: tutorName || "Assigned Tutor" },
           { label: "Subject", value: subject },
-          { label: "Curriculum", value: curriculum || "Not specified" },
+          { label: "Curriculum / Level", value: curriculum || "Not specified" },
           { label: "Class / Level", value: classLevel || "Not specified" },
           { label: "Date", value: date },
           { label: "Time", value: time },
+          { label: "Hourly Rate", value: money(hourlyRate) },
+          { label: "Lesson Amount", value: money(lessonAmount || hourlyRate) },
+          { label: "Platform Commission", value: money(platformCommission) },
+          { label: "Tutor Payout", value: money(tutorPayoutAmount) },
         ])}
       </div>
     `
@@ -204,9 +228,7 @@ export async function sendBookingEmails({
       results.parent = parentResult;
 
       const parentError = extractErrorMessage(parentResult, "parent");
-      if (parentError) {
-        return { success: false, error: parentError, results };
-      }
+      if (parentError) return { success: false, error: parentError, results };
     }
 
     if (tutorEmail) {
@@ -221,9 +243,7 @@ export async function sendBookingEmails({
       results.tutor = tutorResult;
 
       const tutorError = extractErrorMessage(tutorResult, "tutor");
-      if (tutorError) {
-        return { success: false, error: tutorError, results };
-      }
+      if (tutorError) return { success: false, error: tutorError, results };
     }
 
     if (process.env.ADMIN_EMAIL) {
@@ -238,9 +258,7 @@ export async function sendBookingEmails({
       results.admin = adminResult;
 
       const adminError = extractErrorMessage(adminResult, "admin");
-      if (adminError) {
-        return { success: false, error: adminError, results };
-      }
+      if (adminError) return { success: false, error: adminError, results };
     }
 
     return { success: true, results };
@@ -252,6 +270,7 @@ export async function sendBookingEmails({
     };
   }
 }
+
 export async function sendInterviewScheduledEmail({
   applicantEmail,
   applicantName,
@@ -273,48 +292,28 @@ export async function sendInterviewScheduledEmail({
       to: applicantEmail,
       replyTo: process.env.ADMIN_EMAIL || undefined,
       subject: "Tutor Interview Scheduled — The Alkebula School",
-      html: `
-        <div style="font-family:Arial,Helvetica,sans-serif;background:#f8fafc;padding:32px;color:#0f172a;">
-          <div style="max-width:680px;margin:auto;background:white;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;">
-            <div style="padding:28px 32px;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-              <p style="font-size:12px;letter-spacing:0.25em;text-transform:uppercase;color:#64748b;font-weight:700;">
-                The Alkebula School
-              </p>
-              <h1 style="margin:12px 0 0;font-size:30px;">Interview Scheduled</h1>
-            </div>
+      html: wrapEmail(
+        "Interview Scheduled",
+        `Dear ${applicantName}, your tutor interview has been scheduled.`,
+        `
+          <p style="font-size:15px;line-height:1.8;color:#334155;">
+            Thank you for applying to join The Alkebula School educator network.
+            Your tutor interview has been scheduled.
+          </p>
 
-            <div style="padding:28px 32px;font-size:15px;line-height:1.8;color:#334155;">
-              <p>Dear ${applicantName},</p>
-
-              <p>
-                Thank you for applying to join The Alkebula School educator network.
-                Your tutor interview has been scheduled.
-              </p>
-
-              <div style="margin:24px 0;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
-                <p><strong>Interview Date/Time:</strong> ${new Date(interviewAt).toLocaleString()}</p>
-                <p><strong>Notes:</strong> ${interviewNotes || "Further details will be shared by admin."}</p>
-              </div>
-
-              <p>
-                Please be ready to discuss your teaching experience, curriculum strength,
-                student support approach, and submitted documents.
-              </p>
-
-              <p>
-                Warm regards,<br/>
-                The Alkebula School
-              </p>
-            </div>
-
-            <div style="padding:22px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
-              <p style="margin:0;font-size:13px;color:#64748b;">
-                Extraordinary Learning. Proven Results.
-              </p>
-            </div>
+          <div style="margin:24px 0;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+            ${detailsBlock([
+              { label: "Interview Date/Time", value: new Date(interviewAt).toLocaleString() },
+              { label: "Notes", value: interviewNotes || "Further details will be shared by admin." },
+            ])}
           </div>
-        </div>
-      `,
+
+          <p style="font-size:15px;line-height:1.8;color:#334155;">
+            Please be ready to discuss your teaching experience, curriculum strength,
+            student support approach, and submitted documents.
+          </p>
+        `
+      ),
     });
 
     if (result.error) {
@@ -335,6 +334,7 @@ export async function sendInterviewScheduledEmail({
     };
   }
 }
+
 export async function sendInvoiceEmail({
   parentEmail,
   parentName,
@@ -368,67 +368,26 @@ export async function sendInvoiceEmail({
       to: parentEmail,
       replyTo: process.env.ADMIN_EMAIL || undefined,
       subject: "Your Lesson Invoice — The Alkebula School",
-      html: `
-        <div style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
-          <div style="max-width:680px;margin:0 auto;padding:32px 16px;">
-            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;">
-              <div style="padding:28px 32px;border-bottom:1px solid #e2e8f0;background:linear-gradient(to bottom,#ffffff,#f8fafc);">
-                <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:#64748b;font-weight:700;">
-                  The Alkebula School
-                </div>
-                <h1 style="margin:14px 0 0 0;font-size:32px;line-height:1.1;color:#0f172a;">
-                  Lesson Invoice
-                </h1>
-                <p style="margin:16px 0 0 0;font-size:16px;line-height:1.7;color:#475569;">
-                  Dear ${parentName}, your lesson booking invoice has been created.
-                </p>
-              </div>
-
-              <div style="padding:28px 32px;">
-                <div style="padding:20px 22px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
-                  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
-                    <tr>
-                      <td style="padding:10px 0;font-weight:700;color:#0f172a;width:160px;">Student</td>
-                      <td style="padding:10px 0;color:#334155;">${studentName}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:10px 0;font-weight:700;color:#0f172a;">Tutor</td>
-                      <td style="padding:10px 0;color:#334155;">${tutorName}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:10px 0;font-weight:700;color:#0f172a;">Subject</td>
-                      <td style="padding:10px 0;color:#334155;">${subject}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:10px 0;font-weight:700;color:#0f172a;">Date</td>
-                      <td style="padding:10px 0;color:#334155;">${date}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:10px 0;font-weight:700;color:#0f172a;">Time</td>
-                      <td style="padding:10px 0;color:#334155;">${time}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:14px 0;font-weight:800;color:#0f172a;font-size:18px;">Amount Due</td>
-                      <td style="padding:14px 0;color:#0f172a;font-size:18px;font-weight:800;">USD ${amountUsd}</td>
-                    </tr>
-                  </table>
-                </div>
-
-                <p style="margin:24px 0 0 0;font-size:15px;line-height:1.8;color:#475569;">
-                  Payment instructions will be shared through the official payment channel once enabled.
-                </p>
-              </div>
-
-              <div style="padding:22px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;">
-                <p style="margin:0;font-size:13px;line-height:1.7;color:#64748b;">
-                  The Alkebula School<br/>
-                  Extraordinary Learning. Proven Results.
-                </p>
-              </div>
-            </div>
+      html: wrapEmail(
+        "Lesson Invoice",
+        `Dear ${parentName}, your lesson booking invoice has been created.`,
+        `
+          <div style="padding:20px 22px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+            ${detailsBlock([
+              { label: "Student", value: studentName },
+              { label: "Tutor", value: tutorName },
+              { label: "Subject", value: subject },
+              { label: "Date", value: date },
+              { label: "Time", value: time },
+              { label: "Amount Due", value: `USD ${amountUsd}` },
+            ])}
           </div>
-        </div>
-      `,
+
+          <p style="margin:24px 0 0 0;font-size:15px;line-height:1.8;color:#475569;">
+            Payment instructions will be shared through the official payment channel once enabled.
+          </p>
+        `
+      ),
     });
 
     if (result.error) {
@@ -449,6 +408,7 @@ export async function sendInvoiceEmail({
     };
   }
 }
+
 export async function sendTutorApprovedEmail({
   tutorEmail,
   tutorName,
@@ -468,78 +428,62 @@ export async function sendTutorApprovedEmail({
       from: process.env.EMAIL_FROM,
       to: tutorEmail,
       replyTo: process.env.ADMIN_EMAIL || undefined,
-      subject: "Your Educator Application Has Been Approved",
-      html: `
-        <div style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
-          <div style="max-width:680px;margin:0 auto;padding:32px 16px;">
-            <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:20px;overflow:hidden;">
+      subject: "Congratulations — Your Alkebula Educator Application Is Approved",
+      html: wrapEmail(
+        "Welcome to The Alkebula School",
+        `Congratulations ${tutorName}! Your educator application has been approved.`,
+        `
+          <p style="font-size:15px;line-height:1.8;color:#334155;">
+            We are delighted to welcome you into The Alkebula School educator network.
+            Your profile has passed our review stage, and you can now activate your educator account.
+          </p>
 
-              <div style="padding:28px 32px;border-bottom:1px solid #e2e8f0;background:linear-gradient(to bottom,#ffffff,#f8fafc);">
-                <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:#64748b;font-weight:700;">
-                  The Alkebula School
-                </div>
+          <div style="margin:28px 0;padding:22px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+            <p style="margin:0 0 12px 0;font-size:15px;font-weight:700;color:#0f172a;">
+              Next Step: Activate Your Educator Account
+            </p>
 
-                <h1 style="margin:14px 0 0 0;font-size:32px;line-height:1.1;color:#0f172a;">
-                  Application Approved
-                </h1>
+            <p style="margin:0;font-size:15px;line-height:1.8;color:#475569;">
+              Please create your educator account using the SAME email address you used during your application.
+            </p>
 
-                <p style="margin:16px 0 0 0;font-size:16px;line-height:1.7;color:#475569;">
-                  Congratulations ${tutorName}, your educator application has been approved.
-                </p>
-              </div>
-
-              <div style="padding:28px 32px;">
-
-                <p style="font-size:15px;line-height:1.8;color:#334155;">
-                  Your educator profile is now active on The Alkebula School platform.
-                </p>
-
-                <div style="margin:28px 0;padding:22px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
-                  <p style="margin:0 0 12px 0;font-size:15px;font-weight:700;color:#0f172a;">
-                    Next Step
-                  </p>
-
-                  <p style="margin:0;font-size:15px;line-height:1.8;color:#475569;">
-                    Please create your educator account using the SAME email address you used during your application.
-                  </p>
-
-                  <div style="margin-top:22px;">
-                    <a
-                      href="https://alkebulaschool.com/auth/sign-up"
-                      style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;font-size:14px;"
-                    >
-                      Create Educator Account
-                    </a>
-                  </div>
-                </div>
-
-                <div style="margin-top:28px;">
-                  <p style="font-size:15px;line-height:1.8;color:#334155;">
-                    Once signed in, you will immediately gain access to:
-                  </p>
-
-                  <ul style="margin:16px 0 0 20px;color:#475569;line-height:1.9;">
-                    <li>Educator Dashboard</li>
-                    <li>Availability Scheduling</li>
-                    <li>Upcoming Lessons</li>
-                    <li>Earnings Tracking</li>
-                    <li>Student Bookings</li>
-                  </ul>
-                </div>
-
-              </div>
-
-              <div style="padding:22px 32px;border-top:1px solid #e2e8f0;background:#f8fafc;">
-                <p style="margin:0;font-size:13px;line-height:1.7;color:#64748b;">
-                  The Alkebula School<br/>
-                  Extraordinary Learning. Proven Results.
-                </p>
-              </div>
-
+            <div style="margin-top:22px;">
+              <a
+                href="https://alkebulaschool.com/auth/sign-up"
+                style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;font-size:14px;"
+              >
+                Create Educator Account
+              </a>
             </div>
           </div>
-        </div>
-      `,
+
+          <div style="margin:28px 0;padding:22px;border:1px solid #fde68a;border-radius:16px;background:#fffbeb;">
+            <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#92400e;">
+              Engagement Terms
+            </p>
+
+            <p style="margin:0;font-size:15px;line-height:1.8;color:#78350f;">
+              Before creating your account, please read the tutor agreement and terms of use carefully.
+              Creating your educator account and using the platform means you accept The Alkebula School engagement terms.
+            </p>
+
+            <p style="margin:14px 0 0 0;">
+              <a
+                href="https://alkebulaschool.com/terms"
+                style="color:#92400e;font-weight:700;text-decoration:underline;"
+              >
+                Read Tutor Agreement & Terms of Use
+              </a>
+            </p>
+          </div>
+
+          <p style="font-size:15px;line-height:1.8;color:#334155;">
+            Once signed in, you will be able to access your educator dashboard,
+            publish availability, receive lesson bookings, track upcoming lessons,
+            and monitor your earnings.
+          </p>
+        `
+      ),
     });
 
     if (result.error) {
@@ -560,9 +504,7 @@ export async function sendTutorApprovedEmail({
     return {
       success: false,
       error:
-        error instanceof Error
-          ? error.message
-          : "Approval email failed",
+        error instanceof Error ? error.message : "Approval email failed",
     };
   }
 }
