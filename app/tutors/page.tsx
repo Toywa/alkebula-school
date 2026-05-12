@@ -12,21 +12,21 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-async function getProfileImageUrl(path?: string | null) {
+function getProfileImageUrl(path?: string | null) {
   if (!path) return null;
-  if (path.startsWith("http")) return path;
 
-  const publicProfileUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
+  if (path.startsWith("http")) {
+    return path;
+  }
 
-  const { data } = await supabase.storage
-    .from("educator-documents")
-    .createSignedUrl(path, 60 * 60);
-
-  return data?.signedUrl || publicProfileUrl;
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
 }
 
 function getSubjectRateHighlights(subjectRates?: SubjectRate[] | null) {
-  if (!Array.isArray(subjectRates) || subjectRates.length === 0) return [];
+  if (!Array.isArray(subjectRates) || subjectRates.length === 0) {
+    return [];
+  }
+
   return subjectRates.slice(0, 3);
 }
 
@@ -37,13 +37,6 @@ export default async function TutorsPage() {
     .eq("approval_status", "approved")
     .eq("is_public", true)
     .order("full_name", { ascending: true });
-
-  const tutorsWithImages = await Promise.all(
-    (tutors || []).map(async (tutor) => ({
-      ...tutor,
-      imageUrl: await getProfileImageUrl(tutor.profile_photo_url),
-    }))
-  );
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -83,7 +76,7 @@ export default async function TutorsPage() {
       <section className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
         {error ? (
           <p className="text-red-600">{error.message}</p>
-        ) : tutorsWithImages.length === 0 ? (
+        ) : !tutors || tutors.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
             <p className="text-lg font-medium">
               No approved tutors are publicly listed yet.
@@ -91,25 +84,36 @@ export default async function TutorsPage() {
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {tutorsWithImages.map((tutor) => {
-              const highlights = getSubjectRateHighlights(tutor.subject_rates);
+            {tutors.map((tutor) => {
+              const highlights = getSubjectRateHighlights(
+                tutor.subject_rates
+              );
+
+              const imageUrl = getProfileImageUrl(
+                tutor.profile_photo_url
+              );
 
               return (
                 <article
                   key={tutor.id || tutor.email}
                   className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                 >
-                  <Link href={`/tutors/${tutor.id}`} className="block">
-                    {tutor.imageUrl ? (
-                      <div className="flex h-64 w-full items-center justify-center overflow-hidden rounded-xl bg-slate-50">
-                        <img
-                          src={tutor.imageUrl}
-                          alt={tutor.full_name}
-                          className="h-full w-full object-contain object-center"
-                        />
+                  <Link
+                    href={`/tutors/${tutor.id}`}
+                    className="block"
+                  >
+                    {imageUrl ? (
+                      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                        <div className="flex h-72 items-center justify-center">
+                          <img
+                            src={imageUrl}
+                            alt={tutor.full_name}
+                            className="h-full w-full object-contain object-center"
+                          />
+                        </div>
                       </div>
                     ) : (
-                      <div className="flex h-64 items-center justify-center rounded-xl bg-slate-100 text-sm text-slate-500">
+                      <div className="flex h-72 items-center justify-center rounded-2xl border border-slate-200 bg-slate-100 text-sm text-slate-500">
                         No profile photo
                       </div>
                     )}
@@ -119,8 +123,9 @@ export default async function TutorsPage() {
                     {tutor.full_name}
                   </h2>
 
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    {tutor.bio || "Approved Alkebula School educator."}
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    {tutor.bio ||
+                      "Approved Alkebula School educator."}
                   </p>
 
                   <div className="mt-4 space-y-2 text-sm text-slate-700">
@@ -131,17 +136,24 @@ export default async function TutorsPage() {
 
                     {highlights.length > 0 ? (
                       <div>
-                        <p className="font-medium">Popular Subjects:</p>
+                        <p className="font-medium">
+                          Popular Subjects:
+                        </p>
+
                         <div className="mt-2 space-y-2">
                           {highlights.map((item, index) => (
                             <div
                               key={`${item.curriculum_level}-${item.subject}-${index}`}
                               className="rounded-xl bg-slate-50 p-3"
                             >
-                              <p className="font-semibold">{item.subject}</p>
+                              <p className="font-semibold">
+                                {item.subject}
+                              </p>
+
                               <p className="text-xs text-slate-500">
                                 {item.curriculum_level}
                               </p>
+
                               <p className="mt-1 text-sm font-semibold">
                                 USD {item.hourly_rate}/hour
                               </p>
@@ -152,19 +164,25 @@ export default async function TutorsPage() {
                     ) : (
                       <>
                         <p>
-                          <span className="font-medium">Subjects:</span>{" "}
+                          <span className="font-medium">
+                            Subjects:
+                          </span>{" "}
                           {tutor.subjects?.join(", ") || "—"}
                         </p>
 
                         <p>
-                          <span className="font-medium">Curricula:</span>{" "}
+                          <span className="font-medium">
+                            Curricula:
+                          </span>{" "}
                           {tutor.curricula?.join(", ") || "—"}
                         </p>
 
                         {tutor.hourly_rate ? (
                           <p>
-                            <span className="font-medium">Rate:</span>{" "}
-                            ${tutor.hourly_rate}/hour
+                            <span className="font-medium">
+                              Rate:
+                            </span>{" "}
+                            USD {tutor.hourly_rate}/hour
                           </p>
                         ) : null}
                       </>
