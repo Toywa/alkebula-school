@@ -303,7 +303,26 @@ export async function sendInterviewScheduledEmail({
 
           <div style="margin:24px 0;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
             ${detailsBlock([
-              { label: "Interview Date/Time", value: new Date(interviewAt).toLocaleString() },
+              {
+  label: "Interview Time",
+  value: `${new Date(interviewAt).toLocaleString("en-GB", {
+    timeZone: "Europe/London",
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })} London time / GMT. Nairobi equivalent: ${new Date(interviewAt).toLocaleString("en-GB", {
+    timeZone: "Africa/Nairobi",
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  })} EAT (UTC+3).`,
+},
               { label: "Notes", value: interviewNotes || "Further details will be shared by admin." },
             ])}
           </div>
