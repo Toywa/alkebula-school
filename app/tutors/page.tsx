@@ -89,9 +89,7 @@ export default async function TutorsPage() {
                 tutor.subject_rates
               );
 
-              const imageUrl = getProfileImageUrl(
-                tutor.profile_photo_url
-              );
+              const imageUrl = `/api/tutor-photo?id=${tutor.id}`;
 
               return (
                 <article

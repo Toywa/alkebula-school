@@ -206,7 +206,7 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
     );
   }
 
-  const imageUrl = getImageUrl(tutor.profile_photo_url);
+  const imageUrl = `/api/tutor-photo?id=${tutor.id}`;
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
