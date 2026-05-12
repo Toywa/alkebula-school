@@ -31,6 +31,16 @@ type Slot = {
   is_booked: boolean;
 };
 
+function getImageUrl(path?: string | null) {
+  if (!path) return null;
+
+  if (path.startsWith("http")) {
+    return path;
+  }
+
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
+}
+
 export default function TutorProfilePage({ params }: { params: { id: string } }) {
   const [tutor, setTutor] = useState<Tutor | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -48,13 +58,6 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
   useEffect(() => {
     loadTutor();
   }, []);
-
-  function getImageUrl(path?: string | null) {
-    if (!path) return null;
-    if (path.startsWith("http")) return path;
-
-    return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
-  }
 
   function formatDate(date: string) {
     return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
@@ -211,13 +214,15 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
         <div className="grid gap-10 lg:grid-cols-[360px_1fr]">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             {imageUrl ? (
-              <img
-                src={imageUrl}
-                alt={tutor.full_name}
-                className="h-80 w-full rounded-2xl object-cover"
-              />
+              <div className="flex h-96 w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                <img
+                  src={imageUrl}
+                  alt={tutor.full_name}
+                  className="h-full w-full object-contain object-center"
+                />
+              </div>
             ) : (
-              <div className="flex h-80 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
+              <div className="flex h-96 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
                 No profile photo
               </div>
             )}
@@ -228,15 +233,9 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
               {tutor.city || "Available online"}
             </p>
 
-            {subjectRateOptions.length > 0 ? (
-              <p className="mt-4 text-sm text-slate-600">
-                Rates vary by subject and curriculum.
-              </p>
-            ) : tutor.hourly_rate ? (
-              <p className="mt-4 text-lg font-semibold">
-                USD {tutor.hourly_rate}/hour
-              </p>
-            ) : null}
+            <p className="mt-4 text-sm text-slate-600">
+              Rates vary by subject and curriculum.
+            </p>
           </div>
 
           <div>
