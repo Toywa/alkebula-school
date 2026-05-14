@@ -7,7 +7,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 type UserRole = "parent" | "educator";
 
 function getDashboardPath(role: UserRole) {
-  if (role === "educator") return "/educator/bookings";
+  if (role === "educator") return "/educator/dashboard";
   return "/parent/bookings";
 }
 
