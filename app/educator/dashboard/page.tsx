@@ -318,20 +318,27 @@ export default function EducatorDashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Link
-              href="/educator/profile"
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Edit Profile Picture
-            </Link>
+  <Link
+    href="/educator/profile"
+    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+  >
+    Edit Profile Picture
+  </Link>
 
-            <Link
-              href="/educator/availability"
-              className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
-            >
-              Create Monthly Slots
-            </Link>
-          </div>
+  <Link
+    href="/educator/subjects"
+    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+  >
+    Edit Subjects & Rates
+  </Link>
+
+  <Link
+    href="/educator/availability"
+    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+  >
+    Create Monthly Slots
+  </Link>
+</div>
         </div>
 
         {message ? (
