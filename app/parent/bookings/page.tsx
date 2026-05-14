@@ -54,6 +54,10 @@ function usd(value?: number | null) {
   return `USD ${Number(value).toFixed(2)}`;
 }
 
+function hasPayableAmount(lesson: Lesson) {
+  return Number(lesson.lesson_amount || lesson.hourly_rate || 0) > 0;
+}
+
 export default function ParentBookingsPage() {
   const [parentEmail, setParentEmail] = useState("");
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -62,9 +66,7 @@ export default function ParentBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [actingLessonId, setActingLessonId] = useState("");
   const [payingLessonId, setPayingLessonId] = useState("");
-  const [submissionText, setSubmissionText] = useState<Record<string, string>>(
-    {}
-  );
+  const [submissionText, setSubmissionText] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -121,9 +123,7 @@ export default function ParentBookingsPage() {
       setSubmissions(submissionData || []);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Failed to load parent dashboard."
+        error instanceof Error ? error.message : "Failed to load parent dashboard."
       );
     } finally {
       setLoading(false);
@@ -143,9 +143,7 @@ export default function ParentBookingsPage() {
       const text = (submissionText[lesson.id] || "").trim();
 
       if (!text) {
-        throw new Error(
-          "Please write or paste the homework response before submitting."
-        );
+        throw new Error("Please write or paste the homework response before submitting.");
       }
 
       const supabase = getSupabaseBrowserClient();
@@ -191,19 +189,12 @@ export default function ParentBookingsPage() {
     try {
       const amount = Number(lesson.lesson_amount || lesson.hourly_rate || 0);
 
-      if (!amount) {
-        throw new Error("This lesson has no payable amount.");
-      }
-
-      if (!parentEmail) {
-        throw new Error("Parent email is missing. Please sign in again.");
-      }
+      if (!amount) throw new Error("This lesson has no payable amount.");
+      if (!parentEmail) throw new Error("Parent email is missing. Please sign in again.");
 
       const response = await fetch("/api/paystack/initialize", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lessonId: lesson.id,
           parentEmail,
@@ -224,9 +215,31 @@ export default function ParentBookingsPage() {
       setErrorMessage(
         error instanceof Error ? error.message : "Payment failed to start."
       );
-    } finally {
       setPayingLessonId("");
     }
+  }
+
+  function renderPaymentAction(lesson: Lesson) {
+    if (lesson.payment_status === "paid") {
+      return (
+        <p className="mt-4 rounded-xl border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-700">
+          Paid
+        </p>
+      );
+    }
+
+    if (!hasPayableAmount(lesson)) return null;
+
+    return (
+      <button
+        type="button"
+        disabled={payingLessonId === lesson.id}
+        onClick={() => payForLesson(lesson)}
+        className="mt-4 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+      >
+        {payingLessonId === lesson.id ? "Starting Payment..." : "Pay Now"}
+      </button>
+    );
   }
 
   const upcomingLessons = lessons.filter(
@@ -274,9 +287,7 @@ export default function ParentBookingsPage() {
         </p>
 
         {parentEmail ? (
-          <p className="mt-3 text-sm text-slate-500">
-            Signed in as {parentEmail}
-          </p>
+          <p className="mt-3 text-sm text-slate-500">Signed in as {parentEmail}</p>
         ) : null}
 
         <div className="mt-8">
@@ -307,16 +318,12 @@ export default function ParentBookingsPage() {
 
               <div className="rounded-2xl border bg-slate-50 p-6">
                 <p className="text-sm text-slate-500">Upcoming Lessons</p>
-                <p className="mt-2 text-3xl font-bold">
-                  {upcomingLessons.length}
-                </p>
+                <p className="mt-2 text-3xl font-bold">{upcomingLessons.length}</p>
               </div>
 
               <div className="rounded-2xl border bg-slate-50 p-6">
                 <p className="text-sm text-slate-500">Homework Items</p>
-                <p className="mt-2 text-3xl font-bold">
-                  {homeworkLessons.length}
-                </p>
+                <p className="mt-2 text-3xl font-bold">{homeworkLessons.length}</p>
               </div>
 
               <div className="rounded-2xl border bg-slate-50 p-6">
@@ -326,21 +333,14 @@ export default function ParentBookingsPage() {
             </div>
 
             <div className="mt-10 rounded-2xl border p-6">
-              <h2 className="text-2xl font-semibold">
-                Upcoming Lessons & Invoices
-              </h2>
+              <h2 className="text-2xl font-semibold">Upcoming Lessons & Invoices</h2>
 
               {upcomingLessons.length === 0 ? (
-                <p className="mt-4 text-slate-600">
-                  You have no upcoming lessons yet.
-                </p>
+                <p className="mt-4 text-slate-600">You have no upcoming lessons yet.</p>
               ) : (
                 <div className="mt-5 space-y-4">
                   {upcomingLessons.map((lesson) => (
-                    <div
-                      key={lesson.id}
-                      className="rounded-xl border bg-white p-5"
-                    >
+                    <div key={lesson.id} className="rounded-xl border bg-white p-5">
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
                           <h3 className="text-lg font-semibold">
@@ -357,8 +357,7 @@ export default function ParentBookingsPage() {
                           </p>
                           <p className="text-sm text-slate-600">
                             Date/Time: {lesson.lesson_date || "—"} •{" "}
-                            {lesson.start_time || "—"} -{" "}
-                            {lesson.end_time || "—"}
+                            {lesson.start_time || "—"} - {lesson.end_time || "—"}
                           </p>
                         </div>
 
@@ -382,22 +381,7 @@ export default function ParentBookingsPage() {
                         </p>
                       </div>
 
-                      {lesson.payment_status === "paid" ? (
-                        <p className="mt-4 rounded-xl border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-700">
-                          Paid
-                        </p>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={payingLessonId === lesson.id}
-                          onClick={() => payForLesson(lesson)}
-                          className="mt-4 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
-                        >
-                          {payingLessonId === lesson.id
-                            ? "Starting Payment..."
-                            : "Pay Now"}
-                        </button>
-                      )}
+                      {renderPaymentAction(lesson)}
                     </div>
                   ))}
                 </div>
@@ -408,22 +392,15 @@ export default function ParentBookingsPage() {
               <h2 className="text-2xl font-semibold">Homework</h2>
 
               {homeworkLessons.length === 0 ? (
-                <p className="mt-4 text-slate-600">
-                  No homework has been assigned yet.
-                </p>
+                <p className="mt-4 text-slate-600">No homework has been assigned yet.</p>
               ) : (
                 <div className="mt-5 space-y-5">
                   {homeworkLessons.map((lesson) => {
-                    const existingSubmission = getSubmissionForLesson(
-                      lesson.id
-                    );
+                    const existingSubmission = getSubmissionForLesson(lesson.id);
                     const alreadySubmitted = !!existingSubmission;
 
                     return (
-                      <div
-                        key={lesson.id}
-                        className="rounded-2xl border bg-slate-50 p-5"
-                      >
+                      <div key={lesson.id} className="rounded-2xl border bg-slate-50 p-5">
                         <div className="flex flex-wrap items-start justify-between gap-4">
                           <div>
                             <h3 className="text-lg font-semibold">
@@ -452,14 +429,11 @@ export default function ParentBookingsPage() {
                           <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
                             <p className="font-semibold">Submitted</p>
                             <p className="mt-1">
-                              {existingSubmission?.submission_text ||
-                                "Homework submitted."}
+                              {existingSubmission?.submission_text || "Homework submitted."}
                             </p>
                             {existingSubmission?.tutor_feedback ? (
                               <p className="mt-3">
-                                <span className="font-semibold">
-                                  Tutor Feedback:
-                                </span>{" "}
+                                <span className="font-semibold">Tutor Feedback:</span>{" "}
                                 {existingSubmission.tutor_feedback}
                               </p>
                             ) : null}
@@ -487,9 +461,7 @@ export default function ParentBookingsPage() {
                               onClick={() => submitHomework(lesson)}
                               className="mt-3 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
                             >
-                              {actingLessonId === lesson.id
-                                ? "Submitting..."
-                                : "Submit Homework"}
+                              {actingLessonId === lesson.id ? "Submitting..." : "Submit Homework"}
                             </button>
                           </div>
                         )}
@@ -508,10 +480,7 @@ export default function ParentBookingsPage() {
               ) : (
                 <div className="mt-5 space-y-4">
                   {pastLessons.map((lesson) => (
-                    <div
-                      key={lesson.id}
-                      className="rounded-xl border bg-white p-5"
-                    >
+                    <div key={lesson.id} className="rounded-xl border bg-white p-5">
                       <h3 className="text-lg font-semibold">
                         {lesson.subject || "Lesson"}
                       </h3>
@@ -528,9 +497,13 @@ export default function ParentBookingsPage() {
                         Status: {lesson.status || "—"}
                       </p>
                       <p className="text-sm text-slate-600">
-                        Amount:{" "}
-                        {usd(lesson.lesson_amount || lesson.hourly_rate)}
+                        Amount: {usd(lesson.lesson_amount || lesson.hourly_rate)}
                       </p>
+                      <p className="text-sm text-slate-600">
+                        Payment: {lesson.payment_status || "unpaid"}
+                      </p>
+
+                      {renderPaymentAction(lesson)}
                     </div>
                   ))}
                 </div>
