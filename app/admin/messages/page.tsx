@@ -161,6 +161,7 @@ export default function AdminMessagesPage() {
   }
 
   const unreadCount = messages.filter((item) => item.status === "unread").length;
+  const archivedCount = messages.filter((item) => item.status === "archived").length;
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -171,9 +172,19 @@ export default function AdminMessagesPage() {
               The Alkebula School
             </p>
 
-            <h1 className="mt-4 text-4xl font-bold">
-              Admin Messages
-            </h1>
+            <div className="mt-4 flex flex-wrap items-center gap-4">
+              <h1 className="text-4xl font-bold">Admin Messages</h1>
+
+              {unreadCount > 0 ? (
+                <span className="rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white">
+                  {unreadCount} Unread
+                </span>
+              ) : (
+                <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700">
+                  Inbox Clear
+                </span>
+              )}
+            </div>
 
             <p className="mt-4 max-w-3xl text-slate-600">
               Read and reply to internal tutor messages and parent support messages.
@@ -196,15 +207,22 @@ export default function AdminMessagesPage() {
           </div>
 
           <div className="rounded-2xl border bg-slate-50 p-5">
-            <p className="text-sm text-slate-500">Unread</p>
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-slate-500">Unread</p>
+
+              {unreadCount > 0 ? (
+                <span className="rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white">
+                  {unreadCount}
+                </span>
+              ) : null}
+            </div>
+
             <p className="mt-2 text-3xl font-bold">{unreadCount}</p>
           </div>
 
           <div className="rounded-2xl border bg-slate-50 p-5">
             <p className="text-sm text-slate-500">Archived</p>
-            <p className="mt-2 text-3xl font-bold">
-              {messages.filter((item) => item.status === "archived").length}
-            </p>
+            <p className="mt-2 text-3xl font-bold">{archivedCount}</p>
           </div>
         </div>
 
@@ -222,9 +240,7 @@ export default function AdminMessagesPage() {
 
         <div className="mt-10 rounded-3xl border p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold">
-              Inbox
-            </h2>
+            <h2 className="text-2xl font-semibold">Inbox</h2>
 
             <button
               type="button"
@@ -248,9 +264,7 @@ export default function AdminMessagesPage() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <h3 className="text-lg font-semibold">
-                        {item.subject}
-                      </h3>
+                      <h3 className="text-lg font-semibold">{item.subject}</h3>
 
                       <p className="mt-1 text-sm text-slate-500">
                         From: {item.sender_email} ({item.sender_role})
