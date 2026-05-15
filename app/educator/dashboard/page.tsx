@@ -190,16 +190,17 @@ export default function EducatorDashboardPage() {
       const supabase = getSupabaseBrowserClient();
 
       const { error: insertError } = await supabase
-        .from("tutor_availability_slots")
-        .insert({
-          tutor_email: educatorEmail,
-          slot_date: slotDate,
-          start_time: startTime,
-          end_time: endTime,
-          timezone,
-          status: "available",
-          is_booked: false,
-        });
+  .from("tutor_availability_slots")
+  .insert({
+    tutor_email: educatorEmail,
+    date: slotDate,
+    slot_date: slotDate,
+    start_time: startTime,
+    end_time: endTime,
+    timezone,
+    status: "available",
+    is_booked: false,
+  });
 
       if (insertError) throw new Error(insertError.message);
 
