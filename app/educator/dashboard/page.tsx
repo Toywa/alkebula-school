@@ -57,7 +57,9 @@ function usd(value?: number | null) {
 }
 
 function getLessonAmount(lesson: Lesson) {
-  return Number(lesson.lesson_amount || lesson.hourly_rate || lesson.amount_due || 0);
+  return Number(
+    lesson.lesson_amount || lesson.hourly_rate || lesson.amount_due || 0
+  );
 }
 
 function getTutorPayout(lesson: Lesson) {
@@ -75,6 +77,7 @@ export default function EducatorDashboardPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingSlot, setSavingSlot] = useState(false);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
 
   const [slotDate, setSlotDate] = useState("");
   const [startTime, setStartTime] = useState("");
@@ -94,6 +97,32 @@ export default function EducatorDashboardPage() {
   useEffect(() => {
     loadSignedInEducator();
   }, []);
+
+  async function loadUnreadMessageCount() {
+    try {
+      const supabase = getSupabaseBrowserClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) return;
+
+      const response = await fetch("/api/messages/unread-count", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setUnreadMessageCount(data.unread_count || 0);
+      }
+    } catch {
+      setUnreadMessageCount(0);
+    }
+  }
 
   async function loadSignedInEducator() {
     setLoading(true);
@@ -132,6 +161,7 @@ export default function EducatorDashboardPage() {
 
       await loadSlots(email);
       await loadLessons(email);
+      await loadUnreadMessageCount();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard.");
     } finally {
@@ -190,17 +220,17 @@ export default function EducatorDashboardPage() {
       const supabase = getSupabaseBrowserClient();
 
       const { error: insertError } = await supabase
-  .from("tutor_availability_slots")
-  .insert({
-    tutor_email: educatorEmail,
-    date: slotDate,
-    slot_date: slotDate,
-    start_time: startTime,
-    end_time: endTime,
-    timezone,
-    status: "available",
-    is_booked: false,
-  });
+        .from("tutor_availability_slots")
+        .insert({
+          tutor_email: educatorEmail,
+          date: slotDate,
+          slot_date: slotDate,
+          start_time: startTime,
+          end_time: endTime,
+          timezone,
+          status: "available",
+          is_booked: false,
+        });
 
       if (insertError) throw new Error(insertError.message);
 
@@ -278,10 +308,11 @@ export default function EducatorDashboardPage() {
       lesson.status === "scheduled"
   );
 
-  const completedLessons = lessons.filter((lesson) => lesson.status === "completed");
+  const completedLessons = lessons.filter(
+    (lesson) => lesson.status === "completed"
+  );
 
   const paidLessons = lessons.filter((lesson) => lesson.payment_status === "paid");
-
   const unpaidLessons = lessons.filter((lesson) => lesson.payment_status !== "paid");
 
   const totalTutorEarned = paidLessons.reduce(
@@ -320,34 +351,39 @@ export default function EducatorDashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-  <Link
-    href="/educator/profile"
-    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-  >
-    Edit Profile Picture
-  </Link>
+            <Link
+              href="/educator/profile"
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Edit Profile Picture
+            </Link>
 
-  <Link
-    href="/educator/subjects"
-    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-  >
-    Edit Subjects & Rates
-  </Link>
+            <Link
+              href="/educator/subjects"
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Edit Subjects & Rates
+            </Link>
 
-  <Link
-    href="/educator/availability"
-    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-  >
-    Bulk Monthly Slots
-  </Link>
+            <Link
+              href="/educator/availability"
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Bulk Monthly Slots
+            </Link>
 
-  <Link
-    href="/educator/messages"
-    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
-  >
-    Message Admin
-  </Link>
-</div>
+            <Link
+              href="/educator/messages"
+              className="relative rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              Message Admin
+              {unreadMessageCount > 0 ? (
+                <span className="ml-2 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
+                  {unreadMessageCount}
+                </span>
+              ) : null}
+            </Link>
+          </div>
         </div>
 
         {message ? (
