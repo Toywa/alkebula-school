@@ -4,23 +4,15 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-type Period = {
-  id: string;
-  period_label: string;
-  start_date: string;
-  end_date: string;
-  submission_deadline: string;
-  submitted_at: string | null;
-  status: string;
-};
-
 type Slot = {
   id: string;
+  tutor_email: string;
   slot_date: string;
   start_time: string;
   end_time: string;
   timezone: string | null;
-  status: string;
+  status: string | null;
+  is_booked?: boolean | null;
 };
 
 type Lesson = {
@@ -40,6 +32,9 @@ type Lesson = {
   platform_commission?: number | null;
   tutor_payout_amount?: number | null;
   payment_status: string | null;
+  payout_status?: string | null;
+  payout_date?: string | null;
+  payout_reference?: string | null;
   homework_title: string | null;
   homework_instructions: string | null;
   homework_due_date: string | null;
@@ -58,28 +53,33 @@ type EducatorProfile = {
 };
 
 function usd(value?: number | null) {
-  if (!value) return "USD 0.00";
-  return `USD ${Number(value).toFixed(2)}`;
+  return `USD ${Number(value || 0).toFixed(2)}`;
+}
+
+function getLessonAmount(lesson: Lesson) {
+  return Number(lesson.lesson_amount || lesson.hourly_rate || lesson.amount_due || 0);
+}
+
+function getTutorPayout(lesson: Lesson) {
+  return Number(lesson.tutor_payout_amount || getLessonAmount(lesson) * 0.7);
 }
 
 export default function EducatorDashboardPage() {
-  const [educatorId, setEducatorId] = useState("");
   const [educatorEmail, setEducatorEmail] = useState("");
   const [profile, setProfile] = useState<EducatorProfile | null>(null);
 
-  const [periods, setPeriods] = useState<Period[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [activePeriodId, setActivePeriodId] = useState("");
 
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [savingSlot, setSavingSlot] = useState(false);
 
   const [slotDate, setSlotDate] = useState("");
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
-  const [timezone, setTimezone] = useState("UTC");
+  const [timezone, setTimezone] = useState("Africa/Nairobi");
 
   const [homeworkTitle, setHomeworkTitle] = useState("");
   const [homeworkInstructions, setHomeworkInstructions] = useState("");
@@ -94,21 +94,6 @@ export default function EducatorDashboardPage() {
   useEffect(() => {
     loadSignedInEducator();
   }, []);
-
-  async function readJsonOrThrow(response: Response, label: string) {
-    const text = await response.text();
-    try {
-      return text ? JSON.parse(text) : {};
-    } catch {
-      throw new Error(`${label} returned non-JSON response.`);
-    }
-  }
-
-  function calculateTutorDue(lesson: Lesson) {
-    return Number(
-      lesson.tutor_payout_amount || lesson.amount_due || Number(lesson.hourly_rate || 0) * 0.7
-    );
-  }
 
   async function loadSignedInEducator() {
     setLoading(true);
@@ -145,10 +130,7 @@ export default function EducatorDashboardPage() {
 
       setProfile(educatorProfile);
 
-      const resolvedEducatorId = educatorProfile.id || email;
-      setEducatorId(resolvedEducatorId);
-
-      await loadAvailability(resolvedEducatorId);
+      await loadSlots(email);
       await loadLessons(email);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load dashboard.");
@@ -157,14 +139,19 @@ export default function EducatorDashboardPage() {
     }
   }
 
-  async function loadAvailability(resolvedEducatorId: string) {
-    const res = await fetch(`/api/educator-availability-load/${resolvedEducatorId}`);
-    const data = await readJsonOrThrow(res, "availability");
+  async function loadSlots(email: string) {
+    const supabase = getSupabaseBrowserClient();
 
-    if (!res.ok) throw new Error(data.error || "Failed to load availability.");
+    const { data, error } = await supabase
+      .from("tutor_availability_slots")
+      .select("*")
+      .eq("tutor_email", email)
+      .order("slot_date", { ascending: true })
+      .order("start_time", { ascending: true });
 
-    setPeriods(data.periods || []);
-    setSlots(data.slots || []);
+    if (error) throw new Error(error.message);
+
+    setSlots(data || []);
   }
 
   async function loadLessons(email: string) {
@@ -174,61 +161,58 @@ export default function EducatorDashboardPage() {
       .from("tutor_lessons")
       .select("*")
       .eq("tutor_email", email)
-      .order("lesson_date", { ascending: true });
+      .order("lesson_date", { ascending: false });
 
     if (error) throw new Error(error.message);
 
     setLessons(data || []);
   }
 
-  async function generatePeriod() {
-    try {
-      const res = await fetch("/api/availability-periods", {
-        method: "POST",
-        body: JSON.stringify({ educatorId }),
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const data = await readJsonOrThrow(res, "period");
-
-      if (!res.ok) throw new Error(data.error || "Failed.");
-
-      setPeriods((prev) => [data.period, ...prev]);
-      setActivePeriodId(data.period.id);
-      setMessage("Availability period generated.");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed.");
-    }
-  }
-
   async function saveSlot(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setSavingSlot(true);
+    setMessage("");
+    setError("");
 
     try {
-      const res = await fetch("/api/educator-availability", {
-        method: "POST",
-        body: JSON.stringify({
-          educatorId,
-          periodId: activePeriodId || null,
-          slotDate,
-          startTime,
-          endTime,
+      if (!educatorEmail) {
+        throw new Error("Educator email not found. Please sign in again.");
+      }
+
+      if (!slotDate || !startTime || !endTime) {
+        throw new Error("Please select date, start time, and end time.");
+      }
+
+      if (startTime >= endTime) {
+        throw new Error("End time must be later than start time.");
+      }
+
+      const supabase = getSupabaseBrowserClient();
+
+      const { error: insertError } = await supabase
+        .from("tutor_availability_slots")
+        .insert({
+          tutor_email: educatorEmail,
+          slot_date: slotDate,
+          start_time: startTime,
+          end_time: endTime,
           timezone,
-        }),
-        headers: { "Content-Type": "application/json" },
-      });
+          status: "available",
+          is_booked: false,
+        });
 
-      const data = await readJsonOrThrow(res, "slot");
+      if (insertError) throw new Error(insertError.message);
 
-      if (!res.ok) throw new Error(data.error || "Failed.");
-
-      setSlots((prev) => [...prev, data.slot]);
       setSlotDate("");
       setStartTime("");
       setEndTime("");
-      setMessage("Availability slot saved.");
+      setMessage("Availability slot saved successfully.");
+
+      await loadSlots(educatorEmail);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed.");
+      setError(err instanceof Error ? err.message : "Failed to save slot.");
+    } finally {
+      setSavingSlot(false);
     }
   }
 
@@ -295,9 +279,26 @@ export default function EducatorDashboardPage() {
 
   const completedLessons = lessons.filter((lesson) => lesson.status === "completed");
 
-  const totalTutorDue = completedLessons
-    .filter((lesson) => lesson.payment_status !== "paid")
-    .reduce((total, lesson) => total + calculateTutorDue(lesson), 0);
+  const paidLessons = lessons.filter((lesson) => lesson.payment_status === "paid");
+
+  const unpaidLessons = lessons.filter((lesson) => lesson.payment_status !== "paid");
+
+  const totalTutorEarned = paidLessons.reduce(
+    (total, lesson) => total + getTutorPayout(lesson),
+    0
+  );
+
+  const totalPaidOut = paidLessons
+    .filter((lesson) => lesson.payout_status === "paid")
+    .reduce((total, lesson) => total + getTutorPayout(lesson), 0);
+
+  const pendingPayout = paidLessons
+    .filter((lesson) => lesson.payout_status !== "paid")
+    .reduce((total, lesson) => total + getTutorPayout(lesson), 0);
+
+  const availableSlots = slots.filter(
+    (slot) => !slot.is_booked && slot.status !== "booked"
+  );
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -318,27 +319,27 @@ export default function EducatorDashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-  <Link
-    href="/educator/profile"
-    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-  >
-    Edit Profile Picture
-  </Link>
+            <Link
+              href="/educator/profile"
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Edit Profile Picture
+            </Link>
 
-  <Link
-    href="/educator/subjects"
-    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-  >
-    Edit Subjects & Rates
-  </Link>
+            <Link
+              href="/educator/subjects"
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Edit Subjects & Rates
+            </Link>
 
-  <Link
-    href="/educator/availability"
-    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
-  >
-    Create Monthly Slots
-  </Link>
-</div>
+            <Link
+              href="/educator/availability"
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Bulk Monthly Slots
+            </Link>
+          </div>
         </div>
 
         {message ? (
@@ -358,53 +359,98 @@ export default function EducatorDashboardPage() {
         {!loading ? (
           <>
             <div className="mt-10 grid gap-6 md:grid-cols-4">
-              <div className="rounded-2xl border bg-slate-50 p-6">
-                <p className="text-sm text-slate-500">Available Slots</p>
-                <p className="mt-2 text-3xl font-bold">
-                  {slots.filter((slot) => slot.status !== "booked").length}
-                </p>
-              </div>
-
-              <div className="rounded-2xl border bg-slate-50 p-6">
-                <p className="text-sm text-slate-500">Upcoming Lessons</p>
-                <p className="mt-2 text-3xl font-bold">{upcomingLessons.length}</p>
-              </div>
-
-              <div className="rounded-2xl border bg-slate-50 p-6">
-                <p className="text-sm text-slate-500">Completed Lessons</p>
-                <p className="mt-2 text-3xl font-bold">{completedLessons.length}</p>
-              </div>
-
-              <div className="rounded-2xl border bg-slate-50 p-6">
-                <p className="text-sm text-slate-500">Amount Due</p>
-                <p className="mt-2 text-3xl font-bold">{usd(totalTutorDue)}</p>
-              </div>
+              <MetricCard title="Available Slots" value={String(availableSlots.length)} />
+              <MetricCard title="Upcoming Lessons" value={String(upcomingLessons.length)} />
+              <MetricCard title="Completed Lessons" value={String(completedLessons.length)} />
+              <MetricCard title="Pending Payout" value={usd(pendingPayout)} />
             </div>
 
-            <div className="mt-10">
-              <button
-                type="button"
-                onClick={generatePeriod}
-                className="rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white"
-              >
-                Generate Availability Period
-              </button>
+            <div className="mt-8 grid gap-6 md:grid-cols-4">
+              <MetricCard title="Paid Lessons" value={String(paidLessons.length)} />
+              <MetricCard title="Unpaid Lessons" value={String(unpaidLessons.length)} />
+              <MetricCard title="Total Earned" value={usd(totalTutorEarned)} />
+              <MetricCard title="Paid Out" value={usd(totalPaidOut)} />
             </div>
 
             <form onSubmit={saveSlot} className="mt-10 rounded-2xl border p-6">
-              <h2 className="text-2xl font-semibold">Add Availability Slot</h2>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-semibold">Add Single Availability Slot</h2>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Best for part-time educators. Pick one exact date and time.
+                  </p>
+                </div>
 
-              <div className="mt-5 grid gap-4 md:grid-cols-4">
-                <input type="date" value={slotDate} onChange={(e) => setSlotDate(e.target.value)} className="rounded-xl border p-3" required />
-                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="rounded-xl border p-3" required />
-                <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="rounded-xl border p-3" required />
-                <input value={timezone} onChange={(e) => setTimezone(e.target.value)} className="rounded-xl border p-3" />
+                <Link
+                  href="/educator/availability"
+                  className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+                >
+                  Use Bulk Monthly Creator
+                </Link>
               </div>
 
-              <button className="mt-5 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white">
-                Save Slot
+              <div className="mt-5 grid gap-4 md:grid-cols-4">
+                <input
+                  type="date"
+                  value={slotDate}
+                  onChange={(e) => setSlotDate(e.target.value)}
+                  className="rounded-xl border p-3"
+                  required
+                />
+
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="rounded-xl border p-3"
+                  required
+                />
+
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="rounded-xl border p-3"
+                  required
+                />
+
+                <input
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="rounded-xl border p-3"
+                />
+              </div>
+
+              <button
+                disabled={savingSlot}
+                className="mt-5 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+              >
+                {savingSlot ? "Saving Slot..." : "Save Single Slot"}
               </button>
             </form>
+
+            <div className="mt-10 rounded-2xl border p-6">
+              <h2 className="text-2xl font-semibold">Your Availability Slots</h2>
+
+              {slots.length === 0 ? (
+                <p className="mt-4 text-slate-600">No availability slots created yet.</p>
+              ) : (
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
+                  {slots.slice(0, 12).map((slot) => (
+                    <div key={slot.id} className="rounded-xl border bg-slate-50 p-4 text-sm">
+                      <p className="font-semibold">{slot.slot_date}</p>
+                      <p className="mt-1 text-slate-600">
+                        {slot.start_time} - {slot.end_time}
+                      </p>
+                      <p className="mt-1 text-slate-600">
+                        {slot.timezone || "Africa/Nairobi"} ·{" "}
+                        {slot.is_booked || slot.status === "booked" ? "Booked" : "Available"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <div className="mt-10 rounded-2xl border p-6">
               <h2 className="text-2xl font-semibold">Upcoming Lessons</h2>
@@ -427,36 +473,38 @@ export default function EducatorDashboardPage() {
                         Parent: {lesson.parent_email || "—"}
                       </p>
 
-                      <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm md:grid-cols-3">
-                        <p><strong>Hourly Rate:</strong> {usd(lesson.hourly_rate)}</p>
-                        <p><strong>Lesson Amount:</strong> {usd(lesson.lesson_amount || lesson.hourly_rate)}</p>
-                        <p><strong>Your Payout:</strong> {usd(calculateTutorDue(lesson))}</p>
+                      <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm md:grid-cols-4">
+                        <p><strong>Lesson Amount:</strong> {usd(getLessonAmount(lesson))}</p>
+                        <p><strong>Your Payout:</strong> {usd(getTutorPayout(lesson))}</p>
+                        <p><strong>Payment:</strong> {lesson.payment_status || "unpaid"}</p>
+                        <p><strong>Payout:</strong> {lesson.payout_status || "pending"}</p>
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-3">
-                        <button type="button" onClick={() => updateLessonStatus(lesson.id, "completed")} className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white">
+                        <button
+                          type="button"
+                          onClick={() => updateLessonStatus(lesson.id, "completed")}
+                          className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white"
+                        >
                           Mark Completed
                         </button>
 
-                        <button type="button" onClick={() => updateLessonStatus(lesson.id, "cancelled")} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white">
+                        <button
+                          type="button"
+                          onClick={() => updateLessonStatus(lesson.id, "cancelled")}
+                          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+                        >
                           Cancel Lesson
                         </button>
 
-                        <button type="button" onClick={() => setSelectedLessonId(lesson.id)} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLessonId(lesson.id)}
+                          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                        >
                           Issue Homework
                         </button>
                       </div>
-
-                      {lesson.homework_title ? (
-                        <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm">
-                          <p className="font-semibold">Homework: {lesson.homework_title}</p>
-                          <p className="mt-1">{lesson.homework_instructions}</p>
-                          <p className="mt-2 text-slate-600">
-                            Due: {lesson.homework_due_date || "—"} · Status:{" "}
-                            {lesson.homework_status || "assigned"}
-                          </p>
-                        </div>
-                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -468,11 +516,33 @@ export default function EducatorDashboardPage() {
                 <h2 className="text-2xl font-semibold">Assign Homework</h2>
 
                 <div className="mt-5 space-y-4">
-                  <input value={homeworkTitle} onChange={(e) => setHomeworkTitle(e.target.value)} placeholder="Homework title" className="w-full rounded-xl border p-3" />
-                  <textarea value={homeworkInstructions} onChange={(e) => setHomeworkInstructions(e.target.value)} placeholder="Homework instructions" rows={5} className="w-full rounded-xl border p-3" />
-                  <input type="date" value={homeworkDueDate} onChange={(e) => setHomeworkDueDate(e.target.value)} className="rounded-xl border p-3" />
+                  <input
+                    value={homeworkTitle}
+                    onChange={(e) => setHomeworkTitle(e.target.value)}
+                    placeholder="Homework title"
+                    className="w-full rounded-xl border p-3"
+                  />
 
-                  <button type="button" onClick={assignHomework} className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">
+                  <textarea
+                    value={homeworkInstructions}
+                    onChange={(e) => setHomeworkInstructions(e.target.value)}
+                    placeholder="Homework instructions"
+                    rows={5}
+                    className="w-full rounded-xl border p-3"
+                  />
+
+                  <input
+                    type="date"
+                    value={homeworkDueDate}
+                    onChange={(e) => setHomeworkDueDate(e.target.value)}
+                    className="rounded-xl border p-3"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={assignHomework}
+                    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
+                  >
                     Save Homework
                   </button>
                 </div>
@@ -486,25 +556,36 @@ export default function EducatorDashboardPage() {
                 <p className="mt-4 text-slate-600">No completed lessons yet.</p>
               ) : (
                 <div className="mt-5 space-y-4">
-                  {completedLessons.map((lesson) => {
-                    const tutorDue = calculateTutorDue(lesson);
+                  {completedLessons.map((lesson) => (
+                    <div key={lesson.id} className="rounded-xl border p-5">
+                      <p className="font-semibold">{lesson.subject || "Lesson"}</p>
+                      <p className="mt-2 text-sm text-slate-600">
+                        {lesson.curriculum || "—"} · {lesson.lesson_date || "—"}
+                      </p>
 
-                    return (
-                      <div key={lesson.id} className="rounded-xl border p-5">
-                        <p className="font-semibold">{lesson.subject || "Lesson"}</p>
-                        <p className="mt-2 text-sm text-slate-600">
-                          {lesson.curriculum || "—"} · {lesson.lesson_date || "—"}
-                        </p>
-
-                        <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm md:grid-cols-4">
-                          <p><strong>Hourly Rate:</strong> {usd(lesson.hourly_rate)}</p>
-                          <p><strong>Lesson Amount:</strong> {usd(lesson.lesson_amount || lesson.hourly_rate)}</p>
-                          <p><strong>Your Payout:</strong> {usd(tutorDue)}</p>
-                          <p><strong>Payment:</strong> {lesson.payment_status || "unpaid"}</p>
-                        </div>
+                      <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm md:grid-cols-4">
+                        <p><strong>Lesson Amount:</strong> {usd(getLessonAmount(lesson))}</p>
+                        <p><strong>Your Payout:</strong> {usd(getTutorPayout(lesson))}</p>
+                        <p><strong>Payment:</strong> {lesson.payment_status || "unpaid"}</p>
+                        <p><strong>Payout:</strong> {lesson.payout_status || "pending"}</p>
                       </div>
-                    );
-                  })}
+
+                      {lesson.payout_status === "paid" ? (
+                        <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                          <p className="font-semibold">Payout Paid</p>
+                          <p className="mt-1">
+                            Reference: {lesson.payout_reference || "—"}
+                          </p>
+                          <p className="mt-1">
+                            Date:{" "}
+                            {lesson.payout_date
+                              ? new Date(lesson.payout_date).toLocaleString()
+                              : "—"}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -512,5 +593,14 @@ export default function EducatorDashboardPage() {
         ) : null}
       </section>
     </main>
+  );
+}
+
+function MetricCard({ title, value }: { title: string; value: string }) {
+  return (
+    <div className="rounded-2xl border bg-slate-50 p-6">
+      <p className="text-sm text-slate-500">{title}</p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
+    </div>
   );
 }
