@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type FinanceMetrics = {
   total_revenue: number;
@@ -66,7 +67,21 @@ export default function AdminFinancePage() {
       setLoading(true);
       setErrorMessage("");
 
-      const response = await fetch("/api/admin/finance");
+      const supabase = getSupabaseBrowserClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Admin session not found. Please sign in again.");
+      }
+
+      const response = await fetch("/api/admin/finance", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
       const data = await response.json();
 
@@ -213,9 +228,7 @@ export default function AdminFinancePage() {
                         </td>
 
                         <td className="px-4 py-4">
-                          {usd(
-                            lesson.lesson_amount || lesson.hourly_rate
-                          )}
+                          {usd(lesson.lesson_amount || lesson.hourly_rate)}
                         </td>
 
                         <td className="px-4 py-4">
@@ -344,8 +357,7 @@ function MetricCard({
 function StatusBadge({ value }: { value: string }) {
   const normalized = value.toLowerCase();
 
-  let classes =
-    "bg-slate-700 text-white";
+  let classes = "bg-slate-700 text-white";
 
   if (normalized === "paid") {
     classes = "bg-emerald-500/20 text-emerald-300";

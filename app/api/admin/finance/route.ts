@@ -1,36 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
 
 const ADMIN_ALLOWED_EMAILS = ["sunscapecars@gmail.com"];
 
 function money(value: unknown) {
   const amount = Number(value || 0);
   return Number.isFinite(amount) ? amount : 0;
-}
-
-async function getAuthClient() {
-  const cookieStore = await cookies();
-
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              cookieStore.set(name, value, options);
-            });
-          } catch {}
-        },
-      },
-    }
-  );
 }
 
 function getAdminClient() {
@@ -46,24 +21,40 @@ function getAdminClient() {
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const authClient = await getAuthClient();
+    const authHeader = request.headers.get("authorization") || "";
+    const token = authHeader.replace("Bearer ", "").trim();
+
+    if (!token) {
+      return NextResponse.json(
+        { error: "Missing admin session token." },
+        { status: 401 }
+      );
+    }
+
+    const supabase = getAdminClient();
 
     const {
       data: { user },
-    } = await authClient.auth.getUser();
+      error: userError,
+    } = await supabase.auth.getUser(token);
 
-    const email = user?.email?.toLowerCase() || "";
+    if (userError || !user?.email) {
+      return NextResponse.json(
+        { error: "Invalid admin session." },
+        { status: 401 }
+      );
+    }
 
-    if (!email || !ADMIN_ALLOWED_EMAILS.includes(email)) {
+    const email = user.email.toLowerCase();
+
+    if (!ADMIN_ALLOWED_EMAILS.includes(email)) {
       return NextResponse.json(
         { error: "Unauthorized admin access." },
         { status: 403 }
       );
     }
-
-    const supabase = getAdminClient();
 
     const { data: lessons, error } = await supabase
       .from("tutor_lessons")
@@ -100,8 +91,13 @@ export async function GET() {
 
     const rows = lessons || [];
 
-    const paidLessons = rows.filter((lesson) => lesson.payment_status === "paid");
-    const unpaidLessons = rows.filter((lesson) => lesson.payment_status !== "paid");
+    const paidLessons = rows.filter(
+      (lesson) => lesson.payment_status === "paid"
+    );
+
+    const unpaidLessons = rows.filter(
+      (lesson) => lesson.payment_status !== "paid"
+    );
 
     const totalRevenue = paidLessons.reduce(
       (total, lesson) =>
