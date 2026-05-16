@@ -1,3 +1,4 @@
+import { sendInternalMessageNotificationEmail } from "@/lib/message-email";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -72,13 +73,18 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false });
 
     if (!isAdmin) {
-      query = query.or(`sender_email.eq.${email},recipient_email.eq.${email}`);
+      query = query.or(
+        `sender_email.eq.${email},recipient_email.eq.${email}`
+      );
     }
 
     const { data, error } = await query;
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -89,7 +95,9 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Failed to load messages.",
+          error instanceof Error
+            ? error.message
+            : "Failed to load messages.",
       },
       { status: 401 }
     );
@@ -99,6 +107,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const { email, supabase } = await getUserFromRequest(req);
+
     const body = await req.json();
 
     const senderRole = body.senderRole as SenderRole;
@@ -115,42 +124,54 @@ export async function POST(req: Request) {
 
     if (!subject || !message) {
       return NextResponse.json(
-        { error: "Subject and message are required." },
+        {
+          error: "Subject and message are required.",
+        },
         { status: 400 }
       );
     }
 
     if (!senderRole || !recipientRole) {
       return NextResponse.json(
-        { error: "Sender and recipient roles are required." },
+        {
+          error: "Sender and recipient roles are required.",
+        },
         { status: 400 }
       );
     }
 
     if (!isAllowedMessage(senderRole, recipientRole)) {
       return NextResponse.json(
-        { error: "This message route is not allowed." },
+        {
+          error: "This message route is not allowed.",
+        },
         { status: 403 }
       );
     }
 
     if (senderRole === "admin" && email !== ADMIN_EMAIL) {
       return NextResponse.json(
-        { error: "Only admin can send admin messages." },
+        {
+          error: "Only admin can send admin messages.",
+        },
         { status: 403 }
       );
     }
 
     if (senderRole !== "admin" && email === ADMIN_EMAIL) {
       return NextResponse.json(
-        { error: "Admin account must send as admin." },
+        {
+          error: "Admin account must send as admin.",
+        },
         { status: 403 }
       );
     }
 
     if (senderRole === "admin" && !recipientEmail) {
       return NextResponse.json(
-        { error: "Recipient email is required." },
+        {
+          error: "Recipient email is required.",
+        },
         { status: 400 }
       );
     }
@@ -171,7 +192,26 @@ export async function POST(req: Request) {
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
+    }
+
+    try {
+      if (recipientEmail) {
+        await sendInternalMessageNotificationEmail({
+          recipientEmail: recipientEmail,
+          recipientRole: recipientRole,
+          senderRole: senderRole,
+          subject: subject,
+        });
+      }
+    } catch (emailError) {
+      console.error(
+        "Message notification email failed:",
+        emailError
+      );
     }
 
     return NextResponse.json({
@@ -182,7 +222,9 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Failed to send message.",
+          error instanceof Error
+            ? error.message
+            : "Failed to send message.",
       },
       { status: 401 }
     );
@@ -192,6 +234,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const { email, supabase } = await getUserFromRequest(req);
+
     const body = await req.json();
 
     const id = body.id;
@@ -199,7 +242,9 @@ export async function PATCH(req: Request) {
 
     if (!id || !["read", "archived"].includes(status)) {
       return NextResponse.json(
-        { error: "Valid message ID and status are required." },
+        {
+          error: "Valid message ID and status are required.",
+        },
         { status: 400 }
       );
     }
@@ -218,7 +263,10 @@ export async function PATCH(req: Request) {
     const { error } = await query;
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return NextResponse.json(
+        { error: error.message },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
@@ -228,7 +276,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Failed to update message.",
+          error instanceof Error
+            ? error.message
+            : "Failed to update message.",
       },
       { status: 401 }
     );
