@@ -297,6 +297,13 @@ export default function ParentBookingsPage() {
           >
             Find a Tutor
           </Link>
+
+          <Link
+  href="/parent/support"
+  className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+>
+  Contact Admin
+</Link>
         </div>
 
         {loading ? <p className="mt-8">Loading dashboard...</p> : null}
