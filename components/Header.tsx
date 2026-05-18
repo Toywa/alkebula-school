@@ -6,10 +6,16 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type UserRole = "parent" | "educator" | "admin" | null;
 
+const ADMIN_EMAIL = "admin@alkebulaschool.com";
+
 function getDashboardPath(role: UserRole) {
   if (role === "admin") return "/admin/resolutions";
-  if (role === "educator") return "/educator/bookings";
+  if (role === "educator") return "/educator/dashboard";
   return "/parent/bookings";
+}
+
+function normalizeEmail(email?: string | null) {
+  return String(email || "").trim().toLowerCase();
 }
 
 export default function Header() {
@@ -21,15 +27,36 @@ export default function Header() {
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
 
+    async function resolveUserRole(email: string): Promise<UserRole> {
+      const normalizedEmail = normalizeEmail(email);
+
+      if (normalizedEmail === ADMIN_EMAIL) {
+        return "admin";
+      }
+
+      const { data } = await supabase
+        .from("users")
+        .select("role")
+        .eq("email", normalizedEmail)
+        .single();
+
+      if (data?.role === "admin") return "admin";
+      if (data?.role === "educator") return "educator";
+      return "parent";
+    }
+
     async function loadUser() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
-      if (user) {
+      if (user?.email) {
+        const email = normalizeEmail(user.email);
+        const resolvedRole = await resolveUserRole(email);
+
         setIsSignedIn(true);
-        setUserEmail(user.email || "");
-        setRole((user.user_metadata?.role as UserRole) || "parent");
+        setUserEmail(email);
+        setRole(resolvedRole);
       } else {
         setIsSignedIn(false);
         setUserEmail("");
@@ -43,13 +70,16 @@ export default function Header() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const user = session?.user;
 
-      if (user) {
+      if (user?.email) {
+        const email = normalizeEmail(user.email);
+        const resolvedRole = await resolveUserRole(email);
+
         setIsSignedIn(true);
-        setUserEmail(user.email || "");
-        setRole((user.user_metadata?.role as UserRole) || "parent");
+        setUserEmail(email);
+        setRole(resolvedRole);
       } else {
         setIsSignedIn(false);
         setUserEmail("");
@@ -79,19 +109,31 @@ export default function Header() {
         </Link>
 
         <nav className="flex flex-wrap items-center gap-3">
-          <Link href="/about" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+          <Link
+            href="/about"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
             About
           </Link>
 
-          <Link href="/faq" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+          <Link
+            href="/faq"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
             FAQ
           </Link>
 
-          <Link href="/contact" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+          <Link
+            href="/contact"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
             Contact
           </Link>
 
-          <Link href="/educators" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+          <Link
+            href="/educators"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
             Find Tutors
           </Link>
 
