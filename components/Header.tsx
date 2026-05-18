@@ -25,76 +25,66 @@ export default function Header() {
   const [userEmail, setUserEmail] = useState("");
   const [role, setRole] = useState<UserRole>("parent");
 
-  async function resolveUserRole(email: string): Promise<UserRole> {
-    const normalizedEmail = normalizeEmail(email);
+  useEffect(() => {
+    let mounted = true;
 
-    if (normalizedEmail === ADMIN_EMAIL) {
-      return "admin";
-    }
+    async function loadUserOnce() {
+      try {
+        const supabase = getSupabaseBrowserClient();
 
-    try {
-      const supabase = getSupabaseBrowserClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
-      const { data } = await supabase
-        .from("users")
-        .select("role")
-        .eq("email", normalizedEmail)
-        .maybeSingle();
+        const email = normalizeEmail(session?.user?.email);
 
-      if (data?.role === "admin") return "admin";
-      if (data?.role === "educator") return "educator";
-      return "parent";
-    } catch {
-      return "parent";
-    }
-  }
+        if (!mounted) return;
 
-  async function loadUser() {
-    setLoading(true);
+        if (!email) {
+          setIsSignedIn(false);
+          setUserEmail("");
+          setRole("parent");
+          setLoading(false);
+          return;
+        }
 
-    try {
-      const supabase = getSupabaseBrowserClient();
+        let resolvedRole: UserRole = "parent";
 
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+        if (email === ADMIN_EMAIL) {
+          resolvedRole = "admin";
+        } else {
+          const { data } = await supabase
+            .from("users")
+            .select("role")
+            .eq("email", email)
+            .maybeSingle();
 
-      const email = normalizeEmail(session?.user?.email);
+          if (data?.role === "admin") resolvedRole = "admin";
+          if (data?.role === "educator") resolvedRole = "educator";
+          if (data?.role === "parent") resolvedRole = "parent";
+        }
 
-      if (!email) {
+        if (!mounted) return;
+
+        setIsSignedIn(true);
+        setUserEmail(email);
+        setRole(resolvedRole);
+      } catch {
+        if (!mounted) return;
+
         setIsSignedIn(false);
         setUserEmail("");
         setRole("parent");
-        setLoading(false);
-        return;
+      } finally {
+        if (mounted) setLoading(false);
       }
-
-      const resolvedRole = await resolveUserRole(email);
-
-      setIsSignedIn(true);
-      setUserEmail(email);
-      setRole(resolvedRole);
-    } catch {
-      setIsSignedIn(false);
-      setUserEmail("");
-      setRole("parent");
-    } finally {
-      setLoading(false);
     }
-  }
 
-  useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
+    loadUserOnce();
 
-    loadUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadUser();
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   async function handleLogout() {
@@ -114,31 +104,19 @@ export default function Header() {
         </Link>
 
         <nav className="flex flex-wrap items-center gap-3">
-          <Link
-            href="/about"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
+          <Link href="/about" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             About
           </Link>
 
-          <Link
-            href="/faq"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
+          <Link href="/faq" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             FAQ
           </Link>
 
-          <Link
-            href="/contact"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
+          <Link href="/contact" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             Contact
           </Link>
 
-          <Link
-            href="/educators"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
+          <Link href="/educators" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
             Find Tutors
           </Link>
 
@@ -149,7 +127,7 @@ export default function Header() {
             Apply as Tutor
           </Link>
 
-          {loading ? null : isSignedIn ? (
+          {!loading && isSignedIn ? (
             <>
               <Link
                 href={getDashboardPath(userEmail, role)}
@@ -170,7 +148,7 @@ export default function Header() {
                 Logout
               </button>
             </>
-          ) : (
+          ) : !loading ? (
             <>
               <Link
                 href="/auth/sign-in"
@@ -186,7 +164,7 @@ export default function Header() {
                 Parent Sign Up
               </Link>
             </>
-          )}
+          ) : null}
         </nav>
       </div>
     </header>
