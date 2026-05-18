@@ -4,95 +4,94 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-type UserRole = "parent" | "educator" | "admin" | null;
+type UserRole = "parent" | "educator" | "admin";
 
 const ADMIN_EMAIL = "admin@alkebulaschool.com";
 
-function getDashboardPath(role: UserRole) {
+function normalizeEmail(email?: string | null) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function getDashboardPath(email: string, role: UserRole) {
+  if (normalizeEmail(email) === ADMIN_EMAIL) return "/admin/resolutions";
   if (role === "admin") return "/admin/resolutions";
   if (role === "educator") return "/educator/dashboard";
   return "/parent/bookings";
-}
-
-function normalizeEmail(email?: string | null) {
-  return String(email || "").trim().toLowerCase();
 }
 
 export default function Header() {
   const [loading, setLoading] = useState(true);
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [userEmail, setUserEmail] = useState("");
-  const [role, setRole] = useState<UserRole>(null);
+  const [role, setRole] = useState<UserRole>("parent");
+
+  async function resolveUserRole(email: string): Promise<UserRole> {
+    const normalizedEmail = normalizeEmail(email);
+
+    if (normalizedEmail === ADMIN_EMAIL) {
+      return "admin";
+    }
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+
+      const { data } = await supabase
+        .from("users")
+        .select("role")
+        .eq("email", normalizedEmail)
+        .maybeSingle();
+
+      if (data?.role === "admin") return "admin";
+      if (data?.role === "educator") return "educator";
+      return "parent";
+    } catch {
+      return "parent";
+    }
+  }
+
+  async function loadUser() {
+    setLoading(true);
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      const email = normalizeEmail(session?.user?.email);
+
+      if (!email) {
+        setIsSignedIn(false);
+        setUserEmail("");
+        setRole("parent");
+        setLoading(false);
+        return;
+      }
+
+      const resolvedRole = await resolveUserRole(email);
+
+      setIsSignedIn(true);
+      setUserEmail(email);
+      setRole(resolvedRole);
+    } catch {
+      setIsSignedIn(false);
+      setUserEmail("");
+      setRole("parent");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
     const supabase = getSupabaseBrowserClient();
-
-    async function resolveUserRole(email: string): Promise<UserRole> {
-      const normalizedEmail = normalizeEmail(email);
-
-      if (normalizedEmail === ADMIN_EMAIL) {
-        return "admin";
-      }
-
-      const { data, error } = await supabase
-  .from("users")
-  .select("role")
-  .eq("email", normalizedEmail)
-  .maybeSingle();
-
-if (error) {
-  console.error(error);
-}
-
-if (data?.role === "admin") return "admin";
-if (data?.role === "educator") return "educator";
-if (data?.role === "parent") return "parent";
-
-return "parent";
-    }
-
-    async function loadUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (user?.email) {
-        const email = normalizeEmail(user.email);
-        const resolvedRole = await resolveUserRole(email);
-
-        setIsSignedIn(true);
-        setUserEmail(email);
-        setRole(resolvedRole);
-      } else {
-        setIsSignedIn(false);
-        setUserEmail("");
-        setRole(null);
-      }
-
-      setLoading(false);
-    }
 
     loadUser();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const user = session?.user;
-
-      if (user?.email) {
-        const email = normalizeEmail(user.email);
-        const resolvedRole = await resolveUserRole(email);
-
-        setIsSignedIn(true);
-        setUserEmail(email);
-        setRole(resolvedRole);
-      } else {
-        setIsSignedIn(false);
-        setUserEmail("");
-        setRole(null);
-      }
-
-      setLoading(false);
+    } = supabase.auth.onAuthStateChange(() => {
+      loadUser();
     });
 
     return () => subscription.unsubscribe();
@@ -153,23 +152,18 @@ return "parent";
           {loading ? null : isSignedIn ? (
             <>
               <Link
-                href={
-  normalizeEmail(userEmail) === ADMIN_EMAIL
-    ? "/admin/resolutions"
-    : getDashboardPath(role)
-}
+                href={getDashboardPath(userEmail, role)}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
               >
                 Dashboard
               </Link>
 
-              {userEmail ? (
-                <span className="hidden rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600 md:inline-block">
-                  {userEmail}
-                </span>
-              ) : null}
+              <span className="hidden rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600 md:inline-block">
+                {userEmail}
+              </span>
 
               <button
+                type="button"
                 onClick={handleLogout}
                 className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
               >
