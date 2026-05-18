@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   title: "The Alkebula School",
   description:
     "A premium education system built to close learning gaps, strengthen mastery, and help students move forward with confidence, structure, and measurable academic progress.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 export default function RootLayout({
