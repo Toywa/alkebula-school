@@ -34,15 +34,21 @@ export default function Header() {
         return "admin";
       }
 
-      const { data } = await supabase
-        .from("users")
-        .select("role")
-        .eq("email", normalizedEmail)
-        .single();
+      const { data, error } = await supabase
+  .from("users")
+  .select("role")
+  .eq("email", normalizedEmail)
+  .maybeSingle();
 
-      if (data?.role === "admin") return "admin";
-      if (data?.role === "educator") return "educator";
-      return "parent";
+if (error) {
+  console.error(error);
+}
+
+if (data?.role === "admin") return "admin";
+if (data?.role === "educator") return "educator";
+if (data?.role === "parent") return "parent";
+
+return "parent";
     }
 
     async function loadUser() {
