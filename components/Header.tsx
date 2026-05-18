@@ -147,7 +147,11 @@ export default function Header() {
           {loading ? null : isSignedIn ? (
             <>
               <Link
-                href={getDashboardPath(role)}
+                href={
+  normalizeEmail(userEmail) === ADMIN_EMAIL
+    ? "/admin/resolutions"
+    : getDashboardPath(role)
+}
                 className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
               >
                 Dashboard
