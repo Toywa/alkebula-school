@@ -4,11 +4,46 @@ import Link from "next/link";
 import { useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-type UserRole = "parent" | "educator" | "admin" | null;
+const ADMIN_EMAIL = "admin@alkebulaschool.com";
 
-function getDashboardPath(role: UserRole) {
-  if (role === "admin") return "/admin/resolutions";
-  if (role === "educator") return "/educator/bookings";
+function normalizeEmail(email?: string | null) {
+  return String(email || "").trim().toLowerCase();
+}
+
+async function getDashboardPath(email: string) {
+  const normalizedEmail = normalizeEmail(email);
+
+  if (normalizedEmail === ADMIN_EMAIL) {
+    return "/admin/resolutions";
+  }
+
+  const supabase = getSupabaseBrowserClient();
+
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("role")
+    .eq("email", normalizedEmail)
+    .maybeSingle();
+
+  if (userRow?.role === "admin") {
+    return "/admin/resolutions";
+  }
+
+  if (userRow?.role === "educator") {
+    return "/educator/dashboard";
+  }
+
+  const { data: educatorRow } = await supabase
+    .from("educator_directory")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .eq("approval_status", "approved")
+    .maybeSingle();
+
+  if (educatorRow) {
+    return "/educator/dashboard";
+  }
+
   return "/parent/bookings";
 }
 
@@ -29,8 +64,10 @@ export default function SignInPage() {
     try {
       const supabase = getSupabaseBrowserClient();
 
+      const normalizedEmail = normalizeEmail(email);
+
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
+        email: normalizedEmail,
         password,
       });
 
@@ -38,9 +75,11 @@ export default function SignInPage() {
         throw new Error(error.message);
       }
 
-      const role = (data.user?.user_metadata?.role as UserRole) || "parent";
+      const signedInEmail = normalizeEmail(data.user?.email || normalizedEmail);
+      const dashboardPath = await getDashboardPath(signedInEmail);
+
       setMessage("Signed in successfully.");
-      window.location.href = getDashboardPath(role);
+      window.location.href = dashboardPath;
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to sign in"
@@ -58,15 +97,19 @@ export default function SignInPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
               The Alkebula School
             </p>
+
             <h1 className="mt-3 text-3xl font-bold">Sign in</h1>
+
             <p className="mt-2 text-sm text-slate-600">
-              Access your account to manage lessons, bookings, and learning progress.
+              Access your account to manage lessons, bookings, and learning
+              progress.
             </p>
           </div>
 
           <form onSubmit={handleSignIn} className="space-y-4">
             <div>
               <label className="mb-2 block text-sm font-medium">Email</label>
+
               <input
                 type="email"
                 value={email}
@@ -80,6 +123,7 @@ export default function SignInPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium">Password</label>
+
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -90,6 +134,7 @@ export default function SignInPage() {
                   className="w-full rounded-xl border border-slate-300 px-4 py-3 pr-20"
                   placeholder="Enter your password"
                 />
+
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
@@ -109,7 +154,10 @@ export default function SignInPage() {
             </button>
           </form>
 
-          {message ? <p className="mt-4 text-sm text-green-600">{message}</p> : null}
+          {message ? (
+            <p className="mt-4 text-sm text-green-600">{message}</p>
+          ) : null}
+
           {errorMessage ? (
             <p className="mt-4 text-sm text-red-600">{errorMessage}</p>
           ) : null}
@@ -123,6 +171,7 @@ export default function SignInPage() {
                 Forgot password?
               </Link>
             </p>
+
             <p className="text-slate-600">
               Don’t have an account?{" "}
               <Link
