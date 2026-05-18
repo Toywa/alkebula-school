@@ -95,9 +95,10 @@ export async function POST(req: Request) {
 
     if (audience === "tutors" || audience === "both") {
       const { data: tutors, error: tutorError } = await supabase
-        .from("educator_directory")
-        .select("email")
-        .eq("approval_status", "approved");
+  .from("educator_directory")
+  .select("email")
+  .eq("approval_status", "approved")
+  .neq("email", "admin@alkebulaschool.com");
 
       if (tutorError) {
         return NextResponse.json(
