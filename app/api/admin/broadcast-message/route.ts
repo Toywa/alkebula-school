@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
 const ADMIN_ALLOWED_EMAILS = [
-  "sunscapecars@gmail.com",
-  "davidmusilah@gmail.com",
+  "admin@alkebulaschool.com",
 ];
 
 type BroadcastAudience = "tutors" | "parents" | "both";

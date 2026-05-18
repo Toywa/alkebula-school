@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const ADMIN_ALLOWED_EMAILS = ["sunscapecars@gmail.com"];
+const ADMIN_ALLOWED_EMAILS = ["admin@alkebulaschool.com"];
 
 function money(value: unknown) {
   const amount = Number(value || 0);

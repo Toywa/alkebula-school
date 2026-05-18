@@ -15,7 +15,7 @@ type Lesson = {
   payment_status: string | null;
 };
 
-const ADMIN_ALLOWED_EMAILS = ["sunscapecars@gmail.com"];
+const ADMIN_ALLOWED_EMAILS = ["admin@alkebulaschool.com"];
 
 function tutorDue(lesson: Lesson) {
   return Number(lesson.amount_due || lesson.hourly_rate || 0) * 0.7;

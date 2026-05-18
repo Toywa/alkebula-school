@@ -5,8 +5,7 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 const ADMIN_ALLOWED_EMAILS = [
-  "sunscapecars@gmail.com",
-  "davidmusilah@gmail.com",
+  "admin@alkebulaschool.com",
 ];
 
 export default function AdminResolutionsPage() {
