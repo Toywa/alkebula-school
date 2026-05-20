@@ -4,9 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-const ADMIN_ALLOWED_EMAILS = [
-  "admin@alkebulaschool.com",
-];
+const ADMIN_ALLOWED_EMAILS = ["admin@alkebulaschool.com"];
 
 export default function AdminResolutionsPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -119,6 +117,13 @@ export default function AdminResolutionsPage() {
               </Link>
 
               <Link
+                href="/admin/broadcasts"
+                className="rounded-xl bg-amber-600 px-5 py-3 text-sm font-semibold text-white hover:bg-amber-700"
+              >
+                Broadcasts
+              </Link>
+
+              <Link
                 href="/admin/finance"
                 className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-white"
               >
@@ -153,7 +158,7 @@ export default function AdminResolutionsPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-4">
           <Link
             href="/admin/messages"
             className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md"
@@ -167,6 +172,19 @@ export default function AdminResolutionsPage() {
             </h2>
             <p className="mt-3 text-sm text-slate-600">
               Read tutor messages, reply to educators, and handle parent support.
+            </p>
+          </Link>
+
+          <Link
+            href="/admin/broadcasts"
+            className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm hover:shadow-md"
+          >
+            <p className="text-sm text-amber-700">Announcements</p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">
+              Broadcasts
+            </h2>
+            <p className="mt-3 text-sm text-slate-600">
+              Send platform-wide messages to approved tutors, parents, or both.
             </p>
           </Link>
 
