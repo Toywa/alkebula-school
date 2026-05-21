@@ -58,6 +58,10 @@ function hasPayableAmount(lesson: Lesson) {
   return Number(lesson.lesson_amount || lesson.hourly_rate || 0) > 0;
 }
 
+function classroomHref(lessonId: string) {
+  return `/classroom/${lessonId}`;
+}
+
 export default function ParentBookingsPage() {
   const [parentEmail, setParentEmail] = useState("");
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -222,7 +226,7 @@ export default function ParentBookingsPage() {
   function renderPaymentAction(lesson: Lesson) {
     if (lesson.payment_status === "paid") {
       return (
-        <p className="mt-4 rounded-xl border border-green-200 bg-green-50 p-3 text-sm font-semibold text-green-700">
+        <p className="rounded-xl border border-green-200 bg-green-50 px-5 py-3 text-sm font-semibold text-green-700">
           Paid
         </p>
       );
@@ -235,10 +239,21 @@ export default function ParentBookingsPage() {
         type="button"
         disabled={payingLessonId === lesson.id}
         onClick={() => payForLesson(lesson)}
-        className="mt-4 rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
+        className="rounded-xl bg-emerald-700 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
       >
         {payingLessonId === lesson.id ? "Starting Payment..." : "Pay Now"}
       </button>
+    );
+  }
+
+  function renderClassroomButton(lesson: Lesson) {
+    return (
+      <Link
+        href={classroomHref(lesson.id)}
+        className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+      >
+        Join Classroom
+      </Link>
     );
   }
 
@@ -283,14 +298,14 @@ export default function ParentBookingsPage() {
         <h1 className="mt-4 text-4xl font-bold">Parent Bookings</h1>
 
         <p className="mt-4 max-w-3xl text-slate-600">
-          View lessons, pricing, invoices, payment status, and homework.
+          View lessons, pricing, invoices, payment status, homework, and live classrooms.
         </p>
 
         {parentEmail ? (
           <p className="mt-3 text-sm text-slate-500">Signed in as {parentEmail}</p>
         ) : null}
 
-        <div className="mt-8">
+        <div className="mt-8 flex flex-wrap gap-3">
           <Link
             href="/tutors"
             className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
@@ -299,11 +314,11 @@ export default function ParentBookingsPage() {
           </Link>
 
           <Link
-  href="/parent/support"
-  className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
->
-  Contact Admin
-</Link>
+            href="/parent/support"
+            className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            Messages / Contact Admin
+          </Link>
         </div>
 
         {loading ? <p className="mt-8">Loading dashboard...</p> : null}
@@ -388,7 +403,10 @@ export default function ParentBookingsPage() {
                         </p>
                       </div>
 
-                      {renderPaymentAction(lesson)}
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        {renderClassroomButton(lesson)}
+                        {renderPaymentAction(lesson)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -510,7 +528,10 @@ export default function ParentBookingsPage() {
                         Payment: {lesson.payment_status || "unpaid"}
                       </p>
 
-                      {renderPaymentAction(lesson)}
+                      <div className="mt-4 flex flex-wrap gap-3">
+                        {renderClassroomButton(lesson)}
+                        {renderPaymentAction(lesson)}
+                      </div>
                     </div>
                   ))}
                 </div>
