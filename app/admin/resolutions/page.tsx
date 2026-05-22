@@ -108,12 +108,15 @@ export default function AdminResolutionsPage() {
 
       if (error) throw new Error(error.message);
 
-      setRequests(data || []);
+      const requestData = (data || []) as RescheduleRequest[];
+
+      setRequests(requestData);
 
       const notes: Record<string, string> = {};
-      (data || []).forEach((item) => {
-        notes[item.id] = item.admin_notes || "";
+      requestData.forEach((requestItem) => {
+        notes[requestItem.id] = requestItem.admin_notes || "";
       });
+
       setAdminNotes(notes);
     } catch (error) {
       setErrorMessage(
@@ -126,26 +129,54 @@ export default function AdminResolutionsPage() {
     }
   }
 
-  async function updateRequestStatus(id: string, status: string) {
+  async function updateRequestStatus(
+    requestItem: RescheduleRequest,
+    status: "resolved" | "rejected"
+  ) {
     try {
-      setActingId(id);
+      setActingId(requestItem.id);
       setMessage("");
       setErrorMessage("");
 
       const supabase = getSupabaseBrowserClient();
 
-      const { error } = await supabase
-        .from("tutor_reschedule_requests")
-        .update({
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Admin session expired. Please sign in again.");
+      }
+
+      const response = await fetch("/api/admin/reschedule/resolve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          requestId: requestItem.id,
+          lessonId: requestItem.lesson_id,
           status,
-          admin_notes: adminNotes[id] || null,
-          resolved_at: status === "resolved" || status === "rejected" ? new Date().toISOString() : null,
-        })
-        .eq("id", id);
+          newDate: requestItem.preferred_date,
+          newStartTime: requestItem.preferred_start_time,
+          newEndTime: requestItem.preferred_end_time,
+          adminNotes: adminNotes[requestItem.id] || null,
+        }),
+      });
 
-      if (error) throw new Error(error.message);
+      const data = await response.json();
 
-      setMessage(`Request marked as ${status}.`);
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update request.");
+      }
+
+      setMessage(
+        status === "resolved"
+          ? "Lesson rescheduled successfully. Parent and tutor dashboards now show the new date/time."
+          : "Request rejected successfully."
+      );
+
       await loadRescheduleRequests();
     } catch (error) {
       setErrorMessage(
@@ -156,8 +187,13 @@ export default function AdminResolutionsPage() {
     }
   }
 
-  const pendingRequests = requests.filter((item) => item.status === "pending");
-  const resolvedRequests = requests.filter((item) => item.status !== "pending");
+  const pendingRequests = requests.filter(
+    (requestItem) => requestItem.status === "pending"
+  );
+
+  const resolvedRequests = requests.filter(
+    (requestItem) => requestItem.status !== "pending"
+  );
 
   if (checkingAuth) {
     return (
@@ -249,10 +285,30 @@ export default function AdminResolutionsPage() {
 
       <section className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
         <div className="grid gap-6 md:grid-cols-4">
-          <DashboardCard title="Messages" subtitle="Internal Communication" href="/admin/messages" />
-          <DashboardCard title="Broadcasts" subtitle="Announcements" href="/admin/broadcasts" amber />
-          <DashboardCard title="Finance" subtitle="Finance Operations" href="/admin/finance" />
-          <DashboardCard title="Applications" subtitle="Tutor Pipeline" href="/admin/tutor-applications" />
+          <DashboardCard
+            title="Messages"
+            subtitle="Internal Communication"
+            href="/admin/messages"
+          />
+
+          <DashboardCard
+            title="Broadcasts"
+            subtitle="Announcements"
+            href="/admin/broadcasts"
+            amber
+          />
+
+          <DashboardCard
+            title="Finance"
+            subtitle="Finance Operations"
+            href="/admin/finance"
+          />
+
+          <DashboardCard
+            title="Applications"
+            subtitle="Tutor Pipeline"
+            href="/admin/tutor-applications"
+          />
         </div>
 
         {message ? (
@@ -270,9 +326,12 @@ export default function AdminResolutionsPage() {
         <div className="mt-10 rounded-3xl border border-slate-200 bg-white p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold">Pending Reschedule Requests</h2>
+              <h2 className="text-2xl font-bold">
+                Pending Reschedule Requests
+              </h2>
               <p className="mt-2 text-sm text-slate-600">
-                Review requests submitted by tutors. These do not cancel lessons automatically.
+                Review tutor requests and apply the new lesson date/time to the
+                actual lesson record.
               </p>
             </div>
 
@@ -286,20 +345,24 @@ export default function AdminResolutionsPage() {
           </div>
 
           {loadingRequests ? (
-            <p className="mt-6 text-slate-600">Loading reschedule requests...</p>
+            <p className="mt-6 text-slate-600">
+              Loading reschedule requests...
+            </p>
           ) : pendingRequests.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
-              <p className="text-lg font-medium">No pending reschedule cases right now.</p>
+              <p className="text-lg font-medium">
+                No pending reschedule cases right now.
+              </p>
               <p className="mt-3 text-slate-600">
                 Tutor reschedule requests will appear here for admin handling.
               </p>
             </div>
           ) : (
             <div className="mt-6 space-y-5">
-              {pendingRequests.map((item) => (
+              {pendingRequests.map((requestItem) => (
                 <RequestCard
-                  key={item.id}
-                  item={item}
+                  key={requestItem.id}
+                  item={requestItem}
                   adminNotes={adminNotes}
                   setAdminNotes={setAdminNotes}
                   actingId={actingId}
@@ -317,27 +380,37 @@ export default function AdminResolutionsPage() {
             <p className="mt-4 text-slate-600">No resolved requests yet.</p>
           ) : (
             <div className="mt-6 space-y-4">
-              {resolvedRequests.map((item) => (
-                <div key={item.id} className="rounded-2xl border bg-slate-50 p-5">
+              {resolvedRequests.map((requestItem) => (
+                <div
+                  key={requestItem.id}
+                  className="rounded-2xl border bg-slate-50 p-5"
+                >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <p className="font-semibold">{item.subject || "Lesson"}</p>
+                      <p className="font-semibold">
+                        {requestItem.subject || "Lesson"}
+                      </p>
                       <p className="mt-1 text-sm text-slate-600">
-                        Tutor: {item.tutor_email}
+                        Tutor: {requestItem.tutor_email}
                       </p>
                       <p className="text-sm text-slate-600">
-                        Parent: {item.parent_email || "—"}
+                        Parent: {requestItem.parent_email || "—"}
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        New time: {requestItem.preferred_date || "—"} ·{" "}
+                        {requestItem.preferred_start_time || "—"} -{" "}
+                        {requestItem.preferred_end_time || "—"}
                       </p>
                     </div>
 
                     <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
-                      {item.status}
+                      {requestItem.status}
                     </span>
                   </div>
 
-                  {item.admin_notes ? (
+                  {requestItem.admin_notes ? (
                     <p className="mt-4 rounded-xl bg-white p-4 text-sm text-slate-700">
-                      Admin notes: {item.admin_notes}
+                      Admin notes: {requestItem.admin_notes}
                     </p>
                   ) : null}
                 </div>
@@ -387,7 +460,10 @@ function RequestCard({
   adminNotes: Record<string, string>;
   setAdminNotes: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   actingId: string;
-  updateRequestStatus: (id: string, status: string) => Promise<void>;
+  updateRequestStatus: (
+    requestItem: RescheduleRequest,
+    status: "resolved" | "rejected"
+  ) => Promise<void>;
 }) {
   return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
@@ -398,7 +474,9 @@ function RequestCard({
             {item.curriculum || "—"} · Student: {item.student_name || "—"}
           </p>
           <p className="text-sm text-slate-700">Tutor: {item.tutor_email}</p>
-          <p className="text-sm text-slate-700">Parent: {item.parent_email || "—"}</p>
+          <p className="text-sm text-slate-700">
+            Parent: {item.parent_email || "—"}
+          </p>
         </div>
 
         <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white">
@@ -416,9 +494,10 @@ function RequestCard({
         </div>
 
         <div className="rounded-xl bg-white p-4 text-sm">
-          <p className="font-semibold">Preferred Replacement</p>
+          <p className="font-semibold">New Lesson Time to Apply</p>
           <p className="mt-1 text-slate-600">
-            {item.preferred_date || "Not provided"} · {item.preferred_start_time || "—"} -{" "}
+            {item.preferred_date || "Not provided"} ·{" "}
+            {item.preferred_start_time || "—"} -{" "}
             {item.preferred_end_time || "—"}
           </p>
         </div>
@@ -446,16 +525,16 @@ function RequestCard({
         <button
           type="button"
           disabled={actingId === item.id}
-          onClick={() => updateRequestStatus(item.id, "resolved")}
+          onClick={() => updateRequestStatus(item, "resolved")}
           className="rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-60"
         >
-          Mark Resolved
+          Apply New Time & Resolve
         </button>
 
         <button
           type="button"
           disabled={actingId === item.id}
-          onClick={() => updateRequestStatus(item.id, "rejected")}
+          onClick={() => updateRequestStatus(item, "rejected")}
           className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
         >
           Reject Request
