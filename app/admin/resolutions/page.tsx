@@ -6,10 +6,37 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 const ADMIN_ALLOWED_EMAILS = ["admin@alkebulaschool.com"];
 
+type RescheduleRequest = {
+  id: string;
+  lesson_id: string;
+  tutor_email: string;
+  parent_email: string | null;
+  student_name: string | null;
+  subject: string | null;
+  curriculum: string | null;
+  current_lesson_date: string | null;
+  current_start_time: string | null;
+  current_end_time: string | null;
+  reason: string;
+  preferred_date: string | null;
+  preferred_start_time: string | null;
+  preferred_end_time: string | null;
+  status: string;
+  admin_notes: string | null;
+  resolved_at: string | null;
+  created_at: string | null;
+};
+
 export default function AdminResolutionsPage() {
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authorized, setAuthorized] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+  const [requests, setRequests] = useState<RescheduleRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+  const [adminNotes, setAdminNotes] = useState<Record<string, string>>({});
+  const [actingId, setActingId] = useState("");
+  const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     async function checkAdmin() {
@@ -35,6 +62,7 @@ export default function AdminResolutionsPage() {
       setAuthorized(true);
       setCheckingAuth(false);
       await loadUnreadMessageCount();
+      await loadRescheduleRequests();
     }
 
     checkAdmin();
@@ -65,6 +93,71 @@ export default function AdminResolutionsPage() {
       setUnreadMessageCount(0);
     }
   }
+
+  async function loadRescheduleRequests() {
+    try {
+      setLoadingRequests(true);
+      setErrorMessage("");
+
+      const supabase = getSupabaseBrowserClient();
+
+      const { data, error } = await supabase
+        .from("tutor_reschedule_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw new Error(error.message);
+
+      setRequests(data || []);
+
+      const notes: Record<string, string> = {};
+      (data || []).forEach((item) => {
+        notes[item.id] = item.admin_notes || "";
+      });
+      setAdminNotes(notes);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "Failed to load reschedule requests."
+      );
+    } finally {
+      setLoadingRequests(false);
+    }
+  }
+
+  async function updateRequestStatus(id: string, status: string) {
+    try {
+      setActingId(id);
+      setMessage("");
+      setErrorMessage("");
+
+      const supabase = getSupabaseBrowserClient();
+
+      const { error } = await supabase
+        .from("tutor_reschedule_requests")
+        .update({
+          status,
+          admin_notes: adminNotes[id] || null,
+          resolved_at: status === "resolved" || status === "rejected" ? new Date().toISOString() : null,
+        })
+        .eq("id", id);
+
+      if (error) throw new Error(error.message);
+
+      setMessage(`Request marked as ${status}.`);
+      await loadRescheduleRequests();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to update request."
+      );
+    } finally {
+      setActingId("");
+    }
+  }
+
+  const pendingRequests = requests.filter((item) => item.status === "pending");
+  const resolvedRequests = requests.filter((item) => item.status !== "pending");
 
   if (checkingAuth) {
     return (
@@ -145,9 +238,6 @@ export default function AdminResolutionsPage() {
                 You have {unreadMessageCount} unread internal message
                 {unreadMessageCount === 1 ? "" : "s"}.
               </p>
-              <p className="mt-1 text-sm">
-                Open Messages to review tutor or parent support communication.
-              </p>
             </div>
           ) : (
             <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-700">
@@ -159,65 +249,218 @@ export default function AdminResolutionsPage() {
 
       <section className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
         <div className="grid gap-6 md:grid-cols-4">
-          <Link
-            href="/admin/messages"
-            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md"
-          >
-            <p className="text-sm text-slate-500">Internal Communication</p>
-            <h2 className="mt-2 text-2xl font-bold">
-              Messages{" "}
-              {unreadMessageCount > 0 ? (
-                <span className="text-red-600">({unreadMessageCount})</span>
-              ) : null}
-            </h2>
-            <p className="mt-3 text-sm text-slate-600">
-              Read tutor messages, reply to educators, and handle parent support.
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/broadcasts"
-            className="rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm hover:shadow-md"
-          >
-            <p className="text-sm text-amber-700">Announcements</p>
-            <h2 className="mt-2 text-2xl font-bold text-slate-900">
-              Broadcasts
-            </h2>
-            <p className="mt-3 text-sm text-slate-600">
-              Send platform-wide messages to approved tutors, parents, or both.
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/finance"
-            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md"
-          >
-            <p className="text-sm text-slate-500">Finance Operations</p>
-            <h2 className="mt-2 text-2xl font-bold">Finance</h2>
-            <p className="mt-3 text-sm text-slate-600">
-              Track payments, tutor payouts, revenue, and commissions.
-            </p>
-          </Link>
-
-          <Link
-            href="/admin/tutor-applications"
-            className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm hover:shadow-md"
-          >
-            <p className="text-sm text-slate-500">Tutor Pipeline</p>
-            <h2 className="mt-2 text-2xl font-bold">Applications</h2>
-            <p className="mt-3 text-sm text-slate-600">
-              Review, interview, approve, or reject educator applications.
-            </p>
-          </Link>
+          <DashboardCard title="Messages" subtitle="Internal Communication" href="/admin/messages" />
+          <DashboardCard title="Broadcasts" subtitle="Announcements" href="/admin/broadcasts" amber />
+          <DashboardCard title="Finance" subtitle="Finance Operations" href="/admin/finance" />
+          <DashboardCard title="Applications" subtitle="Tutor Pipeline" href="/admin/tutor-applications" />
         </div>
 
-        <div className="mt-10 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
-          <p className="text-lg font-medium">No reschedule cases right now.</p>
-          <p className="mt-3 text-slate-600">
-            Tutor reschedule requests will appear here for admin handling.
-          </p>
+        {message ? (
+          <div className="mt-8 rounded-2xl border border-green-200 bg-green-50 p-5 text-green-700">
+            {message}
+          </div>
+        ) : null}
+
+        {errorMessage ? (
+          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
+            {errorMessage}
+          </div>
+        ) : null}
+
+        <div className="mt-10 rounded-3xl border border-slate-200 bg-white p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold">Pending Reschedule Requests</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Review requests submitted by tutors. These do not cancel lessons automatically.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadRescheduleRequests}
+              className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              Refresh
+            </button>
+          </div>
+
+          {loadingRequests ? (
+            <p className="mt-6 text-slate-600">Loading reschedule requests...</p>
+          ) : pendingRequests.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
+              <p className="text-lg font-medium">No pending reschedule cases right now.</p>
+              <p className="mt-3 text-slate-600">
+                Tutor reschedule requests will appear here for admin handling.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 space-y-5">
+              {pendingRequests.map((item) => (
+                <RequestCard
+                  key={item.id}
+                  item={item}
+                  adminNotes={adminNotes}
+                  setAdminNotes={setAdminNotes}
+                  actingId={actingId}
+                  updateRequestStatus={updateRequestStatus}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-10 rounded-3xl border border-slate-200 bg-white p-6">
+          <h2 className="text-2xl font-bold">Resolved / Closed Requests</h2>
+
+          {resolvedRequests.length === 0 ? (
+            <p className="mt-4 text-slate-600">No resolved requests yet.</p>
+          ) : (
+            <div className="mt-6 space-y-4">
+              {resolvedRequests.map((item) => (
+                <div key={item.id} className="rounded-2xl border bg-slate-50 p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="font-semibold">{item.subject || "Lesson"}</p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Tutor: {item.tutor_email}
+                      </p>
+                      <p className="text-sm text-slate-600">
+                        Parent: {item.parent_email || "—"}
+                      </p>
+                    </div>
+
+                    <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
+                      {item.status}
+                    </span>
+                  </div>
+
+                  {item.admin_notes ? (
+                    <p className="mt-4 rounded-xl bg-white p-4 text-sm text-slate-700">
+                      Admin notes: {item.admin_notes}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </main>
+  );
+}
+
+function DashboardCard({
+  title,
+  subtitle,
+  href,
+  amber,
+}: {
+  title: string;
+  subtitle: string;
+  href: string;
+  amber?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-2xl border p-6 shadow-sm hover:shadow-md ${
+        amber ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"
+      }`}
+    >
+      <p className={amber ? "text-sm text-amber-700" : "text-sm text-slate-500"}>
+        {subtitle}
+      </p>
+      <h2 className="mt-2 text-2xl font-bold">{title}</h2>
+    </Link>
+  );
+}
+
+function RequestCard({
+  item,
+  adminNotes,
+  setAdminNotes,
+  actingId,
+  updateRequestStatus,
+}: {
+  item: RescheduleRequest;
+  adminNotes: Record<string, string>;
+  setAdminNotes: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  actingId: string;
+  updateRequestStatus: (id: string, status: string) => Promise<void>;
+}) {
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-lg font-bold">{item.subject || "Lesson"}</p>
+          <p className="mt-1 text-sm text-slate-700">
+            {item.curriculum || "—"} · Student: {item.student_name || "—"}
+          </p>
+          <p className="text-sm text-slate-700">Tutor: {item.tutor_email}</p>
+          <p className="text-sm text-slate-700">Parent: {item.parent_email || "—"}</p>
+        </div>
+
+        <span className="rounded-full bg-red-600 px-3 py-1 text-xs font-semibold text-white">
+          Pending
+        </span>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <div className="rounded-xl bg-white p-4 text-sm">
+          <p className="font-semibold">Current Lesson</p>
+          <p className="mt-1 text-slate-600">
+            {item.current_lesson_date || "—"} · {item.current_start_time || "—"} -{" "}
+            {item.current_end_time || "—"}
+          </p>
+        </div>
+
+        <div className="rounded-xl bg-white p-4 text-sm">
+          <p className="font-semibold">Preferred Replacement</p>
+          <p className="mt-1 text-slate-600">
+            {item.preferred_date || "Not provided"} · {item.preferred_start_time || "—"} -{" "}
+            {item.preferred_end_time || "—"}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-xl bg-white p-4 text-sm">
+        <p className="font-semibold">Tutor Reason</p>
+        <p className="mt-2 whitespace-pre-wrap text-slate-700">{item.reason}</p>
+      </div>
+
+      <textarea
+        value={adminNotes[item.id] || ""}
+        onChange={(e) =>
+          setAdminNotes((prev) => ({
+            ...prev,
+            [item.id]: e.target.value,
+          }))
+        }
+        rows={4}
+        placeholder="Admin notes, parent communication, agreed action..."
+        className="mt-4 w-full rounded-xl border bg-white p-3 text-sm"
+      />
+
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          disabled={actingId === item.id}
+          onClick={() => updateRequestStatus(item.id, "resolved")}
+          className="rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800 disabled:opacity-60"
+        >
+          Mark Resolved
+        </button>
+
+        <button
+          type="button"
+          disabled={actingId === item.id}
+          onClick={() => updateRequestStatus(item.id, "rejected")}
+          className="rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+        >
+          Reject Request
+        </button>
+      </div>
+    </div>
   );
 }
