@@ -129,7 +129,7 @@ export async function POST(req: Request) {
           date,
           time,
           status: "booked",
-          slot_id: slotId || null,
+          slot_id: null,
 
           hourly_rate: finalHourlyRate,
           lesson_amount: lessonAmount,
