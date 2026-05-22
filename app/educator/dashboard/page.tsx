@@ -66,6 +66,10 @@ function getTutorPayout(lesson: Lesson) {
   return Number(lesson.tutor_payout_amount || getLessonAmount(lesson) * 0.7);
 }
 
+function classroomHref(lessonId: string) {
+  return `/classroom/${lessonId}`;
+}
+
 export default function EducatorDashboardPage() {
   const [educatorEmail, setEducatorEmail] = useState("");
   const [profile, setProfile] = useState<EducatorProfile | null>(null);
@@ -351,31 +355,19 @@ export default function EducatorDashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Link
-              href="/educator/profile"
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
+            <Link href="/educator/profile" className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               Edit Profile Picture
             </Link>
 
-            <Link
-              href="/educator/subjects"
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
+            <Link href="/educator/subjects" className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               Edit Subjects & Rates
             </Link>
 
-            <Link
-              href="/educator/availability"
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
+            <Link href="/educator/availability" className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               Bulk Monthly Slots
             </Link>
 
-            <Link
-              href="/educator/messages"
-              className="relative rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
-            >
+            <Link href="/educator/messages" className="relative rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800">
               Message Admin
               {unreadMessageCount > 0 ? (
                 <span className="ml-2 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
@@ -386,18 +378,8 @@ export default function EducatorDashboardPage() {
           </div>
         </div>
 
-        {message ? (
-          <div className="mt-6 rounded-xl bg-green-50 p-4 text-green-700">
-            {message}
-          </div>
-        ) : null}
-
-        {error ? (
-          <div className="mt-6 rounded-xl bg-red-50 p-4 text-red-700">
-            {error}
-          </div>
-        ) : null}
-
+        {message ? <div className="mt-6 rounded-xl bg-green-50 p-4 text-green-700">{message}</div> : null}
+        {error ? <div className="mt-6 rounded-xl bg-red-50 p-4 text-red-700">{error}</div> : null}
         {loading ? <p className="mt-8">Loading dashboard...</p> : null}
 
         {!loading ? (
@@ -425,50 +407,19 @@ export default function EducatorDashboardPage() {
                   </p>
                 </div>
 
-                <Link
-                  href="/educator/availability"
-                  className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
-                >
+                <Link href="/educator/availability" className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800">
                   Use Bulk Monthly Creator
                 </Link>
               </div>
 
               <div className="mt-5 grid gap-4 md:grid-cols-4">
-                <input
-                  type="date"
-                  value={slotDate}
-                  onChange={(e) => setSlotDate(e.target.value)}
-                  className="rounded-xl border p-3"
-                  required
-                />
-
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="rounded-xl border p-3"
-                  required
-                />
-
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="rounded-xl border p-3"
-                  required
-                />
-
-                <input
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                  className="rounded-xl border p-3"
-                />
+                <input type="date" value={slotDate} onChange={(e) => setSlotDate(e.target.value)} className="rounded-xl border p-3" required />
+                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="rounded-xl border p-3" required />
+                <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="rounded-xl border p-3" required />
+                <input value={timezone} onChange={(e) => setTimezone(e.target.value)} className="rounded-xl border p-3" />
               </div>
 
-              <button
-                disabled={savingSlot}
-                className="mt-5 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
-              >
+              <button disabled={savingSlot} className="mt-5 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">
                 {savingSlot ? "Saving Slot..." : "Save Single Slot"}
               </button>
             </form>
@@ -483,9 +434,7 @@ export default function EducatorDashboardPage() {
                   {slots.slice(0, 12).map((slot) => (
                     <div key={slot.id} className="rounded-xl border bg-slate-50 p-4 text-sm">
                       <p className="font-semibold">{slot.slot_date}</p>
-                      <p className="mt-1 text-slate-600">
-                        {slot.start_time} - {slot.end_time}
-                      </p>
+                      <p className="mt-1 text-slate-600">{slot.start_time} - {slot.end_time}</p>
                       <p className="mt-1 text-slate-600">
                         {slot.timezone || "Africa/Nairobi"} ·{" "}
                         {slot.is_booked || slot.status === "booked" ? "Booked" : "Available"}
@@ -510,12 +459,8 @@ export default function EducatorDashboardPage() {
                         {lesson.curriculum || "—"} · {lesson.lesson_date || "—"} ·{" "}
                         {lesson.start_time || "—"} - {lesson.end_time || "—"}
                       </p>
-                      <p className="text-sm text-slate-600">
-                        Student: {lesson.student_name || "—"}
-                      </p>
-                      <p className="text-sm text-slate-600">
-                        Parent: {lesson.parent_email || "—"}
-                      </p>
+                      <p className="text-sm text-slate-600">Student: {lesson.student_name || "—"}</p>
+                      <p className="text-sm text-slate-600">Parent: {lesson.parent_email || "—"}</p>
 
                       <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm md:grid-cols-4">
                         <p><strong>Lesson Amount:</strong> {usd(getLessonAmount(lesson))}</p>
@@ -525,6 +470,13 @@ export default function EducatorDashboardPage() {
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-3">
+                        <Link
+                          href={classroomHref(lesson.id)}
+                          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                        >
+                          Start Classroom
+                        </Link>
+
                         <button
                           type="button"
                           onClick={() => updateLessonStatus(lesson.id, "completed")}
@@ -560,33 +512,11 @@ export default function EducatorDashboardPage() {
                 <h2 className="text-2xl font-semibold">Assign Homework</h2>
 
                 <div className="mt-5 space-y-4">
-                  <input
-                    value={homeworkTitle}
-                    onChange={(e) => setHomeworkTitle(e.target.value)}
-                    placeholder="Homework title"
-                    className="w-full rounded-xl border p-3"
-                  />
+                  <input value={homeworkTitle} onChange={(e) => setHomeworkTitle(e.target.value)} placeholder="Homework title" className="w-full rounded-xl border p-3" />
+                  <textarea value={homeworkInstructions} onChange={(e) => setHomeworkInstructions(e.target.value)} placeholder="Homework instructions" rows={5} className="w-full rounded-xl border p-3" />
+                  <input type="date" value={homeworkDueDate} onChange={(e) => setHomeworkDueDate(e.target.value)} className="rounded-xl border p-3" />
 
-                  <textarea
-                    value={homeworkInstructions}
-                    onChange={(e) => setHomeworkInstructions(e.target.value)}
-                    placeholder="Homework instructions"
-                    rows={5}
-                    className="w-full rounded-xl border p-3"
-                  />
-
-                  <input
-                    type="date"
-                    value={homeworkDueDate}
-                    onChange={(e) => setHomeworkDueDate(e.target.value)}
-                    className="rounded-xl border p-3"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={assignHomework}
-                    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
-                  >
+                  <button type="button" onClick={assignHomework} className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">
                     Save Homework
                   </button>
                 </div>
@@ -603,9 +533,7 @@ export default function EducatorDashboardPage() {
                   {completedLessons.map((lesson) => (
                     <div key={lesson.id} className="rounded-xl border p-5">
                       <p className="font-semibold">{lesson.subject || "Lesson"}</p>
-                      <p className="mt-2 text-sm text-slate-600">
-                        {lesson.curriculum || "—"} · {lesson.lesson_date || "—"}
-                      </p>
+                      <p className="mt-2 text-sm text-slate-600">{lesson.curriculum || "—"} · {lesson.lesson_date || "—"}</p>
 
                       <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm md:grid-cols-4">
                         <p><strong>Lesson Amount:</strong> {usd(getLessonAmount(lesson))}</p>
@@ -617,14 +545,9 @@ export default function EducatorDashboardPage() {
                       {lesson.payout_status === "paid" ? (
                         <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
                           <p className="font-semibold">Payout Paid</p>
+                          <p className="mt-1">Reference: {lesson.payout_reference || "—"}</p>
                           <p className="mt-1">
-                            Reference: {lesson.payout_reference || "—"}
-                          </p>
-                          <p className="mt-1">
-                            Date:{" "}
-                            {lesson.payout_date
-                              ? new Date(lesson.payout_date).toLocaleString()
-                              : "—"}
+                            Date: {lesson.payout_date ? new Date(lesson.payout_date).toLocaleString() : "—"}
                           </p>
                         </div>
                       ) : null}
