@@ -28,7 +28,10 @@ function buildLessonDateTime(date?: string | null, time?: string | null) {
   if (!date || !time) return null;
 
   const cleanTime = String(time).slice(0, 5);
-  const value = new Date(`${date}T${cleanTime}:00`);
+
+  // Treat stored lesson times as Africa/Nairobi time for now.
+  // Nairobi is UTC+03:00.
+  const value = new Date(`${date}T${cleanTime}:00+03:00`);
 
   if (Number.isNaN(value.getTime())) return null;
 
