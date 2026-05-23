@@ -4,6 +4,9 @@ import { createClient } from "@supabase/supabase-js";
 
 const ADMIN_EMAIL = "admin@alkebulaschool.com";
 
+const EARLY_JOIN_MINUTES = 15;
+const AFTER_LESSON_GRACE_MINUTES = 30;
+
 function getAdminClient() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +22,72 @@ function getAdminClient() {
 
 function normalizeEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase();
+}
+
+function buildLessonDateTime(date?: string | null, time?: string | null) {
+  if (!date || !time) return null;
+
+  const cleanTime = String(time).slice(0, 5);
+  const value = new Date(`${date}T${cleanTime}:00`);
+
+  if (Number.isNaN(value.getTime())) return null;
+
+  return value;
+}
+
+function isWithinLessonWindow({
+  lessonDate,
+  startTime,
+  endTime,
+}: {
+  lessonDate?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+}) {
+  const lessonStart = buildLessonDateTime(lessonDate, startTime);
+  const lessonEnd = buildLessonDateTime(lessonDate, endTime);
+
+  if (!lessonStart || !lessonEnd) {
+    return {
+      allowed: false,
+      message:
+        "This lesson does not have a valid scheduled date/time. Please contact admin.",
+    };
+  }
+
+  const opensAt = new Date(
+    lessonStart.getTime() - EARLY_JOIN_MINUTES * 60 * 1000
+  );
+
+  const closesAt = new Date(
+    lessonEnd.getTime() + AFTER_LESSON_GRACE_MINUTES * 60 * 1000
+  );
+
+  const now = new Date();
+
+  if (now < opensAt) {
+    return {
+      allowed: false,
+      message: `This classroom opens ${EARLY_JOIN_MINUTES} minutes before the lesson starts.`,
+      opensAt: opensAt.toISOString(),
+      closesAt: closesAt.toISOString(),
+    };
+  }
+
+  if (now > closesAt) {
+    return {
+      allowed: false,
+      message: `This classroom closed ${AFTER_LESSON_GRACE_MINUTES} minutes after the lesson ended.`,
+      opensAt: opensAt.toISOString(),
+      closesAt: closesAt.toISOString(),
+    };
+  }
+
+  return {
+    allowed: true,
+    opensAt: opensAt.toISOString(),
+    closesAt: closesAt.toISOString(),
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -62,7 +131,9 @@ export async function POST(request: NextRequest) {
 
     const { data: lesson, error: lessonError } = await supabase
       .from("tutor_lessons")
-      .select("id,tutor_email,parent_email,student_name,subject,lesson_date,start_time,end_time,status")
+      .select(
+        "id,tutor_email,parent_email,student_name,subject,lesson_date,start_time,end_time,status"
+      )
       .eq("id", room)
       .single();
 
@@ -83,6 +154,23 @@ export async function POST(request: NextRequest) {
     if (!isAdmin && !isTutor && !isParent) {
       return NextResponse.json(
         { error: "You are not authorized to join this classroom." },
+        { status: 403 }
+      );
+    }
+
+    const lessonWindow = isWithinLessonWindow({
+      lessonDate: lesson.lesson_date,
+      startTime: lesson.start_time,
+      endTime: lesson.end_time,
+    });
+
+    if (!lessonWindow.allowed && !isAdmin) {
+      return NextResponse.json(
+        {
+          error: lessonWindow.message,
+          opensAt: lessonWindow.opensAt,
+          closesAt: lessonWindow.closesAt,
+        },
         { status: 403 }
       );
     }
@@ -122,6 +210,7 @@ export async function POST(request: NextRequest) {
       url: livekitUrl,
       role,
       lesson,
+      lessonWindow,
     });
   } catch (error) {
     console.error("LIVEKIT TOKEN ERROR:", error);
