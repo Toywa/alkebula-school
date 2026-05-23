@@ -7,8 +7,10 @@ import {
   VideoConference,
   RoomAudioRenderer,
 } from "@livekit/components-react";
-
 import "@livekit/components-styles";
+
+import { Tldraw } from "tldraw";
+import "tldraw/tldraw.css";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
@@ -22,6 +24,9 @@ export default function ClassroomPage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState<"video" | "whiteboard" | "split">(
+    "split"
+  );
 
   useEffect(() => {
     loadSignedInUser();
@@ -91,9 +96,7 @@ export default function ClassroomPage() {
       setServerUrl(data.url);
     } catch (error) {
       setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to join classroom."
+        error instanceof Error ? error.message : "Failed to join classroom."
       );
     } finally {
       setJoining(false);
@@ -116,18 +119,14 @@ export default function ClassroomPage() {
             The Alkebula School
           </p>
 
-          <h1 className="mt-4 text-4xl font-bold">
-            Join Classroom Session
-          </h1>
+          <h1 className="mt-4 text-4xl font-bold">Join Classroom Session</h1>
 
           <p className="mt-4 text-slate-300">
             Secure live lesson powered by Alkebula Classroom.
           </p>
 
           <div className="mt-8">
-            <label className="mb-2 block text-sm font-medium">
-              Your Name
-            </label>
+            <label className="mb-2 block text-sm font-medium">Your Name</label>
 
             <input
               value={username}
@@ -161,17 +160,82 @@ export default function ClassroomPage() {
   }
 
   return (
-    <main className="h-screen bg-black">
+    <main className="flex h-screen flex-col bg-slate-950 text-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900 px-4 py-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">
+            The Alkebula School
+          </p>
+          <p className="text-sm text-slate-300">Room: {roomId}</p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab("video")}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+              activeTab === "video"
+                ? "bg-white text-slate-950"
+                : "bg-slate-800 text-white"
+            }`}
+          >
+            Video
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("whiteboard")}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+              activeTab === "whiteboard"
+                ? "bg-white text-slate-950"
+                : "bg-slate-800 text-white"
+            }`}
+          >
+            Whiteboard
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("split")}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold ${
+              activeTab === "split"
+                ? "bg-white text-slate-950"
+                : "bg-slate-800 text-white"
+            }`}
+          >
+            Split View
+          </button>
+        </div>
+      </div>
+
       <LiveKitRoom
         video
         audio
         token={token}
         serverUrl={serverUrl}
         data-lk-theme="default"
-        style={{ height: "100vh" }}
+        className="min-h-0 flex-1"
       >
-        <VideoConference />
-        <RoomAudioRenderer />
+        <div
+          className={`grid h-full min-h-0 gap-0 ${
+            activeTab === "split" ? "lg:grid-cols-[42%_58%]" : "grid-cols-1"
+          }`}
+        >
+          {(activeTab === "video" || activeTab === "split") && (
+            <section className="min-h-0 border-r border-slate-800 bg-black">
+              <VideoConference />
+              <RoomAudioRenderer />
+            </section>
+          )}
+
+          {(activeTab === "whiteboard" || activeTab === "split") && (
+            <section className="min-h-0 bg-white text-slate-900">
+              <div className="h-full min-h-0">
+                <Tldraw />
+              </div>
+            </section>
+          )}
+        </div>
       </LiveKitRoom>
     </main>
   );
