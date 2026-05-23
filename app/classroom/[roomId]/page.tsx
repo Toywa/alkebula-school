@@ -24,9 +24,7 @@ export default function ClassroomPage() {
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<"video" | "whiteboard" | "split">(
-    "split"
-  );
+  const [activeTab, setActiveTab] = useState<"video" | "whiteboard">("video");
 
   useEffect(() => {
     loadSignedInUser();
@@ -179,7 +177,7 @@ export default function ClassroomPage() {
                 : "bg-slate-800 text-white"
             }`}
           >
-            Video
+            Video & Screen Share
           </button>
 
           <button
@@ -193,18 +191,6 @@ export default function ClassroomPage() {
           >
             Whiteboard
           </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab("split")}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold ${
-              activeTab === "split"
-                ? "bg-white text-slate-950"
-                : "bg-slate-800 text-white"
-            }`}
-          >
-            Split View
-          </button>
         </div>
       </div>
 
@@ -216,25 +202,23 @@ export default function ClassroomPage() {
         data-lk-theme="default"
         className="min-h-0 flex-1"
       >
-        <div
-          className={`grid h-full min-h-0 gap-0 ${
-            activeTab === "split" ? "lg:grid-cols-[42%_58%]" : "grid-cols-1"
-          }`}
-        >
-          {(activeTab === "video" || activeTab === "split") && (
-            <section className="min-h-0 border-r border-slate-800 bg-black">
-              <VideoConference />
-              <RoomAudioRenderer />
-            </section>
-          )}
+        <div className="relative h-full min-h-0">
+          <section
+            className={`absolute inset-0 bg-black ${
+              activeTab === "video" ? "block" : "hidden"
+            }`}
+          >
+            <VideoConference />
+            <RoomAudioRenderer />
+          </section>
 
-          {(activeTab === "whiteboard" || activeTab === "split") && (
-            <section className="min-h-0 bg-white text-slate-900">
-              <div className="h-full min-h-0">
-                <Tldraw />
-              </div>
-            </section>
-          )}
+          <section
+            className={`absolute inset-0 bg-white text-slate-900 ${
+              activeTab === "whiteboard" ? "block" : "hidden"
+            }`}
+          >
+            <Tldraw />
+          </section>
         </div>
       </LiveKitRoom>
     </main>
