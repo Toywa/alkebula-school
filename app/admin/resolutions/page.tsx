@@ -113,6 +113,7 @@ export default function AdminResolutionsPage() {
       setRequests(requestData);
 
       const notes: Record<string, string> = {};
+
       requestData.forEach((requestItem) => {
         notes[requestItem.id] = requestItem.admin_notes || "";
       });
@@ -145,7 +146,7 @@ export default function AdminResolutionsPage() {
       } = await supabase.auth.getSession();
 
       if (!session?.access_token) {
-        throw new Error("Admin session expired. Please sign in again.");
+        throw new Error("Admin session expired.");
       }
 
       const response = await fetch("/api/admin/reschedule/resolve", {
@@ -168,12 +169,12 @@ export default function AdminResolutionsPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to update request.");
+        throw new Error(data.error || "Failed to resolve request.");
       }
 
       setMessage(
         status === "resolved"
-          ? "Lesson rescheduled successfully. Parent and tutor dashboards now show the new date/time."
+          ? "Lesson updated successfully."
           : "Request rejected successfully."
       );
 
@@ -198,7 +199,7 @@ export default function AdminResolutionsPage() {
   if (checkingAuth) {
     return (
       <main className="min-h-screen bg-white px-6 py-20 text-slate-900">
-        <div className="mx-auto max-w-4xl">Checking admin access...</div>
+        Checking admin access...
       </main>
     );
   }
@@ -207,7 +208,10 @@ export default function AdminResolutionsPage() {
     return (
       <main className="min-h-screen bg-white px-6 py-20 text-slate-900">
         <div className="mx-auto max-w-4xl rounded-2xl border border-red-200 bg-red-50 p-8">
-          <h1 className="text-3xl font-bold text-red-800">Access denied</h1>
+          <h1 className="text-3xl font-bold text-red-800">
+            Access denied
+          </h1>
+
           <p className="mt-4 text-red-700">
             This page is restricted to approved platform administrators only.
           </p>
@@ -227,17 +231,25 @@ export default function AdminResolutionsPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl text-slate-600">
-                Review tutor reschedule requests, engage parents, assign a new
-                slot, and resolve each case without breaking booking integrity.
+                Resolve scheduling conflicts, monitor classrooms, supervise
+                live lessons, and maintain platform operational integrity.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <Link
+                href="/admin/classrooms"
+                className="rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800"
+              >
+                Live Classrooms
+              </Link>
+
+              <Link
                 href="/admin/messages"
                 className="relative rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
               >
                 Messages
+
                 {unreadMessageCount > 0 ? (
                   <span className="ml-2 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
                     {unreadMessageCount}
@@ -251,40 +263,32 @@ export default function AdminResolutionsPage() {
               >
                 Broadcasts
               </Link>
-
-              <Link
-                href="/admin/finance"
-                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-white"
-              >
-                Finance
-              </Link>
-
-              <Link
-                href="/admin/tutor-applications"
-                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-white"
-              >
-                Tutor Applications
-              </Link>
             </div>
           </div>
 
-          {unreadMessageCount > 0 ? (
+          {message ? (
+            <div className="mt-8 rounded-2xl border border-green-200 bg-green-50 p-5 text-green-700">
+              {message}
+            </div>
+          ) : null}
+
+          {errorMessage ? (
             <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
-              <p className="font-semibold">
-                You have {unreadMessageCount} unread internal message
-                {unreadMessageCount === 1 ? "" : "s"}.
-              </p>
+              {errorMessage}
             </div>
-          ) : (
-            <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-700">
-              <p className="font-semibold">No unread internal messages.</p>
-            </div>
-          )}
+          ) : null}
         </div>
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-5">
+          <DashboardCard
+            title="Classrooms"
+            subtitle="Live Lesson Monitor"
+            href="/admin/classrooms"
+            green
+          />
+
           <DashboardCard
             title="Messages"
             subtitle="Internal Communication"
@@ -311,27 +315,15 @@ export default function AdminResolutionsPage() {
           />
         </div>
 
-        {message ? (
-          <div className="mt-8 rounded-2xl border border-green-200 bg-green-50 p-5 text-green-700">
-            {message}
-          </div>
-        ) : null}
-
-        {errorMessage ? (
-          <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700">
-            {errorMessage}
-          </div>
-        ) : null}
-
         <div className="mt-10 rounded-3xl border border-slate-200 bg-white p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold">
                 Pending Reschedule Requests
               </h2>
+
               <p className="mt-2 text-sm text-slate-600">
-                Review tutor requests and apply the new lesson date/time to the
-                actual lesson record.
+                Apply new lesson dates/times directly to the active lesson record.
               </p>
             </div>
 
@@ -351,10 +343,7 @@ export default function AdminResolutionsPage() {
           ) : pendingRequests.length === 0 ? (
             <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-8 text-center">
               <p className="text-lg font-medium">
-                No pending reschedule cases right now.
-              </p>
-              <p className="mt-3 text-slate-600">
-                Tutor reschedule requests will appear here for admin handling.
+                No pending reschedule requests.
               </p>
             </div>
           ) : (
@@ -374,10 +363,14 @@ export default function AdminResolutionsPage() {
         </div>
 
         <div className="mt-10 rounded-3xl border border-slate-200 bg-white p-6">
-          <h2 className="text-2xl font-bold">Resolved / Closed Requests</h2>
+          <h2 className="text-2xl font-bold">
+            Resolved / Closed Requests
+          </h2>
 
           {resolvedRequests.length === 0 ? (
-            <p className="mt-4 text-slate-600">No resolved requests yet.</p>
+            <p className="mt-4 text-slate-600">
+              No resolved requests yet.
+            </p>
           ) : (
             <div className="mt-6 space-y-4">
               {resolvedRequests.map((requestItem) => (
@@ -390,14 +383,18 @@ export default function AdminResolutionsPage() {
                       <p className="font-semibold">
                         {requestItem.subject || "Lesson"}
                       </p>
+
                       <p className="mt-1 text-sm text-slate-600">
                         Tutor: {requestItem.tutor_email}
                       </p>
+
                       <p className="text-sm text-slate-600">
                         Parent: {requestItem.parent_email || "—"}
                       </p>
+
                       <p className="text-sm text-slate-600">
-                        New time: {requestItem.preferred_date || "—"} ·{" "}
+                        Updated Time:{" "}
+                        {requestItem.preferred_date || "—"} ·{" "}
                         {requestItem.preferred_start_time || "—"} -{" "}
                         {requestItem.preferred_end_time || "—"}
                       </p>
@@ -428,22 +425,37 @@ function DashboardCard({
   subtitle,
   href,
   amber,
+  green,
 }: {
   title: string;
   subtitle: string;
   href: string;
   amber?: boolean;
+  green?: boolean;
 }) {
   return (
     <Link
       href={href}
       className={`rounded-2xl border p-6 shadow-sm hover:shadow-md ${
-        amber ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white"
+        amber
+          ? "border-amber-200 bg-amber-50"
+          : green
+          ? "border-green-200 bg-green-50"
+          : "border-slate-200 bg-white"
       }`}
     >
-      <p className={amber ? "text-sm text-amber-700" : "text-sm text-slate-500"}>
+      <p
+        className={
+          amber
+            ? "text-sm text-amber-700"
+            : green
+            ? "text-sm text-green-700"
+            : "text-sm text-slate-500"
+        }
+      >
         {subtitle}
       </p>
+
       <h2 className="mt-2 text-2xl font-bold">{title}</h2>
     </Link>
   );
@@ -469,11 +481,19 @@ function RequestCard({
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-lg font-bold">{item.subject || "Lesson"}</p>
-          <p className="mt-1 text-sm text-slate-700">
-            {item.curriculum || "—"} · Student: {item.student_name || "—"}
+          <p className="text-lg font-bold">
+            {item.subject || "Lesson"}
           </p>
-          <p className="text-sm text-slate-700">Tutor: {item.tutor_email}</p>
+
+          <p className="mt-1 text-sm text-slate-700">
+            {item.curriculum || "—"} · Student:{" "}
+            {item.student_name || "—"}
+          </p>
+
+          <p className="text-sm text-slate-700">
+            Tutor: {item.tutor_email}
+          </p>
+
           <p className="text-sm text-slate-700">
             Parent: {item.parent_email || "—"}
           </p>
@@ -487,14 +507,17 @@ function RequestCard({
       <div className="mt-5 grid gap-4 md:grid-cols-2">
         <div className="rounded-xl bg-white p-4 text-sm">
           <p className="font-semibold">Current Lesson</p>
+
           <p className="mt-1 text-slate-600">
-            {item.current_lesson_date || "—"} · {item.current_start_time || "—"} -{" "}
+            {item.current_lesson_date || "—"} ·{" "}
+            {item.current_start_time || "—"} -{" "}
             {item.current_end_time || "—"}
           </p>
         </div>
 
         <div className="rounded-xl bg-white p-4 text-sm">
-          <p className="font-semibold">New Lesson Time to Apply</p>
+          <p className="font-semibold">New Lesson Time</p>
+
           <p className="mt-1 text-slate-600">
             {item.preferred_date || "Not provided"} ·{" "}
             {item.preferred_start_time || "—"} -{" "}
@@ -505,7 +528,10 @@ function RequestCard({
 
       <div className="mt-4 rounded-xl bg-white p-4 text-sm">
         <p className="font-semibold">Tutor Reason</p>
-        <p className="mt-2 whitespace-pre-wrap text-slate-700">{item.reason}</p>
+
+        <p className="mt-2 whitespace-pre-wrap text-slate-700">
+          {item.reason}
+        </p>
       </div>
 
       <textarea
@@ -517,7 +543,7 @@ function RequestCard({
           }))
         }
         rows={4}
-        placeholder="Admin notes, parent communication, agreed action..."
+        placeholder="Admin notes..."
         className="mt-4 w-full rounded-xl border bg-white p-3 text-sm"
       />
 
