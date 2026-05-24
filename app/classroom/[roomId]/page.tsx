@@ -1,18 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+
 import {
   LiveKitRoom,
   VideoConference,
   RoomAudioRenderer,
 } from "@livekit/components-react";
+
 import "@livekit/components-styles";
 
 import { Tldraw } from "tldraw";
 import "tldraw/tldraw.css";
 
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+
+type Mode = "video" | "whiteboard" | "annotate";
 
 export default function ClassroomPage() {
   const params = useParams();
@@ -21,12 +25,19 @@ export default function ClassroomPage() {
   const [token, setToken] = useState("");
   const [serverUrl, setServerUrl] = useState("");
   const [username, setUsername] = useState("");
+
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState<"video" | "whiteboard">("video");
+
+  const [mode, setMode] = useState<Mode>("video");
+
+  const initializedRef = useRef(false);
 
   useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
     loadSignedInUser();
   }, []);
 
@@ -94,7 +105,9 @@ export default function ClassroomPage() {
       setServerUrl(data.url);
     } catch (error) {
       setError(
-        error instanceof Error ? error.message : "Failed to join classroom."
+        error instanceof Error
+          ? error.message
+          : "Failed to join classroom."
       );
     } finally {
       setJoining(false);
@@ -117,14 +130,18 @@ export default function ClassroomPage() {
             The Alkebula School
           </p>
 
-          <h1 className="mt-4 text-4xl font-bold">Join Classroom Session</h1>
+          <h1 className="mt-4 text-4xl font-bold">
+            Join Classroom Session
+          </h1>
 
           <p className="mt-4 text-slate-300">
             Secure live lesson powered by Alkebula Classroom.
           </p>
 
           <div className="mt-8">
-            <label className="mb-2 block text-sm font-medium">Your Name</label>
+            <label className="mb-2 block text-sm font-medium">
+              Your Name
+            </label>
 
             <input
               value={username}
@@ -158,69 +175,110 @@ export default function ClassroomPage() {
   }
 
   return (
-    <main className="flex h-screen flex-col bg-slate-950 text-white">
+    <main className="flex h-screen flex-col bg-slate-950 text-white overflow-hidden">
+      {/* TOP BAR */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900 px-4 py-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">
             The Alkebula School
           </p>
-          <p className="text-sm text-slate-300">Room: {roomId}</p>
+
+          <p className="text-sm text-slate-300">
+            Classroom: {roomId}
+          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <button
-            type="button"
-            onClick={() => setActiveTab("video")}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold ${
-              activeTab === "video"
+            onClick={() => setMode("video")}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+              mode === "video"
                 ? "bg-white text-slate-950"
-                : "bg-slate-800 text-white"
+                : "bg-slate-800 text-white hover:bg-slate-700"
             }`}
           >
-            Video & Screen Share
+            Video
           </button>
 
           <button
-            type="button"
-            onClick={() => setActiveTab("whiteboard")}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold ${
-              activeTab === "whiteboard"
+            onClick={() => setMode("whiteboard")}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+              mode === "whiteboard"
                 ? "bg-white text-slate-950"
-                : "bg-slate-800 text-white"
+                : "bg-slate-800 text-white hover:bg-slate-700"
             }`}
           >
             Whiteboard
           </button>
+
+          <button
+            onClick={() => setMode("annotate")}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+              mode === "annotate"
+                ? "bg-white text-slate-950"
+                : "bg-slate-800 text-white hover:bg-slate-700"
+            }`}
+          >
+            Annotate Screen
+          </button>
         </div>
       </div>
 
-      <LiveKitRoom
-        video
-        audio
-        token={token}
-        serverUrl={serverUrl}
-        data-lk-theme="default"
-        className="min-h-0 flex-1"
-      >
-        <div className="relative h-full min-h-0">
-          <section
-            className={`absolute inset-0 bg-black ${
-              activeTab === "video" ? "block" : "hidden"
+      {/* LIVEKIT MOUNTED ONLY ONCE */}
+      <div className="flex-1 overflow-hidden">
+        <LiveKitRoom
+          video
+          audio
+          token={token}
+          serverUrl={serverUrl}
+          data-lk-theme="default"
+          className="h-full"
+        >
+          {/* VIDEO MODE */}
+          <div
+            className={`absolute inset-0 ${
+              mode === "video" ? "block" : "hidden"
             }`}
           >
             <VideoConference />
             <RoomAudioRenderer />
-          </section>
+          </div>
 
-          <section
-            className={`absolute inset-0 bg-white text-slate-900 ${
-              activeTab === "whiteboard" ? "block" : "hidden"
+          {/* WHITEBOARD MODE */}
+          <div
+            className={`absolute inset-0 bg-white ${
+              mode === "whiteboard" ? "block" : "hidden"
             }`}
           >
-            <Tldraw />
-          </section>
-        </div>
-      </LiveKitRoom>
+            <div className="h-full w-full">
+              <Tldraw
+                persistenceKey={`whiteboard-${roomId}`}
+              />
+            </div>
+          </div>
+
+          {/* ANNOTATION MODE */}
+          <div
+            className={`absolute inset-0 ${
+              mode === "annotate" ? "block" : "hidden"
+            }`}
+          >
+            {/* LIVE VIDEO IN BACKGROUND */}
+            <div className="absolute inset-0">
+              <VideoConference />
+            </div>
+
+            {/* TRANSPARENT DRAWING LAYER */}
+            <div className="absolute inset-0 bg-transparent">
+              <Tldraw
+                persistenceKey={`annotation-${roomId}`}
+              />
+            </div>
+
+            <RoomAudioRenderer />
+          </div>
+        </LiveKitRoom>
+      </div>
     </main>
   );
 }
