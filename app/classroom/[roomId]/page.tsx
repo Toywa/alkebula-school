@@ -11,12 +11,10 @@ import {
 
 import "@livekit/components-styles";
 
-import { Tldraw } from "tldraw";
-import "tldraw/tldraw.css";
-
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-type Mode = "video" | "whiteboard" | "annotate";
+type Mode = "video" | "whiteboard";
+type Tool = "pen" | "eraser";
 
 export default function ClassroomPage() {
   const params = useParams();
@@ -31,14 +29,24 @@ export default function ClassroomPage() {
   const [error, setError] = useState("");
 
   const [mode, setMode] = useState<Mode>("video");
+  const [tool, setTool] = useState<Tool>("pen");
+  const [lineWidth, setLineWidth] = useState(4);
 
-  const initializedRef = useRef(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawingRef = useRef(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    if (initializedRef.current) return;
-    initializedRef.current = true;
-
     loadSignedInUser();
+  }, []);
+
+  useEffect(() => {
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+    };
   }, []);
 
   async function loadSignedInUser() {
@@ -105,13 +113,103 @@ export default function ClassroomPage() {
       setServerUrl(data.url);
     } catch (error) {
       setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to join classroom."
+        error instanceof Error ? error.message : "Failed to join classroom."
       );
     } finally {
       setJoining(false);
     }
+  }
+
+  function resizeCanvas() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const parent = canvas.parentElement;
+    if (!parent) return;
+
+    const previousImage = canvas.toDataURL();
+
+    const width = parent.clientWidth;
+    const height = parent.clientHeight;
+
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, width, height);
+    context.lineCap = "round";
+    context.lineJoin = "round";
+
+    const image = new Image();
+    image.onload = () => {
+      context.drawImage(image, 0, 0, width, height);
+    };
+    image.src = previousImage;
+  }
+
+  function getCanvasPoint(event: React.PointerEvent<HTMLCanvasElement>) {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
+
+    const rect = canvas.getBoundingClientRect();
+
+    return {
+      x: event.clientX - rect.left,
+      y: event.clientY - rect.top,
+    };
+  }
+
+  function startDrawing(event: React.PointerEvent<HTMLCanvasElement>) {
+    const point = getCanvasPoint(event);
+    if (!point) return;
+
+    drawingRef.current = true;
+    lastPointRef.current = point;
+  }
+
+  function draw(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (!drawingRef.current) return;
+
+    const canvas = canvasRef.current;
+    const previous = lastPointRef.current;
+    const point = getCanvasPoint(event);
+
+    if (!canvas || !previous || !point) return;
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.lineWidth = lineWidth;
+    context.strokeStyle = tool === "pen" ? "#0f172a" : "#ffffff";
+    context.globalCompositeOperation =
+      tool === "pen" ? "source-over" : "destination-out";
+
+    context.beginPath();
+    context.moveTo(previous.x, previous.y);
+    context.lineTo(point.x, point.y);
+    context.stroke();
+
+    lastPointRef.current = point;
+  }
+
+  function stopDrawing() {
+    drawingRef.current = false;
+    lastPointRef.current = null;
+  }
+
+  function clearWhiteboard() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    context.globalCompositeOperation = "source-over";
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
   }
 
   if (loading) {
@@ -130,18 +228,14 @@ export default function ClassroomPage() {
             The Alkebula School
           </p>
 
-          <h1 className="mt-4 text-4xl font-bold">
-            Join Classroom Session
-          </h1>
+          <h1 className="mt-4 text-4xl font-bold">Join Classroom Session</h1>
 
           <p className="mt-4 text-slate-300">
             Secure live lesson powered by Alkebula Classroom.
           </p>
 
           <div className="mt-8">
-            <label className="mb-2 block text-sm font-medium">
-              Your Name
-            </label>
+            <label className="mb-2 block text-sm font-medium">Your Name</label>
 
             <input
               value={username}
@@ -175,34 +269,35 @@ export default function ClassroomPage() {
   }
 
   return (
-    <main className="flex h-screen flex-col bg-slate-950 text-white overflow-hidden">
-      {/* TOP BAR */}
+    <main className="flex h-screen flex-col overflow-hidden bg-slate-950 text-white">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 bg-slate-900 px-4 py-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">
             The Alkebula School
           </p>
-
-          <p className="text-sm text-slate-300">
-            Classroom: {roomId}
-          </p>
+          <p className="text-sm text-slate-300">Classroom: {roomId}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <button
+            type="button"
             onClick={() => setMode("video")}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+            className={`rounded-xl px-4 py-2 text-sm font-semibold ${
               mode === "video"
                 ? "bg-white text-slate-950"
                 : "bg-slate-800 text-white hover:bg-slate-700"
             }`}
           >
-            Video
+            Video / Screen Share
           </button>
 
           <button
-            onClick={() => setMode("whiteboard")}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
+            type="button"
+            onClick={() => {
+              setMode("whiteboard");
+              setTimeout(resizeCanvas, 50);
+            }}
+            className={`rounded-xl px-4 py-2 text-sm font-semibold ${
               mode === "whiteboard"
                 ? "bg-white text-slate-950"
                 : "bg-slate-800 text-white hover:bg-slate-700"
@@ -210,75 +305,90 @@ export default function ClassroomPage() {
           >
             Whiteboard
           </button>
-
-          <button
-            onClick={() => setMode("annotate")}
-            className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
-              mode === "annotate"
-                ? "bg-white text-slate-950"
-                : "bg-slate-800 text-white hover:bg-slate-700"
-            }`}
-          >
-            Annotate Screen
-          </button>
         </div>
       </div>
 
-      {/* LIVEKIT MOUNTED ONLY ONCE */}
-      <div className="flex-1 overflow-hidden">
-        <LiveKitRoom
-          video
-          audio
-          token={token}
-          serverUrl={serverUrl}
-          data-lk-theme="default"
-          className="h-full"
-        >
-          {/* VIDEO MODE */}
-          <div
-            className={`absolute inset-0 ${
+      <LiveKitRoom
+        video
+        audio
+        token={token}
+        serverUrl={serverUrl}
+        data-lk-theme="default"
+        className="min-h-0 flex-1"
+      >
+        <div className="relative h-full min-h-0">
+          <section
+            className={`absolute inset-0 bg-black ${
               mode === "video" ? "block" : "hidden"
             }`}
           >
             <VideoConference />
             <RoomAudioRenderer />
-          </div>
+          </section>
 
-          {/* WHITEBOARD MODE */}
-          <div
-            className={`absolute inset-0 bg-white ${
+          <section
+            className={`absolute inset-0 flex flex-col bg-white text-slate-900 ${
               mode === "whiteboard" ? "block" : "hidden"
             }`}
           >
-            <div className="h-full w-full">
-              <Tldraw
-                persistenceKey={`whiteboard-${roomId}`}
+            <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-slate-100 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setTool("pen")}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                  tool === "pen"
+                    ? "bg-slate-900 text-white"
+                    : "bg-white text-slate-700"
+                }`}
+              >
+                Pen
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTool("eraser")}
+                className={`rounded-lg px-4 py-2 text-sm font-semibold ${
+                  tool === "eraser"
+                    ? "bg-slate-900 text-white"
+                    : "bg-white text-slate-700"
+                }`}
+              >
+                Eraser
+              </button>
+
+              <label className="flex items-center gap-2 text-sm font-semibold">
+                Size
+                <input
+                  type="range"
+                  min="2"
+                  max="24"
+                  value={lineWidth}
+                  onChange={(e) => setLineWidth(Number(e.target.value))}
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={clearWhiteboard}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Clear
+              </button>
+            </div>
+
+            <div className="relative min-h-0 flex-1">
+              <canvas
+                ref={canvasRef}
+                onPointerDown={startDrawing}
+                onPointerMove={draw}
+                onPointerUp={stopDrawing}
+                onPointerLeave={stopDrawing}
+                className="h-full w-full touch-none bg-white"
               />
             </div>
-          </div>
-
-          {/* ANNOTATION MODE */}
-          <div
-            className={`absolute inset-0 ${
-              mode === "annotate" ? "block" : "hidden"
-            }`}
-          >
-            {/* LIVE VIDEO IN BACKGROUND */}
-            <div className="absolute inset-0">
-              <VideoConference />
-            </div>
-
-            {/* TRANSPARENT DRAWING LAYER */}
-            <div className="absolute inset-0 bg-transparent">
-              <Tldraw
-                persistenceKey={`annotation-${roomId}`}
-              />
-            </div>
-
-            <RoomAudioRenderer />
-          </div>
-        </LiveKitRoom>
-      </div>
+          </section>
+        </div>
+      </LiveKitRoom>
     </main>
   );
 }
