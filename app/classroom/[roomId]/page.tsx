@@ -315,13 +315,13 @@ export default function ClassroomPage() {
 
       <LiveKitRoom
         audio={true}
-        video={{
-          resolution: {
-            width: 640,
-            height: 360,
-          },
-          frameRate: 15,
-        }}
+  video={{
+  resolution: {
+    width: 426,
+    height: 240,
+  },
+  frameRate: 10,
+}}
         token={token}
         serverUrl={serverUrl}
         data-lk-theme="default"
