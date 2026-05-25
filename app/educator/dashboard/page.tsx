@@ -35,11 +35,23 @@ type Lesson = {
   payout_status?: string | null;
   payout_date?: string | null;
   payout_reference?: string | null;
+
   homework_title: string | null;
   homework_instructions: string | null;
   homework_due_date: string | null;
   homework_status: string | null;
+
   completion_notes: string | null;
+
+  lesson_started_at?: string | null;
+  lesson_ended_at?: string | null;
+  actual_duration_minutes?: number | null;
+  lesson_notes?: string | null;
+  homework_notes?: string | null;
+  completed_by_tutor?: boolean | null;
+  completed_at?: string | null;
+  lesson_started_by?: string | null;
+  lesson_ended_by?: string | null;
 };
 
 type EducatorProfile = {
@@ -51,6 +63,8 @@ type EducatorProfile = {
   approval_status: string;
   is_public: boolean;
 };
+
+type AttendanceAction = "start" | "end" | "notes";
 
 function usd(value?: number | null) {
   return `USD ${Number(value || 0).toFixed(2)}`;
@@ -66,8 +80,20 @@ function getTutorPayout(lesson: Lesson) {
   return Number(lesson.tutor_payout_amount || getLessonAmount(lesson) * 0.7);
 }
 
-function classroomHref(lessonId: string) {
-  return `/classroom/${lessonId}`;
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return value;
+  }
+}
+
+function lessonTimeLabel(lesson: Lesson) {
+  return `${lesson.lesson_date || "—"} · ${lesson.start_time || "—"} - ${
+    lesson.end_time || "—"
+  }`;
 }
 
 export default function EducatorDashboardPage() {
@@ -93,12 +119,10 @@ export default function EducatorDashboardPage() {
   const [homeworkDueDate, setHomeworkDueDate] = useState("");
   const [selectedLessonId, setSelectedLessonId] = useState("");
 
-  const [rescheduleLesson, setRescheduleLesson] = useState<Lesson | null>(null);
-  const [rescheduleReason, setRescheduleReason] = useState("");
-  const [preferredDate, setPreferredDate] = useState("");
-  const [preferredStartTime, setPreferredStartTime] = useState("");
-  const [preferredEndTime, setPreferredEndTime] = useState("");
-  const [submittingReschedule, setSubmittingReschedule] = useState(false);
+  const [attendanceLessonId, setAttendanceLessonId] = useState("");
+  const [lessonNotes, setLessonNotes] = useState("");
+  const [homeworkNotes, setHomeworkNotes] = useState("");
+  const [actingLessonId, setActingLessonId] = useState("");
 
   useEffect(() => {
     const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -282,69 +306,66 @@ export default function EducatorDashboardPage() {
     }
   }
 
-  function openRescheduleForm(lesson: Lesson) {
-    setRescheduleLesson(lesson);
-    setRescheduleReason("");
-    setPreferredDate("");
-    setPreferredStartTime("");
-    setPreferredEndTime("");
-    setMessage("");
-    setError("");
-  }
-
-  async function submitRescheduleRequest() {
-    if (!rescheduleLesson) return;
-
-    setSubmittingReschedule(true);
+  async function updateLessonAttendance(
+    lesson: Lesson,
+    action: AttendanceAction
+  ) {
+    setActingLessonId(lesson.id);
     setMessage("");
     setError("");
 
     try {
-      if (!rescheduleReason.trim()) {
-        throw new Error("Please provide a reason for the reschedule request.");
+      const supabase = getSupabaseBrowserClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Session expired. Please sign in again.");
       }
 
-      const response = await fetch("/api/educator/reschedule-request", {
+      const response = await fetch("/api/educator/lesson-attendance", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          lessonId: rescheduleLesson.id,
-          tutorEmail: rescheduleLesson.tutor_email,
-          parentEmail: rescheduleLesson.parent_email,
-          studentName: rescheduleLesson.student_name,
-          subject: rescheduleLesson.subject,
-          curriculum: rescheduleLesson.curriculum,
-          currentLessonDate: rescheduleLesson.lesson_date,
-          currentStartTime: rescheduleLesson.start_time,
-          currentEndTime: rescheduleLesson.end_time,
-          preferredDate,
-          preferredStartTime,
-          preferredEndTime,
-          reason: rescheduleReason,
+          lessonId: lesson.id,
+          action,
+          lessonNotes,
+          homeworkNotes,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to submit reschedule request.");
+        throw new Error(data.error || "Failed to update lesson attendance.");
       }
 
-      setRescheduleLesson(null);
-      setRescheduleReason("");
-      setPreferredDate("");
-      setPreferredStartTime("");
-      setPreferredEndTime("");
-      setMessage("Reschedule request sent to admin successfully.");
+      if (action === "end" || action === "notes") {
+        setAttendanceLessonId("");
+        setLessonNotes("");
+        setHomeworkNotes("");
+      }
+
+      await loadLessons(educatorEmail);
+      setMessage(data.message || "Lesson attendance updated.");
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Failed to submit reschedule request."
+        err instanceof Error ? err.message : "Failed to update lesson attendance."
       );
     } finally {
-      setSubmittingReschedule(false);
+      setActingLessonId("");
     }
+  }
+
+  function openAttendanceForm(lesson: Lesson) {
+    setAttendanceLessonId(lesson.id);
+    setLessonNotes(lesson.lesson_notes || "");
+    setHomeworkNotes(lesson.homework_notes || "");
   }
 
   async function assignHomework() {
@@ -377,11 +398,12 @@ export default function EducatorDashboardPage() {
     }
   }
 
-  const upcomingLessons = lessons.filter(
+  const activeLessons = lessons.filter(
     (lesson) =>
       lesson.status === "upcoming" ||
       lesson.status === "booked" ||
-      lesson.status === "scheduled"
+      lesson.status === "scheduled" ||
+      lesson.status === "in_progress"
   );
 
   const completedLessons = lessons.filter(
@@ -427,19 +449,31 @@ export default function EducatorDashboardPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Link href="/educator/profile" className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <Link
+              href="/educator/profile"
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
               Edit Profile Picture
             </Link>
 
-            <Link href="/educator/subjects" className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <Link
+              href="/educator/subjects"
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
               Edit Subjects & Rates
             </Link>
 
-            <Link href="/educator/availability" className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <Link
+              href="/educator/availability"
+              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
               Bulk Monthly Slots
             </Link>
 
-            <Link href="/educator/messages" className="relative rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800">
+            <Link
+              href="/educator/messages"
+              className="relative rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+            >
               Message Admin
               {unreadMessageCount > 0 ? (
                 <span className="ml-2 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
@@ -450,15 +484,25 @@ export default function EducatorDashboardPage() {
           </div>
         </div>
 
-        {message ? <div className="mt-6 rounded-xl bg-green-50 p-4 text-green-700">{message}</div> : null}
-        {error ? <div className="mt-6 rounded-xl bg-red-50 p-4 text-red-700">{error}</div> : null}
+        {message ? (
+          <div className="mt-6 rounded-xl bg-green-50 p-4 text-green-700">
+            {message}
+          </div>
+        ) : null}
+
+        {error ? (
+          <div className="mt-6 rounded-xl bg-red-50 p-4 text-red-700">
+            {error}
+          </div>
+        ) : null}
+
         {loading ? <p className="mt-8">Loading dashboard...</p> : null}
 
         {!loading ? (
           <>
             <div className="mt-10 grid gap-6 md:grid-cols-4">
               <MetricCard title="Available Slots" value={String(availableSlots.length)} />
-              <MetricCard title="Upcoming Lessons" value={String(upcomingLessons.length)} />
+              <MetricCard title="Active Lessons" value={String(activeLessons.length)} />
               <MetricCard title="Completed Lessons" value={String(completedLessons.length)} />
               <MetricCard title="Pending Payout" value={usd(pendingPayout)} />
             </div>
@@ -473,25 +517,58 @@ export default function EducatorDashboardPage() {
             <form onSubmit={saveSlot} className="mt-10 rounded-2xl border p-6">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-semibold">Add Single Availability Slot</h2>
+                  <h2 className="text-2xl font-semibold">
+                    Add Single Availability Slot
+                  </h2>
                   <p className="mt-2 text-sm text-slate-600">
                     Best for part-time educators. Pick one exact date and time.
                   </p>
                 </div>
 
-                <Link href="/educator/availability" className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800">
+                <Link
+                  href="/educator/availability"
+                  className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+                >
                   Use Bulk Monthly Creator
                 </Link>
               </div>
 
               <div className="mt-5 grid gap-4 md:grid-cols-4">
-                <input type="date" value={slotDate} onChange={(e) => setSlotDate(e.target.value)} className="rounded-xl border p-3" required />
-                <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="rounded-xl border p-3" required />
-                <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="rounded-xl border p-3" required />
-                <input value={timezone} onChange={(e) => setTimezone(e.target.value)} className="rounded-xl border p-3" />
+                <input
+                  type="date"
+                  value={slotDate}
+                  onChange={(e) => setSlotDate(e.target.value)}
+                  className="rounded-xl border p-3"
+                  required
+                />
+
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                  className="rounded-xl border p-3"
+                  required
+                />
+
+                <input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                  className="rounded-xl border p-3"
+                  required
+                />
+
+                <input
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="rounded-xl border p-3"
+                />
               </div>
 
-              <button disabled={savingSlot} className="mt-5 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60">
+              <button
+                disabled={savingSlot}
+                className="mt-5 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+              >
                 {savingSlot ? "Saving Slot..." : "Save Single Slot"}
               </button>
             </form>
@@ -500,16 +577,25 @@ export default function EducatorDashboardPage() {
               <h2 className="text-2xl font-semibold">Your Availability Slots</h2>
 
               {slots.length === 0 ? (
-                <p className="mt-4 text-slate-600">No availability slots created yet.</p>
+                <p className="mt-4 text-slate-600">
+                  No availability slots created yet.
+                </p>
               ) : (
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
                   {slots.slice(0, 12).map((slot) => (
-                    <div key={slot.id} className="rounded-xl border bg-slate-50 p-4 text-sm">
+                    <div
+                      key={slot.id}
+                      className="rounded-xl border bg-slate-50 p-4 text-sm"
+                    >
                       <p className="font-semibold">{slot.slot_date}</p>
-                      <p className="mt-1 text-slate-600">{slot.start_time} - {slot.end_time}</p>
+                      <p className="mt-1 text-slate-600">
+                        {slot.start_time} - {slot.end_time}
+                      </p>
                       <p className="mt-1 text-slate-600">
                         {slot.timezone || "Africa/Nairobi"} ·{" "}
-                        {slot.is_booked || slot.status === "booked" ? "Booked" : "Available"}
+                        {slot.is_booked || slot.status === "booked"
+                          ? "Booked"
+                          : "Available"}
                       </p>
                     </div>
                   ))}
@@ -518,155 +604,246 @@ export default function EducatorDashboardPage() {
             </div>
 
             <div className="mt-10 rounded-2xl border p-6">
-              <h2 className="text-2xl font-semibold">Upcoming Lessons</h2>
+              <h2 className="text-2xl font-semibold">Active / Upcoming Lessons</h2>
 
-              {upcomingLessons.length === 0 ? (
-                <p className="mt-4 text-slate-600">No upcoming lessons.</p>
+              {activeLessons.length === 0 ? (
+                <p className="mt-4 text-slate-600">No active or upcoming lessons.</p>
               ) : (
                 <div className="mt-5 space-y-4">
-                  {upcomingLessons.map((lesson) => (
+                  {activeLessons.map((lesson) => (
                     <div key={lesson.id} className="rounded-xl border p-5">
-                      <p className="font-semibold">{lesson.subject || "Lesson"}</p>
-                      <p className="mt-2 text-sm text-slate-600">
-                        {lesson.curriculum || "—"} · {lesson.lesson_date || "—"} ·{" "}
-                        {lesson.start_time || "—"} - {lesson.end_time || "—"}
-                      </p>
-                      <p className="text-sm text-slate-600">Student: {lesson.student_name || "—"}</p>
-                      <p className="text-sm text-slate-600">Parent: {lesson.parent_email || "—"}</p>
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <p className="font-semibold">{lesson.subject || "Lesson"}</p>
+                          <p className="mt-2 text-sm text-slate-600">
+                            {lesson.curriculum || "—"} · {lessonTimeLabel(lesson)}
+                          </p>
+                          <p className="text-sm text-slate-600">
+                            Student: {lesson.student_name || "—"}
+                          </p>
+                          <p className="text-sm text-slate-600">
+                            Parent: {lesson.parent_email || "—"}
+                          </p>
+                        </div>
+
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                            lesson.status === "in_progress"
+                              ? "bg-green-100 text-green-800"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {lesson.status || "scheduled"}
+                        </span>
+                      </div>
 
                       <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm md:grid-cols-4">
-                        <p><strong>Lesson Amount:</strong> {usd(getLessonAmount(lesson))}</p>
-                        <p><strong>Your Payout:</strong> {usd(getTutorPayout(lesson))}</p>
-                        <p><strong>Payment:</strong> {lesson.payment_status || "unpaid"}</p>
-                        <p><strong>Payout:</strong> {lesson.payout_status || "pending"}</p>
+                        <p>
+                          <strong>Lesson Amount:</strong> {usd(getLessonAmount(lesson))}
+                        </p>
+                        <p>
+                          <strong>Your Payout:</strong> {usd(getTutorPayout(lesson))}
+                        </p>
+                        <p>
+                          <strong>Payment:</strong> {lesson.payment_status || "unpaid"}
+                        </p>
+                        <p>
+                          <strong>Payout:</strong> {lesson.payout_status || "pending"}
+                        </p>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 rounded-xl bg-white p-4 text-sm md:grid-cols-3">
+                        <p>
+                          <strong>Started:</strong>{" "}
+                          {formatDateTime(lesson.lesson_started_at)}
+                        </p>
+                        <p>
+                          <strong>Ended:</strong>{" "}
+                          {formatDateTime(lesson.lesson_ended_at)}
+                        </p>
+                        <p>
+                          <strong>Duration:</strong>{" "}
+                          {lesson.actual_duration_minutes
+                            ? `${lesson.actual_duration_minutes} minutes`
+                            : "—"}
+                        </p>
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-3">
                         <Link
-                          href={classroomHref(lesson.id)}
-                          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                          href={`/classroom/${lesson.id}`}
+                          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
                         >
                           Start Classroom
                         </Link>
 
-                        <button
-                          type="button"
-                          onClick={() => updateLessonStatus(lesson.id, "completed")}
-                          className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white"
-                        >
-                          Mark Completed
-                        </button>
+                        {!lesson.lesson_started_at ? (
+                          <button
+                            type="button"
+                            onClick={() => updateLessonAttendance(lesson, "start")}
+                            disabled={actingLessonId === lesson.id}
+                            className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                          >
+                            {actingLessonId === lesson.id
+                              ? "Starting..."
+                              : "Start Lesson"}
+                          </button>
+                        ) : null}
 
-                        <button
-                          type="button"
-                          onClick={() => openRescheduleForm(lesson)}
-                          className="rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-700"
-                        >
-                          Request Reschedule
-                        </button>
+                        {lesson.lesson_started_at && !lesson.lesson_ended_at ? (
+                          <button
+                            type="button"
+                            onClick={() => openAttendanceForm(lesson)}
+                            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                          >
+                            End Lesson + Notes
+                          </button>
+                        ) : null}
+
+                        {lesson.lesson_started_at && !lesson.lesson_ended_at ? (
+                          <button
+                            type="button"
+                            onClick={() => openAttendanceForm(lesson)}
+                            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
+                          >
+                            Save Notes Only
+                          </button>
+                        ) : null}
 
                         <button
                           type="button"
                           onClick={() => setSelectedLessonId(lesson.id)}
-                          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                          className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
                         >
                           Issue Homework
                         </button>
+
+                        <button
+                          type="button"
+                          onClick={() => updateLessonStatus(lesson.id, "cancelled")}
+                          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+                        >
+                          Cancel Lesson
+                        </button>
                       </div>
+
+                      {attendanceLessonId === lesson.id ? (
+                        <div className="mt-5 rounded-2xl border bg-slate-50 p-5">
+                          <h3 className="text-lg font-semibold">
+                            Lesson Notes & Homework Notes
+                          </h3>
+
+                          <div className="mt-4 space-y-4">
+                            <textarea
+                              value={lessonNotes}
+                              onChange={(e) => setLessonNotes(e.target.value)}
+                              placeholder="Brief lesson notes: what was covered, learner progress, areas needing support..."
+                              rows={5}
+                              className="w-full rounded-xl border p-3"
+                            />
+
+                            <textarea
+                              value={homeworkNotes}
+                              onChange={(e) => setHomeworkNotes(e.target.value)}
+                              placeholder="Homework notes or next steps for the learner..."
+                              rows={4}
+                              className="w-full rounded-xl border p-3"
+                            />
+
+                            <div className="flex flex-wrap gap-3">
+                              <button
+                                type="button"
+                                onClick={() => updateLessonAttendance(lesson, "notes")}
+                                disabled={actingLessonId === lesson.id}
+                                className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 disabled:opacity-60"
+                              >
+                                Save Notes Only
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => updateLessonAttendance(lesson, "end")}
+                                disabled={actingLessonId === lesson.id}
+                                className="rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                              >
+                                {actingLessonId === lesson.id
+                                  ? "Ending..."
+                                  : "End Lesson & Mark Completed"}
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAttendanceLessonId("");
+                                  setLessonNotes("");
+                                  setHomeworkNotes("");
+                                }}
+                                className="rounded-xl bg-slate-200 px-5 py-3 text-sm font-semibold text-slate-700"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>
               )}
             </div>
-
-            {rescheduleLesson ? (
-              <div className="mt-10 rounded-2xl border border-amber-200 bg-amber-50 p-6">
-                <h2 className="text-2xl font-semibold">Request Lesson Reschedule</h2>
-                <p className="mt-2 text-sm text-slate-700">
-                  This request will be sent to admin for review. The lesson will not be cancelled automatically.
-                </p>
-
-                <div className="mt-5 rounded-xl bg-white p-4 text-sm">
-                  <p className="font-semibold">{rescheduleLesson.subject || "Lesson"}</p>
-                  <p className="mt-1 text-slate-600">
-                    Current time: {rescheduleLesson.lesson_date || "—"} ·{" "}
-                    {rescheduleLesson.start_time || "—"} - {rescheduleLesson.end_time || "—"}
-                  </p>
-                  <p className="text-slate-600">
-                    Student: {rescheduleLesson.student_name || "—"}
-                  </p>
-                </div>
-
-                <div className="mt-5 grid gap-4 md:grid-cols-3">
-                  <input
-                    type="date"
-                    value={preferredDate}
-                    onChange={(e) => setPreferredDate(e.target.value)}
-                    className="rounded-xl border bg-white p-3"
-                  />
-
-                  <input
-                    type="time"
-                    value={preferredStartTime}
-                    onChange={(e) => setPreferredStartTime(e.target.value)}
-                    className="rounded-xl border bg-white p-3"
-                  />
-
-                  <input
-                    type="time"
-                    value={preferredEndTime}
-                    onChange={(e) => setPreferredEndTime(e.target.value)}
-                    className="rounded-xl border bg-white p-3"
-                  />
-                </div>
-
-                <textarea
-                  value={rescheduleReason}
-                  onChange={(e) => setRescheduleReason(e.target.value)}
-                  placeholder="Explain why this lesson needs to be rescheduled..."
-                  rows={5}
-                  className="mt-4 w-full rounded-xl border bg-white p-3 text-sm"
-                />
-
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={submitRescheduleRequest}
-                    disabled={submittingReschedule}
-                    className="rounded-xl bg-amber-600 px-5 py-3 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
-                  >
-                    {submittingReschedule ? "Submitting..." : "Submit Request"}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setRescheduleLesson(null)}
-                    className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Cancel Request
-                  </button>
-                </div>
-              </div>
-            ) : null}
 
             {selectedLessonId ? (
               <div className="mt-10 rounded-2xl border p-6">
                 <h2 className="text-2xl font-semibold">Assign Homework</h2>
 
                 <div className="mt-5 space-y-4">
-                  <input value={homeworkTitle} onChange={(e) => setHomeworkTitle(e.target.value)} placeholder="Homework title" className="w-full rounded-xl border p-3" />
-                  <textarea value={homeworkInstructions} onChange={(e) => setHomeworkInstructions(e.target.value)} placeholder="Homework instructions" rows={5} className="w-full rounded-xl border p-3" />
-                  <input type="date" value={homeworkDueDate} onChange={(e) => setHomeworkDueDate(e.target.value)} className="rounded-xl border p-3" />
+                  <input
+                    value={homeworkTitle}
+                    onChange={(e) => setHomeworkTitle(e.target.value)}
+                    placeholder="Homework title"
+                    className="w-full rounded-xl border p-3"
+                  />
 
-                  <button type="button" onClick={assignHomework} className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white">
-                    Save Homework
-                  </button>
+                  <textarea
+                    value={homeworkInstructions}
+                    onChange={(e) => setHomeworkInstructions(e.target.value)}
+                    placeholder="Homework instructions"
+                    rows={5}
+                    className="w-full rounded-xl border p-3"
+                  />
+
+                  <input
+                    type="date"
+                    value={homeworkDueDate}
+                    onChange={(e) => setHomeworkDueDate(e.target.value)}
+                    className="rounded-xl border p-3"
+                  />
+
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      type="button"
+                      onClick={assignHomework}
+                      className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"
+                    >
+                      Save Homework
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLessonId("")}
+                      className="rounded-xl bg-slate-200 px-5 py-3 text-sm font-semibold text-slate-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : null}
 
             <div className="mt-10 rounded-2xl border p-6">
-              <h2 className="text-2xl font-semibold">Completed Lessons & Payments</h2>
+              <h2 className="text-2xl font-semibold">
+                Completed Lessons & Payments
+              </h2>
 
               {completedLessons.length === 0 ? (
                 <p className="mt-4 text-slate-600">No completed lessons yet.</p>
@@ -675,21 +852,70 @@ export default function EducatorDashboardPage() {
                   {completedLessons.map((lesson) => (
                     <div key={lesson.id} className="rounded-xl border p-5">
                       <p className="font-semibold">{lesson.subject || "Lesson"}</p>
-                      <p className="mt-2 text-sm text-slate-600">{lesson.curriculum || "—"} · {lesson.lesson_date || "—"}</p>
+                      <p className="mt-2 text-sm text-slate-600">
+                        {lesson.curriculum || "—"} · {lessonTimeLabel(lesson)}
+                      </p>
 
                       <div className="mt-4 grid gap-3 rounded-xl bg-slate-50 p-4 text-sm md:grid-cols-4">
-                        <p><strong>Lesson Amount:</strong> {usd(getLessonAmount(lesson))}</p>
-                        <p><strong>Your Payout:</strong> {usd(getTutorPayout(lesson))}</p>
-                        <p><strong>Payment:</strong> {lesson.payment_status || "unpaid"}</p>
-                        <p><strong>Payout:</strong> {lesson.payout_status || "pending"}</p>
+                        <p>
+                          <strong>Lesson Amount:</strong> {usd(getLessonAmount(lesson))}
+                        </p>
+                        <p>
+                          <strong>Your Payout:</strong> {usd(getTutorPayout(lesson))}
+                        </p>
+                        <p>
+                          <strong>Payment:</strong> {lesson.payment_status || "unpaid"}
+                        </p>
+                        <p>
+                          <strong>Payout:</strong> {lesson.payout_status || "pending"}
+                        </p>
                       </div>
+
+                      <div className="mt-4 grid gap-3 rounded-xl bg-white p-4 text-sm md:grid-cols-3">
+                        <p>
+                          <strong>Started:</strong>{" "}
+                          {formatDateTime(lesson.lesson_started_at)}
+                        </p>
+                        <p>
+                          <strong>Ended:</strong>{" "}
+                          {formatDateTime(lesson.lesson_ended_at)}
+                        </p>
+                        <p>
+                          <strong>Duration:</strong>{" "}
+                          {lesson.actual_duration_minutes
+                            ? `${lesson.actual_duration_minutes} minutes`
+                            : "—"}
+                        </p>
+                      </div>
+
+                      {lesson.lesson_notes || lesson.homework_notes ? (
+                        <div className="mt-4 rounded-xl border bg-slate-50 p-4 text-sm">
+                          {lesson.lesson_notes ? (
+                            <p>
+                              <strong>Lesson Notes:</strong> {lesson.lesson_notes}
+                            </p>
+                          ) : null}
+
+                          {lesson.homework_notes ? (
+                            <p className="mt-2">
+                              <strong>Homework Notes:</strong>{" "}
+                              {lesson.homework_notes}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
 
                       {lesson.payout_status === "paid" ? (
                         <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
                           <p className="font-semibold">Payout Paid</p>
-                          <p className="mt-1">Reference: {lesson.payout_reference || "—"}</p>
                           <p className="mt-1">
-                            Date: {lesson.payout_date ? new Date(lesson.payout_date).toLocaleString() : "—"}
+                            Reference: {lesson.payout_reference || "—"}
+                          </p>
+                          <p className="mt-1">
+                            Date:{" "}
+                            {lesson.payout_date
+                              ? new Date(lesson.payout_date).toLocaleString()
+                              : "—"}
                           </p>
                         </div>
                       ) : null}
