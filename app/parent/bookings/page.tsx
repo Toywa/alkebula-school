@@ -223,22 +223,24 @@ export default function ParentBookingsPage() {
     setErrorMessage("");
 
     try {
-      const amount = Number(lesson.lesson_amount || lesson.hourly_rate || 0);
+      const supabase = getSupabaseBrowserClient();
 
-      if (!amount) throw new Error("This lesson has no payable amount.");
-      if (!parentEmail) {
-        throw new Error("Parent email is missing. Please sign in again.");
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Session expired. Please sign in again.");
       }
 
       const response = await fetch("/api/paystack/initialize", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({
           lessonId: lesson.id,
-          parentEmail,
-          amount,
-          studentName: lesson.student_name || "Student",
-          subject: lesson.subject || "Lesson",
         }),
       });
 
