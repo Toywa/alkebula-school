@@ -124,6 +124,12 @@ export default function EducatorDashboardPage() {
   const [homeworkNotes, setHomeworkNotes] = useState("");
   const [actingLessonId, setActingLessonId] = useState("");
 
+  const [rescheduleLessonId, setRescheduleLessonId] = useState("");
+  const [rescheduleReason, setRescheduleReason] = useState("");
+  const [preferredDate, setPreferredDate] = useState("");
+  const [preferredStartTime, setPreferredStartTime] = useState("");
+  const [preferredEndTime, setPreferredEndTime] = useState("");
+
   useEffect(() => {
     const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     if (detectedTimezone) setTimezone(detectedTimezone);
@@ -366,6 +372,77 @@ export default function EducatorDashboardPage() {
     setAttendanceLessonId(lesson.id);
     setLessonNotes(lesson.lesson_notes || "");
     setHomeworkNotes(lesson.homework_notes || "");
+  }
+
+  function openRescheduleForm(lesson: Lesson) {
+    setRescheduleLessonId(lesson.id);
+    setRescheduleReason("");
+    setPreferredDate(lesson.lesson_date || "");
+    setPreferredStartTime(lesson.start_time ? lesson.start_time.slice(0, 5) : "");
+    setPreferredEndTime(lesson.end_time ? lesson.end_time.slice(0, 5) : "");
+  }
+
+  function closeRescheduleForm() {
+    setRescheduleLessonId("");
+    setRescheduleReason("");
+    setPreferredDate("");
+    setPreferredStartTime("");
+    setPreferredEndTime("");
+  }
+
+  async function submitRescheduleRequest(lesson: Lesson) {
+    setActingLessonId(lesson.id);
+    setMessage("");
+    setError("");
+
+    try {
+      if (!rescheduleReason.trim()) {
+        throw new Error("Please give a reason for the reschedule request.");
+      }
+
+      const supabase = getSupabaseBrowserClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Session expired. Please sign in again.");
+      }
+
+      const response = await fetch("/api/educator/reschedule-request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          lessonId: lesson.id,
+          reason: rescheduleReason,
+          preferredDate: preferredDate || null,
+          preferredStartTime: preferredStartTime || null,
+          preferredEndTime: preferredEndTime || null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to submit reschedule request.");
+      }
+
+      closeRescheduleForm();
+      await loadLessons(educatorEmail);
+      setMessage(data.message || "Reschedule request submitted successfully.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to submit reschedule request."
+      );
+    } finally {
+      setActingLessonId("");
+    }
   }
 
   async function assignHomework() {
@@ -720,12 +797,75 @@ export default function EducatorDashboardPage() {
 
                         <button
                           type="button"
-                          onClick={() => updateLessonStatus(lesson.id, "cancelled")}
-                          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white"
+                          onClick={() => openRescheduleForm(lesson)}
+                          className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-semibold text-white"
                         >
-                          Cancel Lesson
+                          Request Reschedule
                         </button>
                       </div>
+
+                      {rescheduleLessonId === lesson.id ? (
+                        <div className="mt-5 rounded-2xl border border-orange-200 bg-orange-50 p-5">
+                          <h3 className="text-lg font-semibold text-orange-950">
+                            Request Lesson Reschedule
+                          </h3>
+                          <p className="mt-2 text-sm text-orange-900">
+                            Submit your request to admin. Admin will review and apply the final new lesson time.
+                          </p>
+
+                          <div className="mt-4 grid gap-4 md:grid-cols-3">
+                            <input
+                              type="date"
+                              value={preferredDate}
+                              onChange={(e) => setPreferredDate(e.target.value)}
+                              className="rounded-xl border border-orange-200 bg-white p-3 text-sm"
+                            />
+
+                            <input
+                              type="time"
+                              value={preferredStartTime}
+                              onChange={(e) => setPreferredStartTime(e.target.value)}
+                              className="rounded-xl border border-orange-200 bg-white p-3 text-sm"
+                            />
+
+                            <input
+                              type="time"
+                              value={preferredEndTime}
+                              onChange={(e) => setPreferredEndTime(e.target.value)}
+                              className="rounded-xl border border-orange-200 bg-white p-3 text-sm"
+                            />
+                          </div>
+
+                          <textarea
+                            value={rescheduleReason}
+                            onChange={(e) => setRescheduleReason(e.target.value)}
+                            placeholder="Reason for reschedule request..."
+                            rows={4}
+                            className="mt-4 w-full rounded-xl border border-orange-200 bg-white p-3 text-sm"
+                          />
+
+                          <div className="mt-4 flex flex-wrap gap-3">
+                            <button
+                              type="button"
+                              onClick={() => submitRescheduleRequest(lesson)}
+                              disabled={actingLessonId === lesson.id}
+                              className="rounded-xl bg-orange-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                            >
+                              {actingLessonId === lesson.id
+                                ? "Submitting..."
+                                : "Submit Reschedule Request"}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={closeRescheduleForm}
+                              className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-orange-900"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : null}
 
                       {attendanceLessonId === lesson.id ? (
                         <div className="mt-5 rounded-2xl border bg-slate-50 p-5">
