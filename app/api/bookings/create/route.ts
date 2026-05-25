@@ -3,18 +3,19 @@ import { createClient } from "@supabase/supabase-js";
 import { sendBookingEmails } from "@/lib/email";
 
 type SubjectRate = {
-  curriculum_level?: string;
-  curriculum?: string;
-  subject?: string;
-  hourly_rate?: number;
+  curriculum_level?: string | null;
+  curriculum?: string | null;
+  class_level?: string | null;
+  subject?: string | null;
+  hourly_rate?: number | string | null;
 };
 
-type TutorProfile = {
-  email: string;
-  hourly_rate: number | null;
-  subject_rates: SubjectRate[] | null;
-  subjects?: string[] | null;
-  curricula?: string[] | null;
+type BookingRequestBody = {
+  tutorEmail?: string;
+  studentName?: string;
+  subject?: string;
+  curriculum?: string;
+  slotId?: string;
 };
 
 function getSupabaseAdmin() {
@@ -34,11 +35,15 @@ function getSupabaseAdmin() {
 }
 
 function normalizeEmail(email?: string | null) {
-  return String(email || "").trim().toLowerCase();
+  return (email || "").trim().toLowerCase();
 }
 
-function cleanText(value: unknown) {
-  return String(value || "").trim();
+function normalizeText(value?: string | null) {
+  return (value || "").trim();
+}
+
+function normalizeComparable(value?: string | null) {
+  return normalizeText(value).toLowerCase();
 }
 
 function money(value: unknown) {
@@ -46,109 +51,45 @@ function money(value: unknown) {
   return Number.isFinite(amount) ? amount : 0;
 }
 
-function parseTimeRange(time: string) {
-  if (!time) {
-    return {
-      startTime: null,
-      endTime: null,
-    };
-  }
+function formatTimeRange(startTime?: string | null, endTime?: string | null) {
+  const start = startTime || "";
+  const end = endTime || "";
 
-  if (time.includes("-")) {
-    const [start, end] = time.split("-").map((part) => part.trim());
-
-    return {
-      startTime: start || null,
-      endTime: end || null,
-    };
-  }
-
-  return {
-    startTime: time,
-    endTime: null,
-  };
+  if (start && end) return `${start} - ${end}`;
+  if (start) return start;
+  return "";
 }
 
-function resolveTutorRate({
-  tutorProfile,
-  requestedSubject,
-  requestedCurriculum,
-}: {
-  tutorProfile: TutorProfile;
-  requestedSubject: string;
-  requestedCurriculum?: string | null;
-}) {
-  const subjectRates = Array.isArray(tutorProfile.subject_rates)
-    ? tutorProfile.subject_rates
-    : [];
-
-  const normalizedSubject = requestedSubject.toLowerCase();
-  const normalizedCurriculum = String(requestedCurriculum || "").toLowerCase();
-
-  const exactRate = subjectRates.find((rate) => {
-    const rateSubject = String(rate.subject || "").toLowerCase();
-    const rateCurriculum = String(
-      rate.curriculum_level || rate.curriculum || ""
-    ).toLowerCase();
-
-    return (
-      rateSubject === normalizedSubject &&
-      (!normalizedCurriculum || rateCurriculum === normalizedCurriculum)
-    );
-  });
-
-  if (exactRate && money(exactRate.hourly_rate) > 0) {
-    return money(exactRate.hourly_rate);
-  }
-
-  const subjectOnlyRate = subjectRates.find((rate) => {
-    const rateSubject = String(rate.subject || "").toLowerCase();
-    return rateSubject === normalizedSubject;
-  });
-
-  if (subjectOnlyRate && money(subjectOnlyRate.hourly_rate) > 0) {
-    return money(subjectOnlyRate.hourly_rate);
-  }
-
-  const fallbackRate = money(tutorProfile.hourly_rate);
-
-  if (fallbackRate > 0) {
-    return fallbackRate;
-  }
-
-  return 0;
+function getPackageCurriculumLabel(item: SubjectRate) {
+  return item.curriculum_level || item.curriculum || "";
 }
 
-export async function GET(req: NextRequest) {
-  try {
-    const supabase = getSupabaseAdmin();
+function findMatchingSubjectPackage(
+  subjectRates: SubjectRate[],
+  selectedSubject: string,
+  selectedCurriculum: string
+) {
+  const subject = normalizeComparable(selectedSubject);
+  const curriculum = normalizeComparable(selectedCurriculum);
 
-    const authHeader = req.headers.get("authorization") || "";
-    const token = authHeader.replace("Bearer ", "").trim();
+  return subjectRates.find((item) => {
+    const packageSubject = normalizeComparable(item.subject);
+    const packageCurriculum = normalizeComparable(getPackageCurriculumLabel(item));
 
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-    }
+    return packageSubject === subject && packageCurriculum === curriculum;
+  });
+}
 
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(token);
-
-    if (error || !user?.email) {
-      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
-    }
-
-    return NextResponse.json({
-      ok: true,
-      message: "Booking route is alive.",
-    });
-  } catch {
-    return NextResponse.json(
-      { error: "Booking route health check failed." },
-      { status: 500 }
-    );
-  }
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "Booking route is alive",
+    hasResendKey: !!process.env.RESEND_API_KEY,
+    hasEmailFrom: !!process.env.EMAIL_FROM,
+    hasAdminEmail: !!process.env.ADMIN_EMAIL,
+    hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+    hasServiceRoleKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
 }
 
 export async function POST(req: NextRequest) {
@@ -160,7 +101,7 @@ export async function POST(req: NextRequest) {
 
     if (!token) {
       return NextResponse.json(
-        { error: "You must be signed in to book a lesson." },
+        { error: "Please sign in before booking a lesson." },
         { status: 401 }
       );
     }
@@ -172,30 +113,41 @@ export async function POST(req: NextRequest) {
 
     if (userError || !user?.email) {
       return NextResponse.json(
-        { error: "Invalid session. Please sign in again." },
+        { error: "Session expired. Please sign in again." },
         { status: 401 }
       );
     }
 
     const parentEmail = normalizeEmail(user.email);
-    const body = await req.json();
+
+    const body = (await req.json()) as BookingRequestBody;
 
     const tutorEmail = normalizeEmail(body.tutorEmail);
-    const studentName = cleanText(body.studentName);
-    const subject = cleanText(body.subject);
-    const curriculum = cleanText(body.curriculum);
-    const slotId = cleanText(body.slotId);
+    const studentName = normalizeText(body.studentName);
+    const subject = normalizeText(body.subject);
+    const curriculum = normalizeText(body.curriculum);
+    const slotId = normalizeText(body.slotId);
 
-    if (!tutorEmail || !studentName || !subject || !slotId) {
+    if (!tutorEmail || !studentName || !subject || !curriculum || !slotId) {
       return NextResponse.json(
-        { error: "Missing required booking details." },
+        {
+          error:
+            "Missing required booking details. Please select tutor, subject, curriculum, student name, and time slot.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (parentEmail === tutorEmail) {
+      return NextResponse.json(
+        { error: "A tutor cannot book a lesson with themselves." },
         { status: 400 }
       );
     }
 
     const { data: tutorProfile, error: tutorError } = await supabase
       .from("educator_directory")
-      .select("email,hourly_rate,subject_rates,subjects,curricula")
+      .select("id,email,full_name,hourly_rate,subject_rates,approval_status,is_public")
       .eq("email", tutorEmail)
       .eq("approval_status", "approved")
       .eq("is_public", true)
@@ -208,56 +160,86 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: slot, error: slotError } = await supabase
-      .from("tutor_availability_slots")
-      .select("id,tutor_email,date,slot_date,start_time,end_time,is_booked,status")
-      .eq("id", slotId)
-      .eq("tutor_email", tutorEmail)
-      .single();
+    const subjectRates = Array.isArray(tutorProfile.subject_rates)
+      ? (tutorProfile.subject_rates as SubjectRate[])
+      : [];
 
-    if (slotError || !slot) {
+    const matchingPackage = findMatchingSubjectPackage(
+      subjectRates,
+      subject,
+      curriculum
+    );
+
+    if (!matchingPackage) {
       return NextResponse.json(
-        { error: "Selected availability slot was not found for this tutor." },
+        {
+          error:
+            "The selected subject and curriculum are not offered by this tutor. Please refresh the tutor profile and choose an available subject package.",
+        },
         { status: 400 }
       );
     }
 
-    if (slot.is_booked || slot.status === "booked") {
+    const finalHourlyRate = money(matchingPackage.hourly_rate);
+
+    if (finalHourlyRate <= 0) {
       return NextResponse.json(
-        { error: "This lesson slot has already been booked." },
+        {
+          error:
+            "This tutor subject package has no valid hourly rate. Please contact admin.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const { data: selectedSlot, error: slotError } = await supabase
+      .from("tutor_availability_slots")
+      .select("id,tutor_email,date,slot_date,start_time,end_time,is_booked,status,timezone")
+      .eq("id", slotId)
+      .single();
+
+    if (slotError || !selectedSlot) {
+      return NextResponse.json(
+        { error: "Selected time slot was not found." },
+        { status: 404 }
+      );
+    }
+
+    if (normalizeEmail(selectedSlot.tutor_email) !== tutorEmail) {
+      return NextResponse.json(
+        { error: "Selected time slot does not belong to this tutor." },
+        { status: 400 }
+      );
+    }
+
+    if (selectedSlot.is_booked || selectedSlot.status === "booked") {
+      return NextResponse.json(
+        {
+          error:
+            "This time slot has already been booked. Please choose another available time.",
+        },
         { status: 409 }
       );
     }
 
-    const lessonDate = slot.date || slot.slot_date;
-    const startTime = slot.start_time;
-    const endTime = slot.end_time;
+    const lessonDate = selectedSlot.date || selectedSlot.slot_date;
+    const startTime = selectedSlot.start_time;
+    const endTime = selectedSlot.end_time;
+    const time = formatTimeRange(startTime, endTime);
 
-    if (!lessonDate || !startTime || !endTime) {
+    if (!lessonDate || !startTime) {
       return NextResponse.json(
-        { error: "Selected slot has invalid date or time details." },
-        { status: 400 }
-      );
-    }
-
-    const finalHourlyRate = resolveTutorRate({
-      tutorProfile: tutorProfile as TutorProfile,
-      requestedSubject: subject,
-      requestedCurriculum: curriculum,
-    });
-
-    if (finalHourlyRate <= 0) {
-      return NextResponse.json(
-        { error: "A valid tutor hourly rate is required for this booking." },
+        {
+          error:
+            "Selected time slot is missing date or start time. Please choose another slot.",
+        },
         { status: 400 }
       );
     }
 
     const lessonAmount = finalHourlyRate;
-    const platformCommission = Number((lessonAmount * 0.3).toFixed(2));
-    const tutorPayoutAmount = Number((lessonAmount * 0.7).toFixed(2));
-    const time = `${startTime}-${endTime}`;
-    const parsedTime = parseTimeRange(time);
+    const platformCommission = lessonAmount * 0.3;
+    const tutorPayoutAmount = lessonAmount * 0.7;
 
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
@@ -267,7 +249,7 @@ export async function POST(req: NextRequest) {
           tutor_email: tutorEmail,
           student_name: studentName,
           subject,
-          curriculum: curriculum || null,
+          curriculum,
           date: lessonDate,
           time,
           status: "booked",
@@ -295,10 +277,10 @@ export async function POST(req: NextRequest) {
           student_name: studentName,
           parent_email: parentEmail,
           subject,
-          curriculum: curriculum || null,
+          curriculum,
           lesson_date: lessonDate,
-          start_time: parsedTime.startTime,
-          end_time: parsedTime.endTime,
+          start_time: startTime,
+          end_time: endTime,
           status: "upcoming",
 
           hourly_rate: finalHourlyRate,
@@ -315,6 +297,7 @@ export async function POST(req: NextRequest) {
 
     if (lessonError) {
       console.error("Lesson creation error:", lessonError);
+
       return NextResponse.json(
         {
           error:
@@ -333,10 +316,21 @@ export async function POST(req: NextRequest) {
         status: "booked",
       })
       .eq("id", slotId)
-      .eq("tutor_email", tutorEmail);
+      .eq("tutor_email", tutorEmail)
+      .eq("is_booked", false);
 
     if (slotUpdateError) {
       console.error("Slot update error:", slotUpdateError);
+      return NextResponse.json(
+        {
+          error:
+            "Lesson was created, but the slot could not be marked as booked. Admin should review this booking.",
+          booking,
+          lesson,
+          details: slotUpdateError.message,
+        },
+        { status: 500 }
+      );
     }
 
     const emailResult = await sendBookingEmails({
