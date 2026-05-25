@@ -31,16 +31,6 @@ type Slot = {
   is_booked: boolean;
 };
 
-function getImageUrl(path?: string | null) {
-  if (!path) return null;
-
-  if (path.startsWith("http")) {
-    return path;
-  }
-
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
-}
-
 export default function TutorProfilePage({ params }: { params: { id: string } }) {
   const [tutor, setTutor] = useState<Tutor | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -74,6 +64,14 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
   async function loadTutor() {
     try {
       const supabase = getSupabaseBrowserClient();
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user?.email) {
+        setParentEmail(user.email.toLowerCase());
+      }
 
       const { data: tutorData, error: tutorError } = await supabase
         .from("educator_directory")
@@ -145,6 +143,17 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
     setErrorMessage("");
 
     try {
+      const supabase = getSupabaseBrowserClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        window.location.href = "/auth/sign-in";
+        return;
+      }
+
       if (!tutor) throw new Error("Tutor profile missing.");
       if (!selectedSubjectRate) throw new Error("Please select a subject package.");
 
@@ -154,20 +163,21 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
         throw new Error("Please select an available time.");
       }
 
+      if (!studentName.trim()) {
+        throw new Error("Please enter the student name.");
+      }
+
       const res = await fetch("/api/bookings/create", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          parentEmail,
           tutorEmail: tutor.email,
           studentName,
           subject: selectedSubjectRate.subject,
           curriculum: selectedSubjectRate.curriculum_level,
-          hourlyRate: selectedSubjectRate.hourly_rate,
-          date: selectedSlot.date,
-          time: `${selectedSlot.start_time}-${selectedSlot.end_time}`,
           slotId: selectedSlot.id,
         }),
       });
@@ -179,7 +189,6 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
       }
 
       setMessage("Booking created successfully. Confirmation emails have been sent.");
-      setParentEmail("");
       setStudentName("");
       setSelectedSlotId("");
       await loadTutor();
@@ -303,10 +312,9 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
                 <input
                   type="email"
                   value={parentEmail}
-                  onChange={(e) => setParentEmail(e.target.value)}
+                  readOnly
                   placeholder="Parent email"
-                  className="rounded-xl border border-slate-300 px-4 py-3"
-                  required
+                  className="rounded-xl border border-slate-300 bg-slate-100 px-4 py-3 text-slate-600"
                 />
 
                 <input
@@ -317,6 +325,12 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
                   required
                 />
               </div>
+
+              {!parentEmail ? (
+                <p className="mt-3 text-sm text-amber-700">
+                  Please sign in before booking a lesson.
+                </p>
+              ) : null}
 
               <div className="mt-6">
                 <p className="mb-3 text-sm font-semibold">Choose a date</p>
