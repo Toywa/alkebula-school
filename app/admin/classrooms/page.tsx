@@ -30,14 +30,10 @@ type Lesson = {
   lesson_ended_by?: string | null;
 };
 
+type LessonSectionHighlight = "live" | "completed" | "default";
+
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function daysAgoISO(days: number) {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString().slice(0, 10);
 }
 
 function lessonTimeLabel(lesson: Lesson) {
@@ -116,20 +112,28 @@ export default function AdminClassroomsPage() {
 
       const supabase = getSupabaseBrowserClient();
 
-      const fromDate = daysAgoISO(7);
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-      const { data, error } = await supabase
-        .from("tutor_lessons")
-        .select(
-          "id,tutor_email,parent_email,student_name,subject,curriculum,lesson_date,start_time,end_time,status,payment_status,lesson_started_at,lesson_ended_at,actual_duration_minutes,lesson_notes,homework_notes,completed_by_tutor,completed_at,lesson_started_by,lesson_ended_by"
-        )
-        .gte("lesson_date", fromDate)
-        .order("lesson_date", { ascending: false })
-        .order("start_time", { ascending: false });
+      if (!session?.access_token) {
+        throw new Error("Session expired. Please sign in again.");
+      }
 
-      if (error) throw new Error(error.message);
+      const response = await fetch("/api/admin/classrooms", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
 
-      setLessons(data || []);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load classrooms.");
+      }
+
+      setLessons(data.lessons || []);
       setMessage("Classroom list refreshed.");
     } catch (error) {
       setErrorMessage(
@@ -268,6 +272,7 @@ export default function AdminClassroomsPage() {
           description="Today’s scheduled lessons, including recently created or rescheduled classes."
           lessons={todayLessons}
           emptyMessage="No other scheduled classrooms found for today."
+          highlight="default"
         />
 
         <LessonSection
@@ -275,6 +280,7 @@ export default function AdminClassroomsPage() {
           description="Future lessons from tomorrow onward."
           lessons={upcomingLessons}
           emptyMessage="No upcoming classrooms found."
+          highlight="default"
         />
 
         <LessonSection
@@ -290,6 +296,7 @@ export default function AdminClassroomsPage() {
           description="Recently cancelled lessons."
           lessons={cancelledLessons}
           emptyMessage="No cancelled lessons found in the recent window."
+          highlight="default"
         />
       </section>
     </main>
@@ -310,13 +317,13 @@ function LessonSection({
   description,
   lessons,
   emptyMessage,
-  highlight,
+  highlight = "default",
 }: {
   title: string;
   description: string;
   lessons: Lesson[];
   emptyMessage: string;
-  highlight?: "live" | "completed";
+  highlight?: LessonSectionHighlight;
 }) {
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-6">
@@ -345,10 +352,10 @@ function LessonSection({
 
 function LessonCard({
   lesson,
-  highlight,
+  highlight = "default",
 }: {
   lesson: Lesson;
-  highlight?: "live" | "completed";
+  highlight?: LessonSectionHighlight;
 }) {
   return (
     <div
