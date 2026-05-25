@@ -5,12 +5,15 @@ import { useParams } from "next/navigation";
 
 import {
   LiveKitRoom,
-  VideoConference,
   RoomAudioRenderer,
+  ParticipantTile,
+  ControlBar,
+  useTracks,
 } from "@livekit/components-react";
 
 import "@livekit/components-styles";
 
+import { Track } from "livekit-client";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type Mode = "video" | "whiteboard";
@@ -127,7 +130,7 @@ export default function ClassroomPage() {
     const parent = canvas.parentElement;
     if (!parent) return;
 
-    const previousImage = canvas.toDataURL();
+    const previousImage = canvas.width > 0 ? canvas.toDataURL() : null;
 
     const width = parent.clientWidth;
     const height = parent.clientHeight;
@@ -143,11 +146,13 @@ export default function ClassroomPage() {
     context.lineCap = "round";
     context.lineJoin = "round";
 
-    const image = new Image();
-    image.onload = () => {
-      context.drawImage(image, 0, 0, width, height);
-    };
-    image.src = previousImage;
+    if (previousImage) {
+      const image = new Image();
+      image.onload = () => {
+        context.drawImage(image, 0, 0, width, height);
+      };
+      image.src = previousImage;
+    }
   }
 
   function getCanvasPoint(event: React.PointerEvent<HTMLCanvasElement>) {
@@ -309,8 +314,14 @@ export default function ClassroomPage() {
       </div>
 
       <LiveKitRoom
-        video
-        audio
+        audio={true}
+        video={{
+          resolution: {
+            width: 640,
+            height: 360,
+          },
+          frameRate: 15,
+        }}
         token={token}
         serverUrl={serverUrl}
         data-lk-theme="default"
@@ -318,12 +329,11 @@ export default function ClassroomPage() {
       >
         <div className="relative h-full min-h-0">
           <section
-            className={`absolute inset-0 bg-black ${
+            className={`absolute inset-0 flex flex-col bg-black ${
               mode === "video" ? "block" : "hidden"
             }`}
           >
-            <VideoConference />
-            <RoomAudioRenderer />
+            <LightweightVideoLayout />
           </section>
 
           <section
@@ -387,8 +397,66 @@ export default function ClassroomPage() {
               />
             </div>
           </section>
+
+          <RoomAudioRenderer />
         </div>
       </LiveKitRoom>
     </main>
+  );
+}
+
+function LightweightVideoLayout() {
+  const tracks = useTracks(
+    [
+      { source: Track.Source.Camera, withPlaceholder: true },
+      { source: Track.Source.ScreenShare, withPlaceholder: false },
+    ],
+    {
+      onlySubscribed: false,
+    }
+  );
+
+  const screenShareTracks = tracks.filter(
+    (trackRef) => trackRef.source === Track.Source.ScreenShare
+  );
+
+  const cameraTracks = tracks.filter(
+    (trackRef) => trackRef.source === Track.Source.Camera
+  );
+
+  const visibleTracks =
+    screenShareTracks.length > 0 ? screenShareTracks : cameraTracks;
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-black">
+      <div className="min-h-0 flex-1 overflow-hidden p-3">
+        {visibleTracks.length === 0 ? (
+          <div className="flex h-full items-center justify-center rounded-2xl border border-slate-800 bg-slate-950 text-slate-400">
+            Waiting for participants...
+          </div>
+        ) : (
+          <div
+            className={`grid h-full gap-3 ${
+              visibleTracks.length === 1
+                ? "grid-cols-1"
+                : "grid-cols-1 md:grid-cols-2"
+            }`}
+          >
+            {visibleTracks.map((trackRef) => (
+              <div
+                key={`${trackRef.participant.identity}-${trackRef.source}`}
+                className="min-h-0 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950"
+              >
+                <ParticipantTile trackRef={trackRef} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-slate-800 bg-slate-900 px-3 py-2">
+        <ControlBar />
+      </div>
+    </div>
   );
 }
