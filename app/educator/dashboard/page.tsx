@@ -64,7 +64,7 @@ type EducatorProfile = {
   is_public: boolean;
 };
 
-type AttendanceAction = "start" | "end" | "notes";
+type AttendanceAction = "end" | "notes";
 
 function usd(value?: number | null) {
   return `USD ${Number(value || 0).toFixed(2)}`;
@@ -285,30 +285,6 @@ export default function EducatorDashboardPage() {
       setError(err instanceof Error ? err.message : "Failed to save slot.");
     } finally {
       setSavingSlot(false);
-    }
-  }
-
-  async function updateLessonStatus(lessonId: string, status: string) {
-    try {
-      const supabase = getSupabaseBrowserClient();
-
-      const updates: any = { status };
-
-      if (status === "completed") {
-        updates.completed_at = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from("tutor_lessons")
-        .update(updates)
-        .eq("id", lessonId);
-
-      if (error) throw new Error(error.message);
-
-      await loadLessons(educatorEmail);
-      setMessage(`Lesson marked as ${status}.`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed.");
     }
   }
 
@@ -753,19 +729,6 @@ export default function EducatorDashboardPage() {
                         >
                           Start Classroom
                         </Link>
-
-                        {!lesson.lesson_started_at ? (
-                          <button
-                            type="button"
-                            onClick={() => updateLessonAttendance(lesson, "start")}
-                            disabled={actingLessonId === lesson.id}
-                            className="rounded-xl bg-green-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                          >
-                            {actingLessonId === lesson.id
-                              ? "Starting..."
-                              : "Start Lesson"}
-                          </button>
-                        ) : null}
 
                         {lesson.lesson_started_at && !lesson.lesson_ended_at ? (
                           <button
