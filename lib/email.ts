@@ -468,7 +468,7 @@ export async function sendTutorApprovedEmail({
 
             <div style="margin-top:22px;">
               <a
-                href="https://alkebulaschool.com/auth/sign-up"
+                href="https://www.alkebulaschool.com/auth/sign-up"
                 style="display:inline-block;background:#0f172a;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;font-size:14px;"
               >
                 Create Educator Account
@@ -478,20 +478,47 @@ export async function sendTutorApprovedEmail({
 
           <div style="margin:28px 0;padding:22px;border:1px solid #fde68a;border-radius:16px;background:#fffbeb;">
             <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#92400e;">
-              Engagement Terms
+              Tutor Terms & Conditions
             </p>
 
             <p style="margin:0;font-size:15px;line-height:1.8;color:#78350f;">
-              Before creating your account, please read the tutor agreement and terms of use carefully.
-              Creating your educator account and using the platform means you accept The Alkebula School engagement terms.
+              Before creating your educator account, please read the Tutor Terms & Conditions carefully.
+              Creating your educator account and using the platform means you accept The Alkebula School tutor terms,
+              professional standards, lesson conduct expectations, payment rules, and rescheduling policy.
             </p>
 
-            <p style="margin:14px 0 0 0;">
+            <ul style="margin:16px 0 0 20px;padding:0;font-size:15px;line-height:1.8;color:#78350f;">
+              <li>
+                Tutor earnings follow a 70/30 revenue-sharing model: the tutor receives 70% of the lesson fee,
+                while The Alkebula School retains 30% as platform commission.
+              </li>
+              <li>
+                Tutor reschedule requests should be made at least 24 hours before the scheduled lesson,
+                except in genuine emergencies.
+              </li>
+              <li>
+                Tutors must attend lessons sober, alert, respectful, and professionally prepared.
+              </li>
+              <li>
+                Drunkenness, intoxication, being high on drugs, abusive language, demeaning remarks,
+                intimidation, or unprofessional conduct during lessons is strictly prohibited.
+              </li>
+              <li>
+                Private payment arrangements outside The Alkebula School are not allowed.
+              </li>
+              <li>
+                If a parent or student misses a lesson, or requests a reschedule less than 24 hours before the lesson,
+                The Alkebula School will discuss the circumstances with the parent and tutor and reach a fair,
+                amicable decision on whether the lesson should be paid for, rescheduled, or otherwise resolved.
+              </li>
+            </ul>
+
+            <p style="margin:18px 0 0 0;">
               <a
-                href="https://alkebulaschool.com/terms"
+                href="https://www.alkebulaschool.com/legal/tutor-terms"
                 style="color:#92400e;font-weight:700;text-decoration:underline;"
               >
-                Read Tutor Agreement & Terms of Use
+                Read Tutor Terms & Conditions
               </a>
             </p>
           </div>
