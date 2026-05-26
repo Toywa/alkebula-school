@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import {
+  sendTutorApprovedEmail,
+  sendTutorRejectedEmail,
+} from "@/lib/email";
 
 const allowedStatuses = [
   "submitted",
@@ -39,6 +43,8 @@ export async function PATCH(
         { status: 404 }
       );
     }
+
+    const previousStatus = application.status;
 
     const { error: updateError } = await supabase
       .from("educator_applications")
@@ -101,7 +107,8 @@ export async function PATCH(
             {
               ok: false,
               error:
-                educatorError.message || "Application approved but educator publishing failed.",
+                educatorError.message ||
+                "Application approved but educator publishing failed.",
             },
             { status: 500 }
           );
@@ -111,17 +118,42 @@ export async function PATCH(
       }
     }
 
+    /*
+      Email sending is intentionally done after the database update/publishing step.
+      We also avoid resending the same decision email when the status is unchanged.
+    */
+    let emailResult: unknown = null;
+
+    if (status !== previousStatus && application.email) {
+      if (status === "approved") {
+        emailResult = await sendTutorApprovedEmail({
+          tutorEmail: application.email,
+          tutorName: application.full_name || "Educator",
+        });
+      }
+
+      if (status === "rejected") {
+        emailResult = await sendTutorRejectedEmail({
+          tutorEmail: application.email,
+          tutorName: application.full_name || "Educator",
+        });
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       application: {
         id: application.id,
         full_name: application.full_name,
+        email: application.email,
         status,
       },
       educator: publishedEducator,
+      email: emailResult,
     });
   } catch (error) {
     console.error("Status route error:", error);
+
     return NextResponse.json(
       { ok: false, error: "Unexpected server error." },
       { status: 500 }
