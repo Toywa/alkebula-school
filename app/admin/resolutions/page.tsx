@@ -281,7 +281,7 @@ export default function AdminResolutionsPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-5">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-6">
           <DashboardCard
             title="Classrooms"
             subtitle="Live Lesson Monitor"
@@ -310,8 +310,15 @@ export default function AdminResolutionsPage() {
 
           <DashboardCard
             title="Applications"
-            subtitle="Tutor Pipeline"
+            subtitle="Full Tutor Review"
             href="/admin/tutor-applications"
+          />
+
+          <DashboardCard
+            title="Educator Applications"
+            subtitle="Categorized Pipeline"
+            href="/admin/applications"
+            blue
           />
         </div>
 
@@ -426,12 +433,14 @@ function DashboardCard({
   href,
   amber,
   green,
+  blue,
 }: {
   title: string;
   subtitle: string;
   href: string;
   amber?: boolean;
   green?: boolean;
+  blue?: boolean;
 }) {
   return (
     <Link
@@ -441,6 +450,8 @@ function DashboardCard({
           ? "border-amber-200 bg-amber-50"
           : green
           ? "border-green-200 bg-green-50"
+          : blue
+          ? "border-blue-200 bg-blue-50"
           : "border-slate-200 bg-white"
       }`}
     >
@@ -450,6 +461,8 @@ function DashboardCard({
             ? "text-sm text-amber-700"
             : green
             ? "text-sm text-green-700"
+            : blue
+            ? "text-sm text-blue-700"
             : "text-sm text-slate-500"
         }
       >
