@@ -15,74 +15,52 @@ const STATUS_GROUPS = [
   {
     key: "pending_review",
     title: "Pending Review",
-    description: "New applications waiting for admin screening.",
+    description: "New or under-review applications awaiting admin screening.",
+    statuses: ["submitted", "under_review"],
     badgeClass: "bg-amber-100 text-amber-800",
   },
   {
     key: "shortlisted",
     title: "Shortlisted for Interview",
-    description: "Applicants selected for interview or further vetting.",
+    description: "Applicants shortlisted or already scheduled for interview.",
+    statuses: ["shortlisted", "interview_scheduled"],
     badgeClass: "bg-blue-100 text-blue-800",
   },
   {
     key: "approved",
     title: "Approved",
-    description: "Educators approved for the platform.",
+    description: "Educators approved for The Alkebula School platform.",
+    statuses: ["approved"],
     badgeClass: "bg-green-100 text-green-800",
   },
   {
     key: "rejected",
     title: "Rejected",
-    description: "Applications not accepted.",
+    description: "Applications not accepted at this stage.",
+    statuses: ["rejected"],
     badgeClass: "bg-red-100 text-red-800",
   },
 ];
 
 function normalizeStatus(status?: string | null) {
-  const value = String(status || "")
+  return String(status || "submitted")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, "_")
     .replace(/-/g, "_");
-
-  if (
-    value === "pending" ||
-    value === "pending_review" ||
-    value === "under_review" ||
-    value === ""
-  ) {
-    return "pending_review";
-  }
-
-  if (
-    value === "shortlisted" ||
-    value === "shortlisted_for_interview" ||
-    value === "interview" ||
-    value === "interview_stage"
-  ) {
-    return "shortlisted";
-  }
-
-  if (value === "approved" || value === "accepted") {
-    return "approved";
-  }
-
-  if (value === "rejected" || value === "declined") {
-    return "rejected";
-  }
-
-  return "pending_review";
 }
 
 function displayStatus(status?: string | null) {
-  const normalized = normalizeStatus(status);
+  const value = normalizeStatus(status);
 
-  if (normalized === "pending_review") return "Pending Review";
-  if (normalized === "shortlisted") return "Shortlisted";
-  if (normalized === "approved") return "Approved";
-  if (normalized === "rejected") return "Rejected";
+  if (value === "submitted") return "Submitted";
+  if (value === "under_review") return "Under Review";
+  if (value === "shortlisted") return "Shortlisted";
+  if (value === "interview_scheduled") return "Interview Scheduled";
+  if (value === "approved") return "Approved";
+  if (value === "rejected") return "Rejected";
 
-  return "Pending Review";
+  return "Submitted";
 }
 
 function formatDate(value?: string | null) {
@@ -93,6 +71,16 @@ function formatDate(value?: string | null) {
   } catch {
     return value;
   }
+}
+
+function groupForStatus(status?: string | null) {
+  const value = normalizeStatus(status);
+
+  const group = STATUS_GROUPS.find((item) =>
+    item.statuses.includes(value)
+  );
+
+  return group || STATUS_GROUPS[0];
 }
 
 function ApplicationTable({
@@ -179,7 +167,7 @@ export default async function AdminApplicationsPage() {
     const groupedApplications = STATUS_GROUPS.map((group) => ({
       ...group,
       applications: applications.filter(
-        (app) => normalizeStatus(app.status) === group.key
+        (app) => groupForStatus(app.status).key === group.key
       ),
     }));
 
@@ -196,13 +184,13 @@ export default async function AdminApplicationsPage() {
             </h1>
 
             <p className="mt-3 max-w-3xl text-slate-600">
-              Review tutor applicants by application stage for easier screening,
-              interviews, approvals, and rejections.
+              Review tutor applicants by stage: pending review, shortlisted for
+              interview, approved, and rejected.
             </p>
           </div>
 
           <Link
-            href="/admin/resolutions"
+            href="/admin"
             className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             Admin Dashboard
@@ -211,21 +199,23 @@ export default async function AdminApplicationsPage() {
 
         <div className="mb-10 grid gap-4 md:grid-cols-4">
           {groupedApplications.map((group) => (
-            <div
+            <a
               key={group.key}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+              href={`#${group.key}`}
+              className="rounded-2xl border border-slate-200 bg-slate-50 p-5 hover:bg-slate-100"
             >
               <p className="text-sm text-slate-500">{group.title}</p>
               <p className="mt-2 text-3xl font-bold">
                 {group.applications.length}
               </p>
-            </div>
+            </a>
           ))}
         </div>
 
         <div className="space-y-10">
           {groupedApplications.map((group) => (
             <section
+              id={group.key}
               key={group.key}
               className="rounded-3xl border border-slate-200 bg-white p-6"
             >
