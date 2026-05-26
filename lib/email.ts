@@ -554,3 +554,85 @@ export async function sendTutorApprovedEmail({
     };
   }
 }
+export async function sendTutorRejectedEmail({
+  tutorEmail,
+  tutorName,
+}: {
+  tutorEmail: string;
+  tutorName: string;
+}) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+    return {
+      success: false,
+      error: "Missing email configuration",
+    };
+  }
+
+  try {
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM,
+      to: tutorEmail,
+      replyTo: process.env.ADMIN_EMAIL || undefined,
+      subject: "Update on Your Alkebula Educator Application",
+      html: wrapEmail(
+        "Application Update",
+        `Dear ${tutorName}, thank you for applying to join The Alkebula School educator network.`,
+        `
+          <p style="font-size:15px;line-height:1.8;color:#334155;">
+            Thank you for the time, care, and effort you invested in your educator application.
+            We appreciate your interest in becoming part of The Alkebula School.
+          </p>
+
+          <p style="font-size:15px;line-height:1.8;color:#334155;">
+            After reviewing your application, we regret to inform you that we are unable to approve
+            your application at this time.
+          </p>
+
+          <div style="margin:28px 0;padding:22px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+            <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:#0f172a;">
+              How decisions are made
+            </p>
+
+            <p style="margin:0;font-size:15px;line-height:1.8;color:#475569;">
+              Application decisions may depend on several factors, including subject demand,
+              curriculum alignment, teaching experience, documentation review, profile suitability,
+              safeguarding expectations, and current platform needs.
+            </p>
+          </div>
+
+          <p style="font-size:15px;line-height:1.8;color:#334155;">
+            This decision does not necessarily reflect negatively on your professional ability.
+            You may apply again in the future if your qualifications, experience, documentation,
+            or teaching profile changes.
+          </p>
+
+          <p style="font-size:15px;line-height:1.8;color:#334155;">
+            We sincerely wish you the very best in your teaching journey.
+          </p>
+        `
+      ),
+    });
+
+    if (result.error) {
+      return {
+        success: false,
+        error:
+          typeof result.error.message === "string"
+            ? result.error.message
+            : "Rejection email failed",
+      };
+    }
+
+    return {
+      success: true,
+      result,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Rejection email failed",
+    };
+  }
+}
+
