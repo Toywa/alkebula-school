@@ -8,6 +8,29 @@ type UserRole = "parent" | "educator" | "admin";
 
 const ADMIN_EMAIL = "admin@alkebulaschool.com";
 
+const programmeLinks = [
+  {
+    href: "/online-cambridge-igcse-tutors",
+    label: "Cambridge IGCSE",
+  },
+  {
+    href: "/edexcel-igcse-tutors",
+    label: "Edexcel IGCSE",
+  },
+  {
+    href: "/a-level-online-tutors",
+    label: "A Levels",
+  },
+  {
+    href: "/ib-online-tutors",
+    label: "IB",
+  },
+  {
+    href: "/homeschool-support",
+    label: "Homeschool Support",
+  },
+];
+
 function normalizeEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase();
 }
@@ -95,28 +118,63 @@ export default function Header() {
 
   return (
     <header className="w-full border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link
-          href="/"
-          className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-800"
-        >
-          The Alkebula School
-        </Link>
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center justify-between gap-4">
+          <Link
+            href="/"
+            className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-800"
+          >
+            The Alkebula School
+          </Link>
+        </div>
 
-        <nav className="flex flex-wrap items-center gap-3">
-          <Link href="/about" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+        <nav className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/about"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
             About
           </Link>
 
-          <Link href="/faq" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+          <div className="group relative">
+            <button
+              type="button"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+            >
+              Programmes
+            </button>
+
+            <div className="absolute left-0 top-full z-50 hidden w-64 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg group-hover:block">
+              {programmeLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="block rounded-xl px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <Link
+            href="/faq"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
             FAQ
           </Link>
 
-          <Link href="/contact" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+          <Link
+            href="/contact"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
             Contact
           </Link>
 
-          <Link href="/educators" className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100">
+          <Link
+            href="/educators"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
             Find Tutors
           </Link>
 
@@ -166,6 +224,20 @@ export default function Header() {
             </>
           ) : null}
         </nav>
+      </div>
+
+      <div className="border-t border-slate-100 bg-slate-50">
+        <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-6 py-2">
+          {programmeLinks.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-white hover:text-slate-900"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
       </div>
     </header>
   );
