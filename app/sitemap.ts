@@ -14,6 +14,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/legal/code-of-conduct",
     "/legal/tutor-terms",
     "/online-cambridge-igcse-tutors",
+    "/a-level-online-tutors",
+    "/ib-online-tutors",
+    "/edexcel-igcse-tutors",
   ];
 
   return routes.map((route) => ({
