@@ -4,21 +4,37 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
+type MessageRole = "admin" | "educator" | "parent" | "applicant";
+
 type InternalMessage = {
   id: string;
   sender_email: string;
-  sender_role: "admin" | "educator" | "parent";
+  sender_role: MessageRole;
   recipient_email: string | null;
-  recipient_role: "admin" | "educator" | "parent";
+  recipient_role: MessageRole;
   subject: string;
   message: string;
   status: string;
   created_at: string;
 };
 
+function roleLabel(role: MessageRole) {
+  if (role === "admin") return "Admin";
+  if (role === "educator") return "Educator";
+  if (role === "applicant") return "Applicant";
+  return "Parent";
+}
+
+function statusClass(status: string) {
+  if (status === "unread") return "bg-amber-100 text-amber-700";
+  if (status === "read") return "bg-emerald-100 text-emerald-700";
+  return "bg-slate-200 text-slate-700";
+}
+
 export default function ParentSupportPage() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [actingId, setActingId] = useState("");
 
   const [messages, setMessages] = useState<InternalMessage[]>([]);
 
@@ -68,9 +84,7 @@ export default function ParentSupportPage() {
       setMessages(data.messages || []);
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Failed to load messages."
+        error instanceof Error ? error.message : "Failed to load messages."
       );
     } finally {
       setLoading(false);
@@ -85,11 +99,14 @@ export default function ParentSupportPage() {
       setSuccessMessage("");
       setErrorMessage("");
 
-      if (!subject.trim()) {
+      const cleanSubject = subject.trim();
+      const cleanMessage = message.trim();
+
+      if (!cleanSubject) {
         throw new Error("Subject is required.");
       }
 
-      if (!message.trim()) {
+      if (!cleanMessage) {
         throw new Error("Message is required.");
       }
 
@@ -104,8 +121,8 @@ export default function ParentSupportPage() {
         body: JSON.stringify({
           senderRole: "parent",
           recipientRole: "admin",
-          subject,
-          message,
+          subject: cleanSubject,
+          message: cleanMessage,
         }),
       });
 
@@ -117,25 +134,55 @@ export default function ParentSupportPage() {
 
       setSubject("");
       setMessage("");
-
       setSuccessMessage("Message sent to admin successfully.");
 
       await loadMessages();
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Failed to send message."
+        error instanceof Error ? error.message : "Failed to send message."
       );
     } finally {
       setSending(false);
     }
   }
 
-  const unreadCount = messages.filter(
-    (item) =>
-      item.status === "unread" &&
-      item.sender_role === "admin"
+  async function updateStatus(id: string, status: "read" | "archived") {
+    try {
+      setActingId(id);
+      setSuccessMessage("");
+      setErrorMessage("");
+
+      const token = await getAccessToken();
+
+      const response = await fetch("/api/messages", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id, status }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to update message.");
+      }
+
+      setSuccessMessage(`Message marked as ${status}.`);
+      await loadMessages();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to update message."
+      );
+    } finally {
+      setActingId("");
+    }
+  }
+
+  const unreadCount = messages.filter((item) => item.status === "unread").length;
+  const archivedCount = messages.filter(
+    (item) => item.status === "archived"
   ).length;
 
   return (
@@ -148,30 +195,38 @@ export default function ParentSupportPage() {
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-4">
-              <h1 className="text-4xl font-bold">
-                Parent Support
-              </h1>
+              <h1 className="text-4xl font-bold">Parent Support</h1>
 
               {unreadCount > 0 ? (
                 <span className="rounded-full bg-red-600 px-4 py-2 text-sm font-bold text-white">
                   {unreadCount} New
                 </span>
-              ) : null}
+              ) : (
+                <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700">
+                  Inbox Clear
+                </span>
+              )}
             </div>
 
             <p className="mt-4 max-w-2xl text-slate-600">
               Contact the Alkebula School admin team regarding bookings,
-              scheduling, payments, lesson concerns, technical issues,
-              or general academic support.
+              scheduling, payments, lesson concerns, technical issues, or general
+              academic support. Direct parent-to-tutor messaging remains disabled.
             </p>
           </div>
 
           <Link
-            href="/parent/bookings"
+            href="/parent/dashboard"
             className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             Back to Parent Dashboard
           </Link>
+        </div>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          <MetricCard title="Total Messages" value={String(messages.length)} />
+          <MetricCard title="Unread" value={String(unreadCount)} alert={unreadCount > 0} />
+          <MetricCard title="Archived" value={String(archivedCount)} />
         </div>
 
         {successMessage ? (
@@ -186,36 +241,34 @@ export default function ParentSupportPage() {
           </div>
         ) : null}
 
-        <div className="mt-10 rounded-3xl border p-6">
-          <h2 className="text-2xl font-semibold">
-            Contact Admin
-          </h2>
+        <div className="mt-10 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+          <h2 className="text-2xl font-semibold">Contact Admin</h2>
+
+          <p className="mt-2 text-sm text-slate-600">
+            Your support message will go directly to the school admin team.
+          </p>
 
           <form onSubmit={sendMessage} className="mt-6 space-y-5">
             <div>
-              <label className="mb-2 block text-sm font-medium">
-                Subject
-              </label>
+              <label className="mb-2 block text-sm font-medium">Subject</label>
 
               <input
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Payment issue, schedule concern, technical issue..."
-                className="w-full rounded-xl border px-4 py-3"
+                className="w-full rounded-xl border bg-white px-4 py-3"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">
-                Message
-              </label>
+              <label className="mb-2 block text-sm font-medium">Message</label>
 
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={6}
                 placeholder="Write your message..."
-                className="w-full rounded-xl border px-4 py-3"
+                className="w-full rounded-xl border bg-white px-4 py-3"
               />
             </div>
 
@@ -231,9 +284,7 @@ export default function ParentSupportPage() {
 
         <div className="mt-10 rounded-3xl border p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-2xl font-semibold">
-              Your Support Messages
-            </h2>
+            <h2 className="text-2xl font-semibold">Your Support Messages</h2>
 
             <button
               type="button"
@@ -245,13 +296,9 @@ export default function ParentSupportPage() {
           </div>
 
           {loading ? (
-            <p className="mt-6 text-slate-600">
-              Loading messages...
-            </p>
+            <p className="mt-6 text-slate-600">Loading messages...</p>
           ) : messages.length === 0 ? (
-            <p className="mt-6 text-slate-600">
-              No support messages yet.
-            </p>
+            <p className="mt-6 text-slate-600">No support messages yet.</p>
           ) : (
             <div className="mt-6 space-y-4">
               {messages.map((item) => (
@@ -261,9 +308,16 @@ export default function ParentSupportPage() {
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-lg font-semibold">
-                        {item.subject}
-                      </h3>
+                      <h3 className="text-lg font-semibold">{item.subject}</h3>
+
+                      <p className="mt-1 text-sm text-slate-500">
+                        From: {item.sender_email} ({roleLabel(item.sender_role)})
+                      </p>
+
+                      <p className="text-sm text-slate-500">
+                        To: {item.recipient_email || "admin@alkebulaschool.com"} (
+                        {roleLabel(item.recipient_role)})
+                      </p>
 
                       <p className="mt-1 text-sm text-slate-500">
                         {new Date(item.created_at).toLocaleString()}
@@ -271,24 +325,40 @@ export default function ParentSupportPage() {
                     </div>
 
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        item.status === "unread"
-                          ? "bg-amber-100 text-amber-700"
-                          : item.status === "read"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-slate-200 text-slate-700"
-                      }`}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClass(
+                        item.status
+                      )}`}
                     >
                       {item.status}
                     </span>
                   </div>
 
-                  <p className="mt-4 whitespace-pre-wrap text-slate-700">
+                  <p className="mt-4 whitespace-pre-wrap rounded-xl border bg-white p-4 text-slate-700">
                     {item.message}
                   </p>
 
-                  <div className="mt-4 text-xs text-slate-500">
-                    {item.sender_role} → {item.recipient_role}
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {item.status !== "read" ? (
+                      <button
+                        type="button"
+                        disabled={actingId === item.id}
+                        onClick={() => updateStatus(item.id, "read")}
+                        className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                      >
+                        Mark Read
+                      </button>
+                    ) : null}
+
+                    {item.status !== "archived" ? (
+                      <button
+                        type="button"
+                        disabled={actingId === item.id}
+                        onClick={() => updateStatus(item.id, "archived")}
+                        className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-60"
+                      >
+                        Archive
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ))}
@@ -297,5 +367,28 @@ export default function ParentSupportPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+  alert,
+}: {
+  title: string;
+  value: string;
+  alert?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-5 ${
+        alert ? "border-red-200 bg-red-50" : "bg-slate-50"
+      }`}
+    >
+      <p className={alert ? "text-sm text-red-700" : "text-sm text-slate-500"}>
+        {title}
+      </p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
+    </div>
   );
 }
