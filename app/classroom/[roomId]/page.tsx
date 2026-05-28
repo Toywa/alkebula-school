@@ -18,6 +18,49 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type Mode = "video" | "whiteboard";
 type Tool = "pen" | "eraser";
+type AttendanceAction = "start" | "end" | "notes";
+
+type ClassroomLesson = {
+  id: string;
+  tutor_email: string | null;
+  parent_email: string | null;
+  student_name: string | null;
+  subject: string | null;
+  curriculum: string | null;
+  lesson_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  status: string | null;
+  lesson_started_at: string | null;
+  lesson_ended_at: string | null;
+  actual_duration_minutes: number | null;
+  lesson_notes: string | null;
+  homework_notes: string | null;
+};
+
+const ADMIN_EMAIL = "admin@alkebulaschool.com";
+
+function normalizeEmail(email?: string | null) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return value;
+  }
+}
+
+function lessonTimeLabel(lesson?: ClassroomLesson | null) {
+  if (!lesson) return "—";
+
+  return `${lesson.lesson_date || "—"} · ${lesson.start_time || "—"} - ${
+    lesson.end_time || "—"
+  }`;
+}
 
 export default function ClassroomPage() {
   const params = useParams();
@@ -26,10 +69,18 @@ export default function ClassroomPage() {
   const [token, setToken] = useState("");
   const [serverUrl, setServerUrl] = useState("");
   const [username, setUsername] = useState("");
+  const [currentUserEmail, setCurrentUserEmail] = useState("");
+
+  const [lesson, setLesson] = useState<ClassroomLesson | null>(null);
+  const [lessonNotes, setLessonNotes] = useState("");
+  const [homeworkNotes, setHomeworkNotes] = useState("");
+  const [showAttendanceForm, setShowAttendanceForm] = useState(false);
+  const [attendanceActionLoading, setAttendanceActionLoading] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState("");
+  const [attendanceMessage, setAttendanceMessage] = useState("");
 
   const [mode, setMode] = useState<Mode>("video");
   const [tool, setTool] = useState<Tool>("pen");
@@ -65,6 +116,9 @@ export default function ClassroomPage() {
         return;
       }
 
+      const email = normalizeEmail(user.email);
+      setCurrentUserEmail(email);
+
       const defaultName =
         user.user_metadata?.full_name ||
         user.user_metadata?.name ||
@@ -72,6 +126,8 @@ export default function ClassroomPage() {
         "Participant";
 
       setUsername(defaultName);
+
+      await loadLessonSummary(email);
     } catch {
       setError("Failed to load signed-in user.");
     } finally {
@@ -79,10 +135,46 @@ export default function ClassroomPage() {
     }
   }
 
+  async function loadLessonSummary(emailOverride?: string) {
+    try {
+      const supabase = getSupabaseBrowserClient();
+
+      const { data, error } = await supabase
+        .from("tutor_lessons")
+        .select(
+          "id,tutor_email,parent_email,student_name,subject,curriculum,lesson_date,start_time,end_time,status,lesson_started_at,lesson_ended_at,actual_duration_minutes,lesson_notes,homework_notes"
+        )
+        .eq("id", roomId)
+        .maybeSingle();
+
+      if (error) {
+        console.warn("Lesson summary load error:", error.message);
+        return;
+      }
+
+      if (data) {
+        const lessonData = data as ClassroomLesson;
+        setLesson(lessonData);
+        setLessonNotes(lessonData.lesson_notes || "");
+        setHomeworkNotes(lessonData.homework_notes || "");
+
+        const email = normalizeEmail(emailOverride || currentUserEmail);
+        const tutorEmail = normalizeEmail(lessonData.tutor_email);
+
+        if (email && email !== tutorEmail && email !== ADMIN_EMAIL) {
+          setShowAttendanceForm(false);
+        }
+      }
+    } catch (error) {
+      console.warn("Failed to load lesson summary:", error);
+    }
+  }
+
   async function joinRoom() {
     try {
       setJoining(true);
       setError("");
+      setAttendanceMessage("");
 
       const supabase = getSupabaseBrowserClient();
 
@@ -114,6 +206,7 @@ export default function ClassroomPage() {
 
       setToken(data.token);
       setServerUrl(data.url);
+      await loadLessonSummary(currentUserEmail);
     } catch (error) {
       setError(
         error instanceof Error ? error.message : "Failed to join classroom."
@@ -121,6 +214,78 @@ export default function ClassroomPage() {
     } finally {
       setJoining(false);
     }
+  }
+
+  async function updateLessonAttendance(action: AttendanceAction) {
+    try {
+      setAttendanceActionLoading(true);
+      setError("");
+      setAttendanceMessage("");
+
+      const supabase = getSupabaseBrowserClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Session expired. Please sign in again.");
+      }
+
+      const response = await fetch("/api/educator/lesson-attendance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          lessonId: roomId,
+          action,
+          lessonNotes,
+          homeworkNotes,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to update lesson attendance.");
+      }
+
+      await loadLessonSummary(currentUserEmail);
+
+      if (action === "start") {
+        setAttendanceMessage(
+          data.message || "Lesson started successfully."
+        );
+      }
+
+      if (action === "notes") {
+        setAttendanceMessage(data.message || "Lesson notes saved.");
+        setShowAttendanceForm(false);
+      }
+
+      if (action === "end") {
+        setAttendanceMessage(
+          data.message || "Lesson ended and marked completed."
+        );
+        setShowAttendanceForm(false);
+      }
+    } catch (error) {
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to update lesson attendance."
+      );
+    } finally {
+      setAttendanceActionLoading(false);
+    }
+  }
+
+  function openAttendanceForm() {
+    setLessonNotes(lesson?.lesson_notes || "");
+    setHomeworkNotes(lesson?.homework_notes || "");
+    setShowAttendanceForm(true);
   }
 
   function resizeCanvas() {
@@ -217,6 +382,13 @@ export default function ClassroomPage() {
     context.fillRect(0, 0, canvas.width, canvas.height);
   }
 
+  const canManageAttendance =
+    normalizeEmail(currentUserEmail) === ADMIN_EMAIL ||
+    normalizeEmail(currentUserEmail) === normalizeEmail(lesson?.tutor_email);
+
+  const lessonStarted = Boolean(lesson?.lesson_started_at);
+  const lessonEnded = Boolean(lesson?.lesson_ended_at);
+
   if (loading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
@@ -238,6 +410,18 @@ export default function ClassroomPage() {
           <p className="mt-4 text-slate-300">
             Secure live lesson powered by Alkebula Classroom.
           </p>
+
+          {lesson ? (
+            <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-4 text-sm text-slate-300">
+              <p className="font-semibold text-white">
+                {lesson.subject || "Lesson"}
+              </p>
+              <p className="mt-1">
+                {lesson.curriculum || "—"} · {lessonTimeLabel(lesson)}
+              </p>
+              <p className="mt-1">Student: {lesson.student_name || "—"}</p>
+            </div>
+          ) : null}
 
           <div className="mt-8">
             <label className="mb-2 block text-sm font-medium">Your Name</label>
@@ -280,10 +464,55 @@ export default function ClassroomPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-amber-400">
             The Alkebula School
           </p>
-          <p className="text-sm text-slate-300">Classroom: {roomId}</p>
+          <p className="text-sm text-slate-300">
+            {lesson?.subject || "Classroom"} · {lessonTimeLabel(lesson)}
+          </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {canManageAttendance ? (
+            <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-700 bg-slate-950 p-2">
+              {!lessonStarted ? (
+                <button
+                  type="button"
+                  onClick={() => updateLessonAttendance("start")}
+                  disabled={attendanceActionLoading}
+                  className="rounded-xl bg-green-700 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-60"
+                >
+                  {attendanceActionLoading ? "Starting..." : "Start Lesson"}
+                </button>
+              ) : null}
+
+              {lessonStarted && !lessonEnded ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={openAttendanceForm}
+                    disabled={attendanceActionLoading}
+                    className="rounded-xl bg-blue-700 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-60"
+                  >
+                    End Lesson + Notes
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={openAttendanceForm}
+                    disabled={attendanceActionLoading}
+                    className="rounded-xl border border-slate-600 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                  >
+                    Save Notes
+                  </button>
+                </>
+              ) : null}
+
+              {lessonEnded ? (
+                <span className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-300">
+                  Lesson Completed
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+
           <button
             type="button"
             onClick={() => setMode("video")}
@@ -313,15 +542,89 @@ export default function ClassroomPage() {
         </div>
       </div>
 
+      {attendanceMessage ? (
+        <div className="border-b border-green-800 bg-green-950 px-4 py-3 text-sm text-green-200">
+          {attendanceMessage}
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="border-b border-red-800 bg-red-950 px-4 py-3 text-sm text-red-200">
+          {error}
+        </div>
+      ) : null}
+
+      {showAttendanceForm && canManageAttendance ? (
+        <div className="border-b border-slate-800 bg-slate-900 px-4 py-4">
+          <div className="mx-auto grid max-w-6xl gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-200">
+                Lesson Notes
+              </label>
+              <textarea
+                value={lessonNotes}
+                onChange={(event) => setLessonNotes(event.target.value)}
+                rows={4}
+                placeholder="What was covered? How did the learner progress? Any areas needing support?"
+                className="w-full rounded-2xl border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-slate-200">
+                Homework / Next Steps
+              </label>
+              <textarea
+                value={homeworkNotes}
+                onChange={(event) => setHomeworkNotes(event.target.value)}
+                rows={4}
+                placeholder="Homework, revision focus, or next steps for the learner..."
+                className="w-full rounded-2xl border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="mx-auto mt-4 flex max-w-6xl flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => updateLessonAttendance("notes")}
+              disabled={attendanceActionLoading}
+              className="rounded-xl border border-slate-600 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            >
+              Save Notes Only
+            </button>
+
+            <button
+              type="button"
+              onClick={() => updateLessonAttendance("end")}
+              disabled={attendanceActionLoading}
+              className="rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-60"
+            >
+              {attendanceActionLoading
+                ? "Ending..."
+                : "End Lesson & Mark Completed"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowAttendanceForm(false)}
+              className="rounded-xl bg-slate-800 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <LiveKitRoom
         audio={true}
-  video={{
-  resolution: {
-    width: 426,
-    height: 240,
-  },
-  frameRate: 10,
-}}
+        video={{
+          resolution: {
+            width: 426,
+            height: 240,
+          },
+          frameRate: 10,
+        }}
         token={token}
         serverUrl={serverUrl}
         data-lk-theme="default"
