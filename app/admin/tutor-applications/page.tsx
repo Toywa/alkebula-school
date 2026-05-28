@@ -184,11 +184,24 @@ export default function TutorApplicationsAdminPage() {
       setMessage("");
       setErrorMessage("");
 
-      const res = await fetch(`/api/educator-applications/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+      const supabase = getSupabaseBrowserClient();
+
+const {
+  data: { session },
+} = await supabase.auth.getSession();
+
+if (!session?.access_token) {
+  throw new Error("Admin session expired. Please sign in again.");
+}
+
+const res = await fetch(`/api/educator-applications/${id}`, {
+  method: "PATCH",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${session.access_token}`,
+  },
+  body: JSON.stringify(payload),
+});
 
       const data = await res.json();
 
