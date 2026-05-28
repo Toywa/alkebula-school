@@ -6,24 +6,36 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     "",
     "/about",
-    "/tutors",
-    "/apply",
+    "/faq",
+    "/contact",
+    "/educators",
+    "/tutors/apply",
+
+    "/online-cambridge-igcse-tutors",
+    "/edexcel-igcse-tutors",
+    "/a-level-online-tutors",
+    "/ib-online-tutors",
+    "/homeschool-support",
+
     "/legal/terms",
     "/legal/privacy-policy",
     "/legal/refund-policy",
     "/legal/code-of-conduct",
     "/legal/tutor-terms",
-    "/online-cambridge-igcse-tutors",
-    "/a-level-online-tutors",
-    "/ib-online-tutors",
-    "/edexcel-igcse-tutors",
-    "/homeschool-support",
   ];
 
   return routes.map((route) => ({
     url: `${siteUrl}${route}`,
     lastModified: new Date(),
     changeFrequency: route === "" ? "weekly" : "monthly",
-    priority: route === "" ? 1 : 0.7,
+    priority:
+      route === ""
+        ? 1
+        : route.includes("igcse") ||
+          route.includes("a-level") ||
+          route.includes("ib-online") ||
+          route.includes("homeschool")
+        ? 0.85
+        : 0.7,
   }));
 }

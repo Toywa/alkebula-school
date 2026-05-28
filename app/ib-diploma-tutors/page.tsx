@@ -32,17 +32,17 @@ export default function IBOnlineTutorsPage() {
 
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
-              href="/tutors"
+              href="/educators"
               className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-800"
             >
               View Tutors
             </Link>
 
             <Link
-              href="/parent/bookings"
+              href="/auth/sign-up"
               className="rounded-xl border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
             >
-              Book a Lesson
+              Parent Sign Up
             </Link>
           </div>
         </div>
@@ -107,7 +107,9 @@ export default function IBOnlineTutorsPage() {
               <span className="rounded-xl bg-white p-3">Chemistry</span>
               <span className="rounded-xl bg-white p-3">Physics</span>
               <span className="rounded-xl bg-white p-3">Economics</span>
-              <span className="rounded-xl bg-white p-3">Business Management</span>
+              <span className="rounded-xl bg-white p-3">
+                Business Management
+              </span>
               <span className="rounded-xl bg-white p-3">Geography</span>
               <span className="rounded-xl bg-white p-3">English</span>
             </div>
@@ -128,14 +130,14 @@ export default function IBOnlineTutorsPage() {
 
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
-              href="/tutors"
+              href="/educators"
               className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100"
             >
               Find an IB Tutor
             </Link>
 
             <Link
-              href="/apply"
+              href="/tutors/apply"
               className="rounded-xl border border-white/30 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10"
             >
               Apply as a Tutor
