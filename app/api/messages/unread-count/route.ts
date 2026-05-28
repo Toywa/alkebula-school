@@ -16,13 +16,20 @@ function getAdminClient() {
   );
 }
 
+function normalizeEmail(email?: string | null) {
+  return String(email || "").trim().toLowerCase();
+}
+
 export async function GET(req: Request) {
   try {
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "").trim();
 
     if (!token) {
-      return NextResponse.json({ error: "Missing session token." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Missing session token." },
+        { status: 401 }
+      );
     }
 
     const supabase = getAdminClient();
@@ -32,11 +39,15 @@ export async function GET(req: Request) {
       error: userError,
     } = await supabase.auth.getUser(token);
 
-    if (userError || !user?.email) {
-      return NextResponse.json({ error: "Invalid session." }, { status: 401 });
+    const email = normalizeEmail(user?.email);
+
+    if (userError || !email) {
+      return NextResponse.json(
+        { error: "Invalid session." },
+        { status: 401 }
+      );
     }
 
-    const email = user.email.toLowerCase();
     const isAdmin = email === ADMIN_EMAIL;
 
     let query = supabase
@@ -45,7 +56,7 @@ export async function GET(req: Request) {
       .eq("status", "unread");
 
     if (isAdmin) {
-      query = query.eq("recipient_role", "admin");
+      query = query.eq("recipient_email", ADMIN_EMAIL);
     } else {
       query = query.eq("recipient_email", email);
     }
@@ -64,7 +75,9 @@ export async function GET(req: Request) {
     return NextResponse.json(
       {
         error:
-          error instanceof Error ? error.message : "Failed to load unread count.",
+          error instanceof Error
+            ? error.message
+            : "Failed to load unread count.",
       },
       { status: 500 }
     );
