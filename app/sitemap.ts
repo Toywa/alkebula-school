@@ -17,6 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/a-level-online-tutors",
     "/ib-online-tutors",
     "/edexcel-igcse-tutors",
+    "/homeschool-support",
   ];
 
   return routes.map((route) => ({
