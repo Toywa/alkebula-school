@@ -196,6 +196,32 @@ export default function Footer() {
           </div>
         </div>
       </div>
+      <li>
+  <a
+    href="https://x.com/alkebulaschool"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex items-center gap-2 hover:text-amber-200"
+  >
+    <svg width="16" height="16" fill="currentColor" aria-hidden="true">
+      <path d="M9.6 6.8 15.5 0h-1.4L9 5.9 4.9 0H0l6.2 8.9L0 16h1.4l5.4-6.2L11.1 16H16L9.6 6.8Zm-1.9 2.2-.6-.9-5-7h2.1l4 5.7.6.9 5.2 7.4h-2.1L7.7 9Z" />
+    </svg>
+    Twitter / X
+  </a>
+</li>
+<li>
+  <a
+    href="https://www.tiktok.com/@alkebulaschool"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="flex items-center gap-2 hover:text-amber-200"
+  >
+    <svg width="16" height="16" fill="currentColor" aria-hidden="true">
+      <path d="M12.7 3.2A4.5 4.5 0 0 1 10 1.8 4.5 4.5 0 0 1 8.9 0H6.4v10.3a2.3 2.3 0 1 1-1.6-2.2V5.5A4.9 4.9 0 1 0 9 10.3V5.1a7 7 0 0 0 3.7 1.1V3.2Z" />
+    </svg>
+    TikTok
+  </a>
+</li>
 
       <div className="border-t border-white/10 px-6 py-6 text-center text-sm text-slate-500">
         © {new Date().getFullYear()} The Alkebula School. All rights reserved.
