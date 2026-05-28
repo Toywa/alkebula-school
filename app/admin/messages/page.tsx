@@ -1,35 +1,84 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
+
+type MessageRole = "admin" | "educator" | "parent" | "applicant";
 
 type InternalMessage = {
   id: string;
   sender_email: string;
-  sender_role: "admin" | "educator" | "parent";
+  sender_role: MessageRole;
   recipient_email: string | null;
-  recipient_role: "admin" | "educator" | "parent";
+  recipient_role: MessageRole;
   subject: string;
   message: string;
   status: string;
   created_at: string;
 };
 
+type MessageRecipient = {
+  email: string;
+  name: string;
+  role: "educator" | "parent" | "applicant";
+  status?: string | null;
+  source: string;
+};
+
+function roleBadgeClass(role: MessageRole) {
+  if (role === "admin") return "bg-slate-900 text-white";
+  if (role === "educator") return "bg-blue-100 text-blue-800";
+  if (role === "applicant") return "bg-purple-100 text-purple-800";
+  return "bg-emerald-100 text-emerald-800";
+}
+
+function displayRole(role: MessageRole) {
+  if (role === "admin") return "Admin";
+  if (role === "educator") return "Approved Tutor";
+  if (role === "applicant") return "Tutor Applicant";
+  return "Parent";
+}
+
 export default function AdminMessagesPage() {
   const [loading, setLoading] = useState(true);
+  const [loadingRecipients, setLoadingRecipients] = useState(true);
   const [sendingId, setSendingId] = useState("");
+  const [sendingNewMessage, setSendingNewMessage] = useState(false);
   const [actingId, setActingId] = useState("");
 
   const [messages, setMessages] = useState<InternalMessage[]>([]);
+  const [recipients, setRecipients] = useState<MessageRecipient[]>([]);
   const [replyText, setReplyText] = useState<Record<string, string>>({});
+
+  const [recipientRole, setRecipientRole] =
+    useState<MessageRecipient["role"]>("educator");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [newSubject, setNewSubject] = useState("");
+  const [newMessage, setNewMessage] = useState("");
 
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     loadMessages();
+    loadRecipients();
   }, []);
+
+  const filteredRecipients = useMemo(
+    () => recipients.filter((item) => item.role === recipientRole),
+    [recipients, recipientRole]
+  );
+
+  useEffect(() => {
+    const selectedStillExists = filteredRecipients.some(
+      (item) => item.email === recipientEmail
+    );
+
+    if (!selectedStillExists) {
+      setRecipientEmail(filteredRecipients[0]?.email || "");
+    }
+  }, [filteredRecipients, recipientEmail]);
 
   async function getAccessToken() {
     const supabase = getSupabaseBrowserClient();
@@ -74,6 +123,45 @@ export default function AdminMessagesPage() {
     }
   }
 
+  async function loadRecipients() {
+    try {
+      setLoadingRecipients(true);
+      setErrorMessage("");
+
+      const token = await getAccessToken();
+
+      const response = await fetch("/api/messages?mode=recipients", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load recipients.");
+      }
+
+      const loadedRecipients = (data.recipients || []) as MessageRecipient[];
+      setRecipients(loadedRecipients);
+
+      const firstTutor =
+        loadedRecipients.find((item) => item.role === "educator") ||
+        loadedRecipients[0];
+
+      if (firstTutor) {
+        setRecipientRole(firstTutor.role);
+        setRecipientEmail(firstTutor.email);
+      }
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to load recipients."
+      );
+    } finally {
+      setLoadingRecipients(false);
+    }
+  }
+
   async function updateStatus(id: string, status: "read" | "archived") {
     try {
       setActingId(id);
@@ -108,6 +196,60 @@ export default function AdminMessagesPage() {
     }
   }
 
+  async function sendNewMessage() {
+    try {
+      setSendingNewMessage(true);
+      setSuccessMessage("");
+      setErrorMessage("");
+
+      const subject = newSubject.trim();
+      const message = newMessage.trim();
+
+      if (!recipientEmail) {
+        throw new Error("Please choose a recipient.");
+      }
+
+      if (!subject || !message) {
+        throw new Error("Subject and message are required.");
+      }
+
+      const token = await getAccessToken();
+
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          senderRole: "admin",
+          recipientRole,
+          recipientEmail,
+          subject,
+          message,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to send message.");
+      }
+
+      setNewSubject("");
+      setNewMessage("");
+      setSuccessMessage("Message sent successfully.");
+
+      await loadMessages();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to send message."
+      );
+    } finally {
+      setSendingNewMessage(false);
+    }
+  }
+
   async function replyToMessage(item: InternalMessage) {
     try {
       setSendingId(item.id);
@@ -122,8 +264,12 @@ export default function AdminMessagesPage() {
 
       const token = await getAccessToken();
 
-      const recipientRole =
-        item.sender_role === "parent" ? "parent" : "educator";
+      const recipientRole: MessageRole =
+        item.sender_role === "parent"
+          ? "parent"
+          : item.sender_role === "applicant"
+          ? "applicant"
+          : "educator";
 
       const response = await fetch("/api/messages", {
         method: "POST",
@@ -161,7 +307,15 @@ export default function AdminMessagesPage() {
   }
 
   const unreadCount = messages.filter((item) => item.status === "unread").length;
-  const archivedCount = messages.filter((item) => item.status === "archived").length;
+  const archivedCount = messages.filter(
+    (item) => item.status === "archived"
+  ).length;
+
+  const tutorCount = recipients.filter((item) => item.role === "educator").length;
+  const applicantCount = recipients.filter(
+    (item) => item.role === "applicant"
+  ).length;
+  const parentCount = recipients.filter((item) => item.role === "parent").length;
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -187,43 +341,27 @@ export default function AdminMessagesPage() {
             </div>
 
             <p className="mt-4 max-w-3xl text-slate-600">
-              Read and reply to internal tutor messages and parent support messages.
-              Parent-to-tutor direct messaging remains disabled.
+              Read, reply, and send direct internal messages to approved tutors,
+              tutor applicants, and parents. Parent-to-tutor direct messaging
+              remains disabled.
             </p>
           </div>
 
           <Link
-            href="/admin"
+            href="/admin/resolutions"
             className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             Back to Admin
           </Link>
         </div>
 
-        <div className="mt-8 grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border bg-slate-50 p-5">
-            <p className="text-sm text-slate-500">Total Messages</p>
-            <p className="mt-2 text-3xl font-bold">{messages.length}</p>
-          </div>
-
-          <div className="rounded-2xl border bg-slate-50 p-5">
-            <div className="flex items-center gap-3">
-              <p className="text-sm text-slate-500">Unread</p>
-
-              {unreadCount > 0 ? (
-                <span className="rounded-full bg-red-600 px-2 py-1 text-xs font-bold text-white">
-                  {unreadCount}
-                </span>
-              ) : null}
-            </div>
-
-            <p className="mt-2 text-3xl font-bold">{unreadCount}</p>
-          </div>
-
-          <div className="rounded-2xl border bg-slate-50 p-5">
-            <p className="text-sm text-slate-500">Archived</p>
-            <p className="mt-2 text-3xl font-bold">{archivedCount}</p>
-          </div>
+        <div className="mt-8 grid gap-4 md:grid-cols-6">
+          <MetricCard title="Total Messages" value={String(messages.length)} />
+          <MetricCard title="Unread" value={String(unreadCount)} alert={unreadCount > 0} />
+          <MetricCard title="Archived" value={String(archivedCount)} />
+          <MetricCard title="Tutors" value={String(tutorCount)} />
+          <MetricCard title="Applicants" value={String(applicantCount)} />
+          <MetricCard title="Parents" value={String(parentCount)} />
         </div>
 
         {successMessage ? (
@@ -237,6 +375,101 @@ export default function AdminMessagesPage() {
             {errorMessage}
           </div>
         ) : null}
+
+        <div className="mt-10 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-semibold">Send New Message</h2>
+              <p className="mt-2 text-sm text-slate-600">
+                Choose one approved tutor, tutor applicant, or parent and send a
+                direct platform message.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadRecipients}
+              className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-100"
+            >
+              Refresh Recipients
+            </button>
+          </div>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <div>
+              <label className="mb-2 block text-sm font-medium">
+                Recipient Category
+              </label>
+              <select
+                value={recipientRole}
+                onChange={(event) =>
+                  setRecipientRole(event.target.value as MessageRecipient["role"])
+                }
+                className="w-full rounded-xl border bg-white px-4 py-3 text-sm"
+              >
+                <option value="educator">Approved Tutors</option>
+                <option value="applicant">Tutor Applicants</option>
+                <option value="parent">Parents</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm font-medium">Recipient</label>
+              <select
+                value={recipientEmail}
+                onChange={(event) => setRecipientEmail(event.target.value)}
+                className="w-full rounded-xl border bg-white px-4 py-3 text-sm"
+                disabled={loadingRecipients || filteredRecipients.length === 0}
+              >
+                {loadingRecipients ? (
+                  <option>Loading recipients...</option>
+                ) : filteredRecipients.length === 0 ? (
+                  <option>No recipients available in this category</option>
+                ) : (
+                  filteredRecipients.map((recipient) => (
+                    <option
+                      key={`${recipient.role}-${recipient.email}`}
+                      value={recipient.email}
+                    >
+                      {recipient.name} — {recipient.email}
+                      {recipient.status ? ` (${recipient.status})` : ""}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="mb-2 block text-sm font-medium">Subject</label>
+              <input
+                value={newSubject}
+                onChange={(event) => setNewSubject(event.target.value)}
+                placeholder="Message subject"
+                className="w-full rounded-xl border bg-white px-4 py-3 text-sm"
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="mb-2 block text-sm font-medium">Message</label>
+              <textarea
+                value={newMessage}
+                onChange={(event) => setNewMessage(event.target.value)}
+                rows={6}
+                placeholder="Write your message..."
+                className="w-full rounded-xl border bg-white px-4 py-3 text-sm"
+              />
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={sendNewMessage}
+            disabled={sendingNewMessage || loadingRecipients || !recipientEmail}
+            className="mt-5 rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          >
+            {sendingNewMessage ? "Sending..." : "Send Message"}
+          </button>
+        </div>
 
         <div className="mt-10 rounded-3xl border p-6">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -258,20 +491,23 @@ export default function AdminMessagesPage() {
           ) : (
             <div className="mt-6 space-y-5">
               {messages.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-2xl border bg-slate-50 p-5"
-                >
+                <div key={item.id} className="rounded-2xl border bg-slate-50 p-5">
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <h3 className="text-lg font-semibold">{item.subject}</h3>
 
                       <p className="mt-1 text-sm text-slate-500">
-                        From: {item.sender_email} ({item.sender_role})
+                        From: {item.sender_email}{" "}
+                        <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${roleBadgeClass(item.sender_role)}`}>
+                          {displayRole(item.sender_role)}
+                        </span>
                       </p>
 
-                      <p className="text-sm text-slate-500">
-                        To: {item.recipient_role}
+                      <p className="mt-1 text-sm text-slate-500">
+                        To: {item.recipient_email || "—"}{" "}
+                        <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${roleBadgeClass(item.recipient_role)}`}>
+                          {displayRole(item.recipient_role)}
+                        </span>
                       </p>
 
                       <p className="mt-1 text-sm text-slate-500">
@@ -298,16 +534,14 @@ export default function AdminMessagesPage() {
 
                   {item.sender_role !== "admin" ? (
                     <div className="mt-5">
-                      <label className="mb-2 block text-sm font-medium">
-                        Reply
-                      </label>
+                      <label className="mb-2 block text-sm font-medium">Reply</label>
 
                       <textarea
                         value={replyText[item.id] || ""}
-                        onChange={(e) =>
+                        onChange={(event) =>
                           setReplyText((prev) => ({
                             ...prev,
-                            [item.id]: e.target.value,
+                            [item.id]: event.target.value,
                           }))
                         }
                         rows={4}
@@ -356,5 +590,28 @@ export default function AdminMessagesPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function MetricCard({
+  title,
+  value,
+  alert,
+}: {
+  title: string;
+  value: string;
+  alert?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-5 ${
+        alert ? "border-red-200 bg-red-50" : "bg-slate-50"
+      }`}
+    >
+      <p className={alert ? "text-sm text-red-700" : "text-sm text-slate-500"}>
+        {title}
+      </p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
+    </div>
   );
 }
