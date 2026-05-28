@@ -62,6 +62,9 @@ type EducatorProfile = {
   hourly_rate: number | null;
   approval_status: string;
   is_public: boolean;
+  tutor_terms_accepted?: boolean | null;
+  tutor_terms_accepted_at?: string | null;
+  tutor_terms_version?: string | null;
 };
 
 type AttendanceAction = "end" | "notes";
@@ -107,6 +110,7 @@ export default function EducatorDashboardPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingSlot, setSavingSlot] = useState(false);
+  const [acceptingTerms, setAcceptingTerms] = useState(false);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
 
   const [slotDate, setSlotDate] = useState("");
@@ -138,6 +142,65 @@ export default function EducatorDashboardPage() {
   useEffect(() => {
     loadSignedInEducator();
   }, []);
+
+
+  async function acceptTutorTerms() {
+    setAcceptingTerms(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Session expired. Please sign in again.");
+      }
+
+      const response = await fetch("/api/educator/accept-tutor-terms", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to accept tutor terms.");
+      }
+
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              tutor_terms_accepted: true,
+              tutor_terms_accepted_at:
+                data.educator?.tutor_terms_accepted_at ||
+                new Date().toISOString(),
+              tutor_terms_version:
+                data.educator?.tutor_terms_version ||
+                prev.tutor_terms_version ||
+                "2026-05",
+            }
+          : prev
+      );
+
+      setMessage("Tutor Terms & Conditions accepted successfully.");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to accept tutor terms."
+      );
+    } finally {
+      setAcceptingTerms(false);
+    }
+  }
 
   async function loadUnreadMessageCount() {
     try {
@@ -451,6 +514,8 @@ export default function EducatorDashboardPage() {
     }
   }
 
+  const tutorTermsAccepted = Boolean(profile?.tutor_terms_accepted);
+
   const activeLessons = lessons.filter(
     (lesson) =>
       lesson.status === "upcoming" ||
@@ -551,7 +616,13 @@ export default function EducatorDashboardPage() {
 
         {loading ? <p className="mt-8">Loading dashboard...</p> : null}
 
-        {!loading ? (
+        {!loading && profile ? (
+          !tutorTermsAccepted ? (
+            <TutorTermsGate
+              acceptingTerms={acceptingTerms}
+              onAccept={acceptTutorTerms}
+            />
+          ) : (
           <>
             <div className="mt-10 grid gap-6 md:grid-cols-4">
               <MetricCard title="Available Slots" value={String(availableSlots.length)} />
@@ -1028,9 +1099,89 @@ export default function EducatorDashboardPage() {
               )}
             </div>
           </>
+          )
         ) : null}
       </section>
     </main>
+  );
+}
+
+
+function TutorTermsGate({
+  acceptingTerms,
+  onAccept,
+}: {
+  acceptingTerms: boolean;
+  onAccept: () => Promise<void>;
+}) {
+  return (
+    <div className="mt-10 rounded-3xl border border-amber-200 bg-amber-50 p-6 lg:p-8">
+      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700">
+        Action Required
+      </p>
+
+      <h2 className="mt-3 text-3xl font-bold text-amber-950">
+        Accept Tutor Terms & Conditions
+      </h2>
+
+      <p className="mt-4 max-w-3xl text-sm leading-7 text-amber-900">
+        Before using your educator dashboard, creating availability slots, or
+        receiving lesson bookings, you must read and accept The Alkebula School
+        Tutor Terms & Conditions. These terms cover professional conduct,
+        lesson attendance, rescheduling expectations, the 70/30 revenue-sharing
+        formula, safeguarding, and platform rules.
+      </p>
+
+      <div className="mt-6 rounded-2xl border border-amber-200 bg-white p-5 text-sm leading-7 text-slate-700">
+        <p className="font-semibold text-slate-900">
+          By accepting, you confirm that:
+        </p>
+
+        <ul className="mt-3 list-disc space-y-2 pl-5">
+          <li>You have read and understood the Tutor Terms & Conditions.</li>
+          <li>
+            You accept the 70/30 revenue-sharing model: 70% to the tutor and
+            30% retained by The Alkebula School as platform commission.
+          </li>
+          <li>
+            You agree to submit tutor reschedule requests at least 24 hours
+            before a lesson, except in genuine emergencies.
+          </li>
+          <li>
+            You agree to attend lessons sober, alert, respectful, and
+            professionally prepared.
+          </li>
+          <li>
+            You understand that drunkenness, intoxication, being high on drugs,
+            abusive language, demeaning remarks, intimidation, or unprofessional
+            conduct during lessons is strictly prohibited.
+          </li>
+        </ul>
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link
+          href="/legal/tutor-terms"
+          target="_blank"
+          className="rounded-xl border border-amber-300 bg-white px-5 py-3 text-sm font-semibold text-amber-900 hover:bg-amber-100"
+        >
+          Read Tutor Terms
+        </Link>
+
+        <button
+          type="button"
+          onClick={onAccept}
+          disabled={acceptingTerms}
+          className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+        >
+          {acceptingTerms ? "Accepting..." : "I Accept Tutor Terms"}
+        </button>
+      </div>
+
+      <p className="mt-4 text-xs leading-6 text-amber-800">
+        Once accepted, your educator dashboard will unlock automatically.
+      </p>
+    </div>
   );
 }
 
