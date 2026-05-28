@@ -180,7 +180,7 @@ export default function Header() {
 
           <Link
             href="/tutors/apply"
-            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
           >
             Apply as Tutor
           </Link>
@@ -189,7 +189,7 @@ export default function Header() {
             <>
               <Link
                 href={getDashboardPath(userEmail, role)}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-amber-700"
               >
                 Dashboard
               </Link>
@@ -217,7 +217,7 @@ export default function Header() {
 
               <Link
                 href="/auth/sign-up"
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-amber-700"
               >
                 Parent Sign Up
               </Link>
