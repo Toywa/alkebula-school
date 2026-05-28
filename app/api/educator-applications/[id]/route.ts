@@ -25,54 +25,30 @@ function normalizeEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase();
 }
 
-async function verifyAdmin(request: NextRequest) {
-  const supabase = getAdminClient();
-
-  const authHeader = request.headers.get("authorization") || "";
-  const token = authHeader.replace("Bearer ", "").trim();
-
-  if (!token) {
-    return {
-      ok: false,
-      supabase,
-      error: NextResponse.json({ error: "Unauthorized." }, { status: 401 }),
-    };
-  }
-
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(token);
-
-  if (error || normalizeEmail(user?.email) !== ADMIN_EMAIL) {
-    return {
-      ok: false,
-      supabase,
-      error: NextResponse.json({ error: "Forbidden." }, { status: 403 }),
-    };
-  }
-
-  return {
-    ok: true,
-    supabase,
-    error: null,
-  };
-}
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const adminCheck = await verifyAdmin(request);
+    const supabase = getAdminClient();
 
-    if (!adminCheck.ok) {
-      return adminCheck.error;
+    const authHeader = request.headers.get("authorization") || "";
+    const token = authHeader.replace("Bearer ", "").trim();
+
+    if (!token) {
+      return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
     }
 
-    const supabase = adminCheck.supabase;
-    const body = await request.json();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser(token);
 
+    if (userError || normalizeEmail(user?.email) !== ADMIN_EMAIL) {
+      return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    }
+
+    const body = await request.json();
     const action = String(body.action || "").trim();
 
     const { data: application, error: fetchError } = await supabase
@@ -129,7 +105,7 @@ export async function PATCH(
         );
       }
 
-      let emailResult = null;
+      let emailResult: unknown = null;
 
       if (application.email) {
         emailResult = await sendTutorApprovedEmail({
@@ -161,7 +137,7 @@ export async function PATCH(
         );
       }
 
-      let emailResult = null;
+      let emailResult: unknown = null;
 
       if (application.email) {
         emailResult = await sendTutorRejectedEmail({
@@ -201,7 +177,7 @@ export async function PATCH(
         );
       }
 
-      let emailResult = null;
+      let emailResult: unknown = null;
 
       if (application.email) {
         emailResult = await sendInterviewScheduledEmail({
