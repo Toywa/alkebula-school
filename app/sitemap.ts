@@ -13,6 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/legal/refund-policy",
     "/legal/code-of-conduct",
     "/legal/tutor-terms",
+    "/online-cambridge-igcse-tutors",
   ];
 
   return routes.map((route) => ({
