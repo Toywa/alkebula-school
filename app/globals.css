@@ -2,11 +2,109 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body {
-  background: #F7F5F2;
-  color: #1A1A1A;
+:root {
+  --brand-dark: #020617;        /* slate-950 */
+  --brand-gold: #d97706;        /* amber-600 */
+  --brand-gold-soft: #f59e0b;   /* amber-500 */
+  --brand-bg: #f8fafc;          /* slate-50 */
+  --brand-card: #ffffff;
+  --brand-text: #0f172a;        /* slate-900 */
+  --brand-muted: #475569;       /* slate-600 */
+  --brand-border: #e2e8f0;      /* slate-200 */
+  --brand-trust-bg: #ecfdf5;    /* emerald-50 */
+  --brand-trust-text: #047857;  /* emerald-700 */
+  --brand-warning-bg: #fffbeb;  /* amber-50 */
+  --brand-warning-text: #92400e;/* amber-800 */
+}
+
+html,
+body {
+  background: var(--brand-bg);
+  color: var(--brand-text);
 }
 
 body {
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer components {
+  .brand-page {
+    @apply min-h-screen bg-slate-50 text-slate-900;
+  }
+
+  .brand-section {
+    @apply mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-24;
+  }
+
+  .brand-section-tight {
+    @apply mx-auto max-w-7xl px-6 py-10 lg:px-8 lg:py-14;
+  }
+
+  .brand-container {
+    @apply mx-auto max-w-7xl px-6 lg:px-8;
+  }
+
+  .brand-eyebrow {
+    @apply text-sm font-semibold uppercase tracking-[0.24em] text-slate-500;
+  }
+
+  .brand-heading {
+    @apply text-3xl font-bold tracking-tight text-slate-950 sm:text-5xl;
+  }
+
+  .brand-hero-heading {
+    @apply text-4xl font-bold leading-tight tracking-tight text-slate-950 sm:text-5xl lg:text-7xl;
+  }
+
+  .brand-subtitle {
+    @apply text-base leading-8 text-slate-600;
+  }
+
+  .brand-card {
+    @apply rounded-3xl border border-slate-200 bg-white p-6 shadow-sm;
+  }
+
+  .brand-card-hover {
+    @apply rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg;
+  }
+
+  .brand-card-soft {
+    @apply rounded-3xl border border-amber-100 bg-white p-6 shadow-sm;
+  }
+
+  .brand-button-primary {
+    @apply inline-flex items-center justify-center rounded-xl bg-amber-600 px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-amber-700 disabled:opacity-60;
+  }
+
+  .brand-button-dark {
+    @apply inline-flex items-center justify-center rounded-xl bg-slate-950 px-6 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60;
+  }
+
+  .brand-button-secondary {
+    @apply inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-60;
+  }
+
+  .brand-pill {
+    @apply rounded-full bg-white px-4 py-2 text-xs font-bold uppercase tracking-wide text-slate-600 shadow-sm ring-1 ring-slate-200;
+  }
+
+  .brand-pill-gold {
+    @apply rounded-full bg-amber-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-amber-800 ring-1 ring-amber-200;
+  }
+
+  .brand-trust-box {
+    @apply rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700;
+  }
+
+  .brand-warning-box {
+    @apply rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800;
+  }
+
+  .brand-input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400;
+  }
+
+  .brand-footer-link {
+    @apply text-slate-300 hover:text-amber-200;
+  }
 }
