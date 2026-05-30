@@ -4,258 +4,329 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "About The Alkebula School",
   description:
-    "Learn about The Alkebula School, a premium global online education system supporting Cambridge IGCSE, Edexcel IGCSE, A Levels, and IB learners with structured, measurable academic support.",
+    "Learn about The Alkebula School, a premium global online education system with global tutors, global students, secure online teaching, automated booking, automated support, and highly experienced tutors for Cambridge IGCSE, Edexcel IGCSE, A Levels, and IB learners.",
   alternates: {
     canonical: "/about",
   },
 };
 
+const highlights = [
+  {
+    title: "Global Tutors",
+    description:
+      "A carefully managed network of experienced tutors supporting learners across locations and time zones.",
+  },
+  {
+    title: "Global Students",
+    description:
+      "Online academic support designed for internationally minded families, mobile learners, and homeschool pathways.",
+  },
+  {
+    title: "Secure Teaching",
+    description:
+      "An in-built secure online teaching system designed to make lessons organised, professional, and easier to manage.",
+  },
+  {
+    title: "Automated Booking",
+    description:
+      "A structured booking system that helps parents, tutors, and the school coordinate lessons more clearly.",
+  },
+];
+
 const values = [
   {
-    title: "Structured Learning",
+    title: "Student-Focused Support",
     description:
-      "We believe learners do better when lessons are clear, organized, and connected to measurable academic goals.",
+      "We place the learner’s progress, confidence, and academic needs at the centre of every support decision.",
   },
   {
-    title: "Mastery Before Motion",
+    title: "Professional Tutor Management",
     description:
-      "We focus on understanding first. Progress should not be rushed when important learning gaps still need attention.",
+      "We manage tutors with fairness, clarity, and strong HR practices so that high standards are balanced with professional respect.",
   },
   {
-    title: "Parent Confidence",
+    title: "Structured Progress",
     description:
-      "Parents deserve clarity, professionalism, and a learning system they can trust.",
+      "We believe good learning needs rhythm, accountability, careful follow-up, and a clear academic direction.",
+  },
+];
+
+const systems = [
+  "Secure online teaching environment",
+  "Automated lesson booking",
+  "Automated support workflows",
+  "Parent-friendly communication",
+  "Tutor availability management",
+  "Professional tutor onboarding",
+];
+
+const curricula = [
+  {
+    label: "Cambridge IGCSE",
+    href: "/online-cambridge-igcse-tutors",
+  },
+  {
+    label: "Edexcel IGCSE",
+    href: "/edexcel-igcse-tutors",
+  },
+  {
+    label: "A Levels",
+    href: "/a-level-online-tutors",
+  },
+  {
+    label: "IB",
+    href: "/ib-online-tutors",
   },
 ];
 
 export default function AboutPage() {
   return (
-    <main className="bg-white text-slate-900">
-      <section className="mx-auto max-w-6xl px-6 py-20 lg:px-8">
-        <div className="max-w-4xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
-            About The Alkebula School
-          </p>
+    <main className="overflow-x-hidden bg-white text-slate-900">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,#FFF5F7,transparent_24%),radial-gradient(circle_at_top_right,#EEF9FF,transparent_34%),#FFFFFF]">
+        <div className="absolute right-0 top-16 hidden h-80 w-80 rounded-full bg-[#EEF9FF] blur-3xl lg:block" />
+        <div className="absolute bottom-0 left-0 hidden h-72 w-72 rounded-full bg-[#FFF5F7] blur-3xl lg:block" />
 
-          <h1 className="mt-5 text-4xl font-bold tracking-tight md:text-6xl">
-            A Premium Online Education System Built for Measurable Progress
-          </h1>
+        <div className="relative mx-auto max-w-7xl px-6 py-18 lg:px-8 lg:py-20">
+          <div className="max-w-4xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+              About The Alkebula School
+            </p>
 
-          <p className="mt-6 text-lg leading-8 text-slate-600">
-            The Alkebula School is designed for families who want more than
-            casual tutoring. We provide structured academic support for learners
-            following international curricula, helping them close learning gaps,
-            strengthen mastery, and move forward with confidence.
-          </p>
+            <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">
+              A premium global online learning system built around structured
+              progress.
+            </h1>
 
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Link
-              href="/educators"
-              className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-800"
-            >
-              Find Tutors
-            </Link>
+            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+              The Alkebula School supports ambitious families through global
+              tutors, secure online teaching, automated booking, automated
+              support, and a professionally managed academic experience for
+              international curriculum learners.
+            </p>
 
-            <Link
-              href="/homeschool-support"
-              className="rounded-xl border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Homeschool Support
-            </Link>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <Link
+                href="/educators"
+                className="rounded-xl bg-[#8F1F36] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
+              >
+                Find Tutors
+              </Link>
+
+              <Link
+                href="/auth/sign-up"
+                className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-6 py-3 text-sm font-semibold text-[#156B96] shadow-sm transition hover:bg-[#EEF9FF]"
+              >
+                Parent Sign Up
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="border-y bg-slate-50">
-        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-14 md:grid-cols-4 lg:px-8">
-          <div className="rounded-3xl border bg-white p-6">
-            <p className="text-sm font-semibold text-slate-500">Curricula</p>
-            <p className="mt-2 text-2xl font-bold">International</p>
-            <p className="mt-2 text-sm text-slate-600">
-              Cambridge, Edexcel, A Levels, and IB.
-            </p>
-          </div>
+      <section className="border-b border-slate-200 bg-[#F7FCFF]">
+        <div className="mx-auto grid max-w-7xl gap-5 px-6 py-12 sm:grid-cols-2 lg:grid-cols-4 lg:px-8">
+          {highlights.map((item) => (
+            <div
+              key={item.title}
+              className="rounded-3xl border border-[#379CD6]/15 bg-white p-6 shadow-sm"
+            >
+              <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#EEF9FF] text-lg font-black text-[#156B96]">
+                ✓
+              </div>
 
-          <div className="rounded-3xl border bg-white p-6">
-            <p className="text-sm font-semibold text-slate-500">Learning Goal</p>
-            <p className="mt-2 text-2xl font-bold">Mastery</p>
-            <p className="mt-2 text-sm text-slate-600">
-              Strong foundations before exam confidence.
-            </p>
-          </div>
+              <h2 className="text-lg font-bold text-slate-950">
+                {item.title}
+              </h2>
 
-          <div className="rounded-3xl border bg-white p-6">
-            <p className="text-sm font-semibold text-slate-500">Delivery</p>
-            <p className="mt-2 text-2xl font-bold">Online</p>
-            <p className="mt-2 text-sm text-slate-600">
-              Flexible access for families across locations.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border bg-white p-6">
-            <p className="text-sm font-semibold text-slate-500">Motto</p>
-            <p className="mt-2 text-2xl font-bold">Proven Results</p>
-            <p className="mt-2 text-sm text-slate-600">
-              Extraordinary Learning. Proven Results.
-            </p>
-          </div>
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                {item.description}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-16 lg:px-8">
-        <div className="grid gap-10 lg:grid-cols-2">
+      <section className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
+        <div className="grid gap-10 lg:grid-cols-[0.95fr_1.05fr]">
           <div>
-            <h2 className="text-3xl font-bold">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
               Why Alkebula Exists
+            </p>
+
+            <h2 className="mt-4 max-w-2xl text-3xl font-bold tracking-tight text-slate-950 md:text-4xl">
+              Learning support should feel clear, secure, and professionally
+              managed.
             </h2>
 
-            <div className="mt-6 space-y-5 text-slate-600">
+            <div className="mt-6 space-y-5 text-base leading-8 text-slate-600">
               <p>
-                Many learners struggle not because they lack ability, but because
-                gaps quietly build up over time. A missed concept in Mathematics,
-                weak writing structure in English, poor exam technique in
-                Science, or lack of academic rhythm can slowly affect confidence
-                and performance.
+                Many families need more than occasional tutoring. They need a
+                dependable learning structure, strong tutor quality, clear
+                communication, and a system that helps the learner move forward
+                with confidence.
               </p>
 
               <p>
-                The Alkebula School exists to bring structure back into the
-                learning journey. We help learners understand where they are,
-                what needs strengthening, and how to move forward with a clearer
-                academic path.
+                The Alkebula School was built to provide that structure. We
+                combine highly experienced tutors, caring student-focused
+                management, and technology that makes teaching, booking, and
+                support easier to coordinate.
               </p>
 
               <p>
-                Our work is especially suited to families following Cambridge
+                Our work is designed for global families following Cambridge
                 IGCSE, Edexcel IGCSE, A Levels, and IB pathways, including
-                homeschooling families and internationally mobile learners.
+                learners who need targeted support, stronger academic rhythm, or
+                deeper subject mastery.
               </p>
             </div>
           </div>
 
-          <div className="rounded-3xl border bg-slate-50 p-8">
-            <h2 className="text-3xl font-bold">Our Mission</h2>
-
-            <p className="mt-5 text-lg leading-8 text-slate-600">
-              To deliver extraordinary learning experiences that help students
-              close gaps, build mastery, and achieve measurable academic
-              progress through structured online support.
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/70 lg:p-10">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+              Our System
             </p>
 
-            <div className="mt-8 rounded-2xl bg-white p-6">
-              <p className="text-sm font-semibold uppercase tracking-wider text-slate-500">
-                Our Motto
-              </p>
-              <p className="mt-2 text-2xl font-bold">
-                Extraordinary Learning. Proven Results.
-              </p>
+            <h2 className="mt-4 text-3xl font-bold text-slate-950">
+              Built to support families and tutors professionally.
+            </h2>
+
+            <p className="mt-4 text-base leading-8 text-slate-600">
+              Alkebula is not simply a listing site. It is designed as a
+              structured online education system with secure teaching, booking,
+              and support workflows.
+            </p>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {systems.map((item) => (
+                <div
+                  key={item}
+                  className="rounded-xl border border-[#379CD6]/15 bg-[#F7FCFF] p-3 text-sm font-semibold text-[#156B96]"
+                >
+                  {item}
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </section>
 
-      <section className="border-y bg-slate-50">
-        <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8">
-          <h2 className="text-3xl font-bold">
-            What Makes Alkebula Different
-          </h2>
+      <section className="border-y border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
+          <div className="max-w-3xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+              What Guides Us
+            </p>
+
+            <h2 className="mt-4 text-3xl font-bold text-slate-950 md:text-4xl">
+              Premium education needs care, clarity, and fairness.
+            </h2>
+
+            <p className="mt-4 text-base leading-8 text-slate-600">
+              We care about students, but we also believe tutors perform best
+              when they are managed professionally, treated fairly, and supported
+              by clear systems.
+            </p>
+          </div>
 
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {values.map((item) => (
-              <div key={item.title} className="rounded-3xl border bg-white p-6">
-                <h3 className="text-xl font-bold">{item.title}</h3>
-                <p className="mt-3 text-slate-600">{item.description}</p>
+              <div
+                key={item.title}
+                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+              >
+                <h3 className="text-xl font-bold text-slate-950">
+                  {item.title}
+                </h3>
+
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  {item.description}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-6 py-16 lg:px-8">
+      <section className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
         <div className="grid gap-10 lg:grid-cols-2">
-          <div className="rounded-3xl border p-8">
-            <h2 className="text-3xl font-bold">Curricula We Support</h2>
-
-            <p className="mt-4 text-slate-600">
-              Alkebula focuses on international curriculum pathways only.
+          <div className="rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-white to-[#F7FCFF] p-8 shadow-sm lg:p-10">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+              Curricula We Support
             </p>
 
-            <div className="mt-6 grid gap-3 text-sm font-semibold text-slate-700 sm:grid-cols-2">
-              <Link
-                href="/online-cambridge-igcse-tutors"
-                className="rounded-xl bg-slate-50 p-3 hover:bg-slate-100"
-              >
-                Cambridge IGCSE
-              </Link>
-              <Link
-                href="/edexcel-igcse-tutors"
-                className="rounded-xl bg-slate-50 p-3 hover:bg-slate-100"
-              >
-                Edexcel IGCSE
-              </Link>
-              <Link
-                href="/a-level-online-tutors"
-                className="rounded-xl bg-slate-50 p-3 hover:bg-slate-100"
-              >
-                A Levels
-              </Link>
-              <Link
-                href="/ib-online-tutors"
-                className="rounded-xl bg-slate-50 p-3 hover:bg-slate-100"
-              >
-                IB
-              </Link>
-            </div>
+            <h2 className="mt-4 text-3xl font-bold text-slate-950">
+              International curriculum support for global learners.
+            </h2>
 
-            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-              We do not offer CBC tutoring. Our focus is international education
-              pathways with structured academic support.
+            <p className="mt-4 text-base leading-8 text-slate-600">
+              Alkebula focuses on international education pathways where
+              structure, mastery, and examination confidence matter deeply.
+            </p>
+
+            <div className="mt-6 grid gap-3 text-sm font-semibold sm:grid-cols-2">
+              {curricula.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-xl border border-[#379CD6]/15 bg-white p-3 text-[#156B96] transition hover:bg-[#EEF9FF]"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </div>
 
-          <div className="rounded-3xl border p-8">
-            <h2 className="text-3xl font-bold">For Parents</h2>
-
-            <p className="mt-4 text-slate-600">
-              Alkebula is built for parents who want clarity, structure, and
-              academic seriousness. Whether your child is catching up, preparing
-              for exams, or aiming higher, our system is designed to support
-              purposeful progress.
+          <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+              For Parents
             </p>
 
-            <ul className="mt-6 space-y-3 text-slate-600">
-              <li>• Structured tutor-led academic support</li>
-              <li>• International curriculum focus</li>
-              <li>• Online access for global families</li>
-              <li>• Support for homeschooling learners</li>
-              <li>• A system designed around measurable improvement</li>
-            </ul>
+            <h2 className="mt-4 text-3xl font-bold text-slate-950">
+              Clear support for families who want serious learning progress.
+            </h2>
+
+            <p className="mt-4 text-base leading-8 text-slate-600">
+              Parents need confidence that their child is supported by capable,
+              caring professionals. Alkebula brings together experienced tutors,
+              secure online learning, structured booking, and responsive support
+              to make that experience easier.
+            </p>
+
+            <div className="mt-6 rounded-2xl border border-[#379CD6]/15 bg-[#F7FCFF] p-5">
+              <p className="text-sm font-semibold leading-7 text-[#156B96]">
+                Our management approach is student-focused, parent-friendly, and
+                tutor-aware. We aim to protect quality while treating educators
+                fairly and professionally.
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="bg-slate-900 text-white">
-        <div className="mx-auto max-w-6xl px-6 py-16 lg:px-8">
-          <h2 className="max-w-3xl text-3xl font-bold">
+      <section className="bg-[#8F1F36] text-white">
+        <div className="mx-auto max-w-7xl px-6 py-14 lg:px-8 lg:py-16">
+          <h2 className="max-w-3xl text-3xl font-bold md:text-4xl">
             Build a clearer academic path for your learner.
           </h2>
 
-          <p className="mt-4 max-w-2xl text-slate-300">
-            Start with structured support, international curriculum expertise,
-            and a system built for measurable progress.
+          <p className="mt-4 max-w-2xl text-base leading-8 text-white/75">
+            Start with global tutors, secure online teaching, automated booking,
+            and a premium support system built around measurable academic
+            progress.
           </p>
 
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
               href="/educators"
-              className="rounded-xl bg-white px-6 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-100"
+              className="rounded-xl bg-white px-6 py-3 text-sm font-bold text-[#8F1F36] transition hover:bg-[#EEF9FF]"
             >
               Find Tutors
             </Link>
 
             <Link
               href="/auth/sign-up"
-              className="rounded-xl border border-white/30 px-6 py-3 text-sm font-semibold text-white hover:bg-white/10"
+              className="rounded-xl border border-white/25 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
               Parent Sign Up
             </Link>
