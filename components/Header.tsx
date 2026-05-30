@@ -42,6 +42,17 @@ function getDashboardPath(email: string, role: UserRole) {
   return "/parent/bookings";
 }
 
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-[#F7FCFF] hover:text-[#8F1F36]"
+    >
+      {children}
+    </Link>
+  );
+}
+
 export default function Header() {
   const [loading, setLoading] = useState(true);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -117,29 +128,26 @@ export default function Header() {
   }
 
   return (
-    <header className="w-full border-b border-slate-200 bg-white">
+    <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center justify-between gap-4">
-          <Link
-            href="/"
-            className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-800"
-          >
-            The Alkebula School
+          <Link href="/" className="group inline-flex flex-col">
+            <span className="text-sm font-black uppercase tracking-[0.3em] text-[#8F1F36] transition group-hover:text-[#6F1729]">
+              The Alkebula School
+            </span>
+            <span className="mt-1 text-xs font-medium tracking-wide text-slate-500">
+              Extraordinary Learning. Proven Results.
+            </span>
           </Link>
         </div>
 
         <nav className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/about"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
-            About
-          </Link>
+          <NavLink href="/about">About</NavLink>
 
           <div className="group relative">
             <button
               type="button"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-[#F7FCFF] hover:text-[#8F1F36]"
             >
               Programmes
             </button>
@@ -149,7 +157,7 @@ export default function Header() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="block rounded-xl px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                  className="block rounded-xl px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-[#F7FCFF] hover:text-[#8F1F36]"
                 >
                   {item.label}
                 </Link>
@@ -157,30 +165,13 @@ export default function Header() {
             </div>
           </div>
 
-          <Link
-            href="/faq"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
-            FAQ
-          </Link>
-
-          <Link
-            href="/contact"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
-            Contact
-          </Link>
-
-          <Link
-            href="/educators"
-            className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
-          >
-            Find Tutors
-          </Link>
+          <NavLink href="/faq">FAQ</NavLink>
+          <NavLink href="/contact">Contact</NavLink>
+          <NavLink href="/educators">Find Tutors</NavLink>
 
           <Link
             href="/tutors/apply"
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+            className="rounded-lg border border-[#379CD6]/30 bg-[#F7FCFF] px-4 py-2 text-sm font-semibold text-[#156B96] transition hover:bg-[#EEF9FF]"
           >
             Apply as Tutor
           </Link>
@@ -189,19 +180,19 @@ export default function Header() {
             <>
               <Link
                 href={getDashboardPath(userEmail, role)}
-                className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-amber-700"
+                className="rounded-lg bg-[#8F1F36] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
               >
                 Dashboard
               </Link>
 
-              <span className="hidden rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600 md:inline-block">
+              <span className="hidden rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 md:inline-block">
                 {userEmail}
               </span>
 
               <button
                 type="button"
                 onClick={handleLogout}
-                className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                className="rounded-lg border border-[#379CD6]/30 bg-[#F7FCFF] px-4 py-2 text-sm font-semibold text-[#156B96] transition hover:bg-[#EEF9FF]"
               >
                 Logout
               </button>
@@ -210,14 +201,14 @@ export default function Header() {
             <>
               <Link
                 href="/auth/sign-in"
-                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100"
+                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-[#F7FCFF] hover:text-[#8F1F36]"
               >
                 Sign In
               </Link>
 
               <Link
                 href="/auth/sign-up"
-                className="rounded-lg bg-amber-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-amber-700"
+                className="rounded-lg bg-[#8F1F36] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
               >
                 Parent Sign Up
               </Link>
@@ -226,13 +217,13 @@ export default function Header() {
         </nav>
       </div>
 
-      <div className="border-t border-slate-100 bg-slate-50">
+      <div className="border-t border-slate-100 bg-[#F7FCFF]">
         <div className="mx-auto flex max-w-7xl gap-2 overflow-x-auto px-6 py-2">
           {programmeLinks.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-white hover:text-slate-900"
+              className="shrink-0 rounded-full border border-transparent px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#379CD6]/25 hover:bg-white hover:text-[#8F1F36]"
             >
               {item.label}
             </Link>

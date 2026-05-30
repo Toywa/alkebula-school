@@ -122,21 +122,21 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fffdf8] text-slate-900">
-      <section className="relative overflow-hidden border-b border-amber-100 bg-[radial-gradient(circle_at_top_left,#fff7df,transparent_34%),linear-gradient(to_bottom,#fffdf8,#f8fafc)]">
-        <div className="absolute right-0 top-10 hidden h-80 w-80 rounded-full bg-amber-100/70 blur-3xl lg:block" />
-        <div className="absolute bottom-0 left-0 hidden h-80 w-80 rounded-full bg-blue-50 blur-3xl lg:block" />
+    <main className="min-h-screen bg-white text-slate-900">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,#FFF5F7,transparent_24%),radial-gradient(circle_at_top_right,#EEF9FF,transparent_34%),#FFFFFF]">
+        <div className="absolute right-0 top-10 hidden h-80 w-80 rounded-full bg-[#EEF9FF] blur-3xl lg:block" />
+        <div className="absolute bottom-0 left-0 hidden h-80 w-80 rounded-full bg-[#FFF5F7] blur-3xl lg:block" />
 
         <div className="relative mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-24">
           <div className="grid items-center gap-14 lg:grid-cols-[1.08fr_0.92fr]">
             <div>
-              <div className="inline-flex rounded-full border border-amber-200 bg-white/80 px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-amber-800 shadow-sm">
+              <div className="inline-flex rounded-full border border-[#379CD6]/20 bg-white px-4 py-2 text-xs font-bold uppercase tracking-[0.22em] text-[#156B96] shadow-sm">
                 Premium Online International Tutoring
               </div>
 
               <h1 className="mt-6 max-w-4xl text-4xl font-bold leading-tight text-slate-950 sm:text-5xl lg:text-7xl">
                 Gentle structure.
-                <span className="block text-amber-700">
+                <span className="block text-[#8F1F36]">
                   Serious academic progress.
                 </span>
               </h1>
@@ -150,47 +150,46 @@ export default function HomePage() {
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                 <Link
                   href="/auth/sign-up"
-                  className="inline-flex items-center justify-center rounded-xl bg-amber-600 px-7 py-4 text-sm font-bold text-white shadow-sm transition hover:bg-amber-700"
+                  className="inline-flex items-center justify-center rounded-xl bg-[#8F1F36] px-7 py-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
                 >
                   Parent Sign Up
                 </Link>
 
                 <Link
                   href="/educators"
-                  className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-7 py-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                  className="inline-flex items-center justify-center rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-7 py-4 text-sm font-semibold text-[#156B96] shadow-sm transition hover:bg-[#EEF9FF]"
                 >
                   Find Tutors
                 </Link>
 
                 <a
                   href="#enquiry"
-                  className="inline-flex items-center justify-center rounded-xl px-7 py-4 text-sm font-semibold text-slate-600 transition hover:bg-white"
+                  className="inline-flex items-center justify-center rounded-xl px-7 py-4 text-sm font-semibold text-slate-600 transition hover:bg-[#F7FCFF]"
                 >
                   Make Enquiry
                 </a>
               </div>
 
               <div className="mt-8 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-wide text-slate-600">
-                <span className="rounded-full bg-white px-4 py-2 shadow-sm ring-1 ring-amber-100">
-                  Cambridge IGCSE
-                </span>
-                <span className="rounded-full bg-white px-4 py-2 shadow-sm ring-1 ring-amber-100">
-                  Edexcel IGCSE
-                </span>
-                <span className="rounded-full bg-white px-4 py-2 shadow-sm ring-1 ring-amber-100">
-                  A Levels
-                </span>
-                <span className="rounded-full bg-white px-4 py-2 shadow-sm ring-1 ring-amber-100">
-                  IB
-                </span>
-                <span className="rounded-full bg-white px-4 py-2 shadow-sm ring-1 ring-amber-100">
-                  International Curricula Only
-                </span>
+                {[
+                  "Cambridge IGCSE",
+                  "Edexcel IGCSE",
+                  "A Levels",
+                  "IB",
+                  "International Curricula Only",
+                ].map((item) => (
+                  <span
+                    key={item}
+                    className="rounded-full bg-white px-4 py-2 shadow-sm ring-1 ring-slate-200"
+                  >
+                    {item}
+                  </span>
+                ))}
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-amber-100 bg-white/90 p-6 shadow-[0_30px_80px_rgba(120,53,15,0.10)] backdrop-blur">
-              <div className="rounded-[1.5rem] border border-amber-100 bg-gradient-to-br from-white via-amber-50/50 to-slate-50 p-6">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.08)] backdrop-blur">
+              <div className="rounded-[1.5rem] border border-[#379CD6]/15 bg-gradient-to-br from-white via-white to-[#F7FCFF] p-6">
                 <div className="flex justify-center rounded-3xl bg-white p-6 shadow-sm">
                   <Image
                     src="/logo.png"
@@ -203,66 +202,44 @@ export default function HomePage() {
                 </div>
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-2xl border border-amber-100 bg-white/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      Focus
-                    </p>
-                    <p className="mt-2 text-lg font-bold text-slate-900">
-                      Mastery
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-amber-100 bg-white/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      Delivery
-                    </p>
-                    <p className="mt-2 text-lg font-bold text-slate-900">
-                      Online
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-amber-100 bg-white/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      Support
-                    </p>
-                    <p className="mt-2 text-lg font-bold text-slate-900">
-                      Structured
-                    </p>
-                  </div>
-
-                  <div className="rounded-2xl border border-amber-100 bg-white/80 p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      Motto
-                    </p>
-                    <p className="mt-2 text-lg font-bold text-slate-900">
-                      Proven Results
-                    </p>
-                  </div>
+                  {[
+                    ["Focus", "Mastery"],
+                    ["Delivery", "Online"],
+                    ["Support", "Structured"],
+                    ["Motto", "Proven Results"],
+                  ].map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="rounded-2xl border border-[#379CD6]/15 bg-white p-4"
+                    >
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                        {label}
+                      </p>
+                      <p className="mt-2 text-lg font-bold text-slate-900">
+                        {value}
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
           </div>
 
           <div className="mt-14 grid gap-4 text-center sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-amber-100 bg-white/80 p-5 shadow-sm">
-              <p className="text-2xl font-bold text-slate-950">Global</p>
-              <p className="mt-1 text-sm text-slate-600">Online access</p>
-            </div>
-
-            <div className="rounded-2xl border border-amber-100 bg-white/80 p-5 shadow-sm">
-              <p className="text-2xl font-bold text-slate-950">4</p>
-              <p className="mt-1 text-sm text-slate-600">International pathways</p>
-            </div>
-
-            <div className="rounded-2xl border border-amber-100 bg-white/80 p-5 shadow-sm">
-              <p className="text-2xl font-bold text-slate-950">Parent-first</p>
-              <p className="mt-1 text-sm text-slate-600">Support experience</p>
-            </div>
-
-            <div className="rounded-2xl border border-amber-100 bg-white/80 p-5 shadow-sm">
-              <p className="text-2xl font-bold text-slate-950">Structured</p>
-              <p className="mt-1 text-sm text-slate-600">Academic progress</p>
-            </div>
+            {[
+              ["Global", "Online access"],
+              ["4", "International pathways"],
+              ["Parent-first", "Support experience"],
+              ["Structured", "Academic progress"],
+            ].map(([value, label]) => (
+              <div
+                key={label}
+                className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+              >
+                <p className="text-2xl font-bold text-slate-950">{value}</p>
+                <p className="mt-1 text-sm text-slate-600">{label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -271,7 +248,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
             <div className="max-w-3xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
                 Academic Pathways
               </p>
 
@@ -287,7 +264,7 @@ export default function HomePage() {
 
             <Link
               href="/homeschool-support"
-              className="inline-flex w-fit rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+              className="inline-flex w-fit rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-5 py-3 text-sm font-semibold text-[#156B96] shadow-sm hover:bg-[#EEF9FF]"
             >
               Explore Homeschool Support
             </Link>
@@ -298,9 +275,9 @@ export default function HomePage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="group rounded-3xl border border-amber-100 bg-[#fffdf8] p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
+                className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-[#379CD6]/35 hover:shadow-lg"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-lg font-black text-amber-700">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF9FF] text-lg font-black text-[#156B96]">
                   {item.title.charAt(0)}
                 </div>
 
@@ -312,7 +289,7 @@ export default function HomePage() {
                   {item.description}
                 </p>
 
-                <p className="mt-6 text-sm font-bold text-amber-700">
+                <p className="mt-6 text-sm font-bold text-[#8F1F36]">
                   Learn more →
                 </p>
               </Link>
@@ -321,10 +298,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-[#fff8ec] py-16 lg:py-24">
+      <section className="bg-gradient-to-br from-white via-white to-[#F7FCFF] py-16 lg:py-24">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="max-w-3xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-amber-800">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
               How Alkebula Works
             </p>
 
@@ -337,9 +314,9 @@ export default function HomePage() {
             {steps.map((step) => (
               <div
                 key={step.number}
-                className="rounded-3xl border border-amber-100 bg-white p-6 shadow-sm"
+                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
               >
-                <p className="text-sm font-black text-amber-700">
+                <p className="text-sm font-black text-[#8F1F36]">
                   {step.number}
                 </p>
 
@@ -359,7 +336,7 @@ export default function HomePage() {
       <section className="bg-white py-16 lg:py-24">
         <div className="mx-auto grid max-w-7xl gap-10 px-6 lg:grid-cols-2 lg:px-8">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
               Why Parents Choose Alkebula
             </p>
 
@@ -376,14 +353,14 @@ export default function HomePage() {
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 href="/auth/sign-up"
-                className="rounded-xl bg-amber-600 px-6 py-3 text-sm font-bold text-white hover:bg-amber-700"
+                className="rounded-xl bg-[#8F1F36] px-6 py-3 text-sm font-bold text-white hover:bg-[#6F1729]"
               >
                 Create Parent Account
               </Link>
 
               <Link
                 href="/about"
-                className="rounded-xl border border-slate-300 px-6 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-6 py-3 text-sm font-semibold text-[#156B96] hover:bg-[#EEF9FF]"
               >
                 About Alkebula
               </Link>
@@ -394,7 +371,7 @@ export default function HomePage() {
             {parentBenefits.map((item) => (
               <div
                 key={item}
-                className="rounded-2xl border border-amber-100 bg-[#fffdf8] p-5 text-sm font-semibold text-slate-700 shadow-sm"
+                className="rounded-2xl border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-700 shadow-sm"
               >
                 {item}
               </div>
@@ -403,11 +380,11 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="bg-slate-50 py-16 lg:py-24">
+      <section className="bg-[#F7FCFF] py-16 lg:py-24">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           <div className="grid gap-10 lg:grid-cols-2">
-            <div className="rounded-[2rem] border border-amber-100 bg-white p-8 shadow-sm lg:p-10">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
                 International Curriculum Focus
               </p>
 
@@ -422,14 +399,14 @@ export default function HomePage() {
                 families and internationally mobile learners.
               </p>
 
-              <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+              <div className="mt-6 rounded-2xl border border-[#379CD6]/20 bg-[#F7FCFF] p-4 text-sm font-semibold text-[#156B96]">
                 Alkebula does not offer CBC tutoring. Our focus is international
                 curricula with structured online academic support.
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-amber-100 bg-white p-8 shadow-sm lg:p-10">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
                 For Homeschooling Families
               </p>
 
@@ -446,7 +423,7 @@ export default function HomePage() {
 
               <Link
                 href="/homeschool-support"
-                className="mt-6 inline-flex rounded-xl bg-slate-800 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-900"
+                className="mt-6 inline-flex rounded-xl bg-[#8F1F36] px-6 py-3 text-sm font-semibold text-white hover:bg-[#6F1729]"
               >
                 Learn About Homeschool Support
               </Link>
@@ -455,10 +432,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section id="enquiry" className="bg-[#fffdf8] py-16 lg:py-24">
+      <section id="enquiry" className="bg-white py-16 lg:py-24">
         <div className="mx-auto max-w-5xl px-6">
-          <div className="rounded-[2rem] border border-amber-100 bg-white px-8 py-12 text-slate-900 shadow-[0_20px_60px_rgba(120,53,15,0.10)] lg:px-16 lg:py-16">
-            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-amber-800">
+          <div className="rounded-[2rem] border border-slate-200 bg-white px-8 py-12 text-slate-900 shadow-[0_20px_60px_rgba(15,23,42,0.08)] lg:px-16 lg:py-16">
+            <p className="text-sm font-semibold uppercase tracking-[0.28em] text-[#379CD6]">
               Parent Enquiry
             </p>
 
@@ -482,7 +459,7 @@ export default function HomePage() {
                   setForm({ ...form, parent_name: e.target.value })
                 }
                 required
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
               />
 
               <input
@@ -492,7 +469,7 @@ export default function HomePage() {
                   setForm({ ...form, student_name: e.target.value })
                 }
                 required
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
               />
 
               <input
@@ -501,7 +478,7 @@ export default function HomePage() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 required
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
               />
 
               <input
@@ -509,7 +486,7 @@ export default function HomePage() {
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 required
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
               />
 
               <select
@@ -518,7 +495,7 @@ export default function HomePage() {
                   setForm({ ...form, curriculum: e.target.value })
                 }
                 required
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 md:col-span-2"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15 md:col-span-2"
               >
                 <option value="">Select Curriculum</option>
                 <option>Cambridge IGCSE</option>
@@ -532,7 +509,7 @@ export default function HomePage() {
                 placeholder="Tell us what you need..."
                 value={form.message}
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 md:col-span-2"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15 md:col-span-2"
                 rows={5}
               />
 
@@ -540,7 +517,7 @@ export default function HomePage() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full rounded-xl bg-amber-600 py-3 font-bold text-white transition hover:bg-amber-700 disabled:opacity-60"
+                  className="w-full rounded-xl bg-[#8F1F36] py-3 font-bold text-white transition hover:bg-[#6F1729] disabled:opacity-60"
                 >
                   {loading ? "Submitting..." : "Submit Parent Enquiry"}
                 </button>
@@ -563,7 +540,7 @@ export default function HomePage() {
               <span>Ready to start directly?</span>
               <Link
                 href="/auth/sign-up"
-                className="font-bold text-amber-700 underline underline-offset-4"
+                className="font-bold text-[#8F1F36] underline underline-offset-4"
               >
                 Create a parent account
               </Link>
@@ -573,7 +550,7 @@ export default function HomePage() {
       </section>
 
       <section className="bg-white px-6 py-16">
-        <div className="mx-auto max-w-5xl rounded-[2rem] border border-amber-100 bg-gradient-to-br from-amber-50 via-white to-slate-50 p-8 text-center shadow-sm lg:p-12">
+        <div className="mx-auto max-w-5xl rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-white to-[#F7FCFF] p-8 text-center shadow-sm lg:p-12">
           <h2 className="text-3xl font-bold text-slate-950 sm:text-5xl">
             Give your learner structure, clarity, and serious academic support.
           </h2>
@@ -586,14 +563,14 @@ export default function HomePage() {
           <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
             <Link
               href="/auth/sign-up"
-              className="rounded-xl bg-amber-600 px-7 py-4 text-sm font-bold text-white hover:bg-amber-700"
+              className="rounded-xl bg-[#8F1F36] px-7 py-4 text-sm font-bold text-white hover:bg-[#6F1729]"
             >
               Parent Sign Up
             </Link>
 
             <Link
               href="/educators"
-              className="rounded-xl border border-slate-300 bg-white px-7 py-4 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-7 py-4 text-sm font-semibold text-[#156B96] hover:bg-[#EEF9FF]"
             >
               View Tutors
             </Link>
