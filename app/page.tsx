@@ -8,24 +8,28 @@ const curriculumCards = [
   {
     title: "Cambridge IGCSE",
     href: "/online-cambridge-igcse-tutors",
+    image: "/cambridge.png",
     description:
       "Structured support for learners building strong foundations and preparing for Cambridge IGCSE examinations.",
   },
   {
     title: "Edexcel IGCSE",
     href: "/edexcel-igcse-tutors",
+    image: "/edexcel.png",
     description:
       "Focused online tutoring for Edexcel learners who need clarity, subject mastery, and exam confidence.",
   },
   {
     title: "A Levels",
     href: "/a-level-online-tutors",
+    image: "/alevel.png",
     description:
       "Advanced subject support for serious learners preparing for higher-level academic performance.",
   },
   {
     title: "IB",
     href: "/ib-online-tutors",
+    image: "/ib.png",
     description:
       "Conceptual, structured support for International Baccalaureate learners across demanding subjects.",
   },
@@ -275,10 +279,14 @@ export default function HomePage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className="group rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-[#379CD6]/35 hover:shadow-lg"
+                className="group rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-[#379CD6]/35 hover:shadow-lg"
               >
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF9FF] text-lg font-black text-[#156B96]">
-                  {item.title.charAt(0)}
+                <div className="flex h-44 items-center justify-center overflow-hidden rounded-2xl border border-[#379CD6]/15 bg-white">
+                  <img
+                    src={item.image}
+                    alt={`${item.title} online tutoring`}
+                    className="h-full w-full object-contain object-center p-6 transition duration-300 group-hover:scale-[1.03]"
+                  />
                 </div>
 
                 <h3 className="mt-6 text-xl font-bold text-slate-950">
@@ -400,8 +408,8 @@ export default function HomePage() {
               </p>
 
               <div className="mt-6 rounded-2xl border border-[#379CD6]/20 bg-[#F7FCFF] p-4 text-sm font-semibold text-[#156B96]">
-                Alkebula does not offer CBC tutoring. Our focus is international
-                curricula with structured online academic support.
+                Our focus is international curricula with structured online
+                academic support.
               </div>
             </div>
 
