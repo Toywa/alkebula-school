@@ -575,11 +575,11 @@ export default function EducatorDashboardPage() {
             </Link>
 
             <Link
-              href="/educator/subjects"
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Edit Subjects & Rates
-            </Link>
+  href="/educator/public-profile"
+  className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-5 py-3 text-sm font-semibold text-[#156B96] hover:bg-[#EEF9FF]"
+>
+  Edit Public Profile
+</Link>
 
             <Link
               href="/educator/availability"

@@ -1,10 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type SubjectRate = {
   curriculum_level: string;
+  class_level?: string | null;
+  student_level?: string | null;
+  level?: string | null;
   subject: string;
   hourly_rate: number;
 };
@@ -20,6 +24,14 @@ type Tutor = {
   subject_rates?: SubjectRate[] | null;
   hourly_rate: number | null;
   profile_photo_url: string | null;
+
+  qualification?: string | null;
+  qualifications?: string | null;
+  years_of_experience?: number | null;
+  experience_years?: number | null;
+  class_levels?: string[] | null;
+  student_levels?: string[] | null;
+  timezone?: string | null;
 };
 
 type Slot = {
@@ -31,7 +43,32 @@ type Slot = {
   is_booked: boolean;
 };
 
-export default function TutorProfilePage({ params }: { params: { id: string } }) {
+function truncateBio(text?: string | null, max = 200) {
+  if (!text) return "Approved Alkebula School educator.";
+  if (text.length <= max) return text;
+  return `${text.slice(0, max).trim()}...`;
+}
+
+function getQualification(tutor: Tutor) {
+  return tutor.qualification || tutor.qualifications || "Qualification pending update";
+}
+
+function getExperience(tutor: Tutor) {
+  const years = tutor.years_of_experience ?? tutor.experience_years;
+
+  if (!years) return "Experience pending update";
+  return `${years} ${years === 1 ? "year" : "years"} experience`;
+}
+
+function getRateLevel(item: SubjectRate) {
+  return item.class_level || item.student_level || item.level || "Level on request";
+}
+
+export default function TutorProfilePage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const [tutor, setTutor] = useState<Tutor | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +84,7 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
 
   useEffect(() => {
     loadTutor();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function formatDate(date: string) {
@@ -121,6 +159,7 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
 
     return (tutor?.subjects || []).map((subject) => ({
       curriculum_level: tutor?.curricula?.[0] || "Not specified",
+      class_level: tutor?.class_levels?.[0] || tutor?.student_levels?.[0] || null,
       subject,
       hourly_rate: Number(tutor?.hourly_rate || 0),
     }));
@@ -155,7 +194,9 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
       }
 
       if (!tutor) throw new Error("Tutor profile missing.");
-      if (!selectedSubjectRate) throw new Error("Please select a subject package.");
+      if (!selectedSubjectRate) {
+        throw new Error("Please select a subject package.");
+      }
 
       const selectedSlot = slots.find((slot) => slot.id === selectedSlotId);
 
@@ -202,7 +243,9 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
   if (loading) {
     return (
       <main className="min-h-screen bg-white px-6 py-20 text-slate-900">
-        Loading tutor profile...
+        <div className="mx-auto max-w-7xl">
+          <p className="text-slate-600">Loading tutor profile...</p>
+        </div>
       </main>
     );
   }
@@ -210,99 +253,250 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
   if (!tutor) {
     return (
       <main className="min-h-screen bg-white px-6 py-20 text-slate-900">
-        <p className="text-red-600">{errorMessage || "Tutor not found."}</p>
+        <div className="mx-auto max-w-7xl rounded-2xl border border-red-200 bg-red-50 p-6">
+          <p className="font-semibold text-red-700">
+            {errorMessage || "Tutor not found."}
+          </p>
+        </div>
       </main>
     );
   }
 
   const imageUrl = `/api/tutor-photo?id=${tutor.id}`;
+  const shortBio = truncateBio(tutor.bio, 200);
 
   return (
-    <main className="min-h-screen bg-white text-slate-900">
-      <section className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
-        <div className="grid gap-10 lg:grid-cols-[360px_1fr]">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            {imageUrl ? (
-              <div className="flex h-96 w-full items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+    <main className="min-h-screen overflow-x-hidden bg-white text-slate-900">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,#FFF5F7,transparent_24%),radial-gradient(circle_at_top_right,#EEF9FF,transparent_34%),#FFFFFF]">
+        <div className="absolute right-0 top-16 hidden h-80 w-80 rounded-full bg-[#EEF9FF] blur-3xl lg:block" />
+        <div className="absolute bottom-0 left-0 hidden h-72 w-72 rounded-full bg-[#FFF5F7] blur-3xl lg:block" />
+
+        <div className="relative mx-auto max-w-7xl px-6 py-14 lg:px-8 lg:py-18">
+          <div className="grid gap-10 lg:grid-cols-[340px_1fr] lg:items-center">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70">
+              <div className="flex h-96 w-full items-center justify-center overflow-hidden rounded-3xl border border-slate-200 bg-white">
                 <img
                   src={imageUrl}
                   alt={tutor.full_name}
                   className="h-full w-full object-contain object-center"
                 />
               </div>
-            ) : (
-              <div className="flex h-96 items-center justify-center rounded-2xl bg-slate-100 text-slate-500">
-                No profile photo
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+                Approved Alkebula Tutor
+              </p>
+
+              <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">
+                {tutor.full_name}
+              </h1>
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <span className="rounded-full border border-[#379CD6]/20 bg-[#F7FCFF] px-4 py-2 text-sm font-bold text-[#156B96]">
+                  {getQualification(tutor)}
+                </span>
+
+                <span className="rounded-full border border-[#379CD6]/20 bg-[#F7FCFF] px-4 py-2 text-sm font-bold text-[#156B96]">
+                  {getExperience(tutor)}
+                </span>
+
+                <span className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">
+                  {tutor.city || "Available online"}
+                </span>
               </div>
-            )}
 
-            <h1 className="mt-6 text-3xl font-bold">{tutor.full_name}</h1>
+              <p className="mt-6 max-w-3xl text-base leading-8 text-slate-600">
+                {shortBio}
+              </p>
 
-            <p className="mt-2 text-slate-600">
-              {tutor.city || "Available online"}
-            </p>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <a
+                  href="#booking"
+                  className="rounded-xl bg-[#8F1F36] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
+                >
+                  Book Available Slot
+                </a>
 
-            <p className="mt-4 text-sm text-slate-600">
-              Rates vary by subject and curriculum.
-            </p>
+                <Link
+                  href={`/enquire/${tutor.id}`}
+                  className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-6 py-3 text-sm font-semibold text-[#156B96] shadow-sm transition hover:bg-[#EEF9FF]"
+                >
+                  Request This Tutor
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-7xl px-6 py-14 lg:px-8 lg:py-20">
+        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr]">
+          <div className="space-y-6">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+                Tutor Summary
+              </p>
+
+              <div className="mt-5 grid gap-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Qualification
+                  </p>
+                  <p className="mt-2 font-semibold text-slate-900">
+                    {getQualification(tutor)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Experience
+                  </p>
+                  <p className="mt-2 font-semibold text-slate-900">
+                    {getExperience(tutor)}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Curricula
+                  </p>
+                  <p className="mt-2 font-semibold text-slate-900">
+                    {tutor.curricula?.join(", ") || "Available on request"}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+                    Subjects
+                  </p>
+                  <p className="mt-2 font-semibold text-slate-900">
+                    {tutor.subjects?.join(", ") || "Available on request"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[2rem] border border-[#379CD6]/15 bg-[#F7FCFF] p-6">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#156B96]">
+                Easier Parent Matching
+              </p>
+
+              <p className="mt-4 text-sm leading-7 text-slate-600">
+                If this tutor has not opened a suitable slot, you can still
+                request them. Share your preferred days, time window, subject,
+                and learner level so Alkebula can help coordinate the next step.
+              </p>
+
+              <Link
+                href={`/enquire/${tutor.id}`}
+                className="mt-5 inline-flex rounded-xl bg-white px-5 py-3 text-sm font-bold text-[#8F1F36] shadow-sm transition hover:bg-[#EEF9FF]"
+              >
+                Request This Tutor
+              </Link>
+            </div>
           </div>
 
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
-              Approved Educator
-            </p>
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm lg:p-8">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+                Subjects, Levels and Rates
+              </p>
 
-            <h2 className="mt-3 text-4xl font-bold">Book a Lesson</h2>
+              <h2 className="mt-3 text-3xl font-bold text-slate-950">
+                Available subject packages.
+              </h2>
 
-            <p className="mt-4 max-w-3xl leading-8 text-slate-600">
-              {tutor.bio || "Approved Alkebula School educator."}
-            </p>
-
-            <div className="mt-6 rounded-2xl border border-slate-200 p-5">
-              <p className="font-semibold">Available Subject Packages</p>
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                Rates may vary by subject, curriculum and learner level.
+              </p>
 
               {subjectRateOptions.length === 0 ? (
-                <p className="mt-2 text-slate-600">No subject rates listed.</p>
+                <p className="mt-6 text-slate-600">No subject rates listed.</p>
               ) : (
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {subjectRateOptions.map((item, index) => (
-                    <button
-                      key={`${item.curriculum_level}-${item.subject}-${index}`}
-                      type="button"
-                      onClick={() => setSelectedSubjectRateIndex(index)}
-                      className={`rounded-xl border p-4 text-left text-sm transition ${
-                        selectedSubjectRateIndex === index
-                          ? "border-slate-900 bg-slate-900 text-white"
-                          : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span className="block font-semibold">{item.subject}</span>
-                      <span className="mt-1 block text-xs opacity-80">
-                        {item.curriculum_level}
-                      </span>
-                      <span className="mt-2 block font-bold">
-                        USD {item.hourly_rate}/hour
-                      </span>
-                    </button>
-                  ))}
+                <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
+                  <div className="hidden grid-cols-4 bg-[#F7FCFF] px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#156B96] md:grid">
+                    <span>Curriculum</span>
+                    <span>Class / Level</span>
+                    <span>Subject</span>
+                    <span>Rate</span>
+                  </div>
+
+                  <div className="divide-y divide-slate-200 bg-white">
+                    {subjectRateOptions.map((item, index) => (
+                      <button
+                        key={`${item.curriculum_level}-${item.subject}-${index}`}
+                        type="button"
+                        onClick={() => setSelectedSubjectRateIndex(index)}
+                        className={`grid w-full gap-3 px-4 py-4 text-left text-sm transition md:grid-cols-4 ${
+                          selectedSubjectRateIndex === index
+                            ? "bg-[#FFF5F7]"
+                            : "bg-white hover:bg-[#F7FCFF]"
+                        }`}
+                      >
+                        <span>
+                          <span className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-400 md:hidden">
+                            Curriculum
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {item.curriculum_level}
+                          </span>
+                        </span>
+
+                        <span>
+                          <span className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-400 md:hidden">
+                            Class / Level
+                          </span>
+                          <span className="text-slate-700">
+                            {getRateLevel(item)}
+                          </span>
+                        </span>
+
+                        <span>
+                          <span className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-400 md:hidden">
+                            Subject
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {item.subject}
+                          </span>
+                        </span>
+
+                        <span>
+                          <span className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-400 md:hidden">
+                            Rate
+                          </span>
+                          <span className="font-bold text-[#8F1F36]">
+                            USD {item.hourly_rate}/hr
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
             <form
+              id="booking"
               onSubmit={handleBooking}
-              className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-6"
+              className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm lg:p-8"
             >
-              <h3 className="text-2xl font-semibold">Request Booking</h3>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+                Book a Lesson
+              </p>
+
+              <h3 className="mt-3 text-3xl font-bold text-slate-950">
+                Book an available slot.
+              </h3>
 
               {selectedSubjectRate ? (
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm">
-                  <p className="font-semibold">Selected Lesson</p>
-                  <p className="mt-1 text-slate-600">
+                <div className="mt-5 rounded-2xl border border-[#379CD6]/15 bg-[#F7FCFF] p-4 text-sm">
+                  <p className="font-bold text-[#156B96]">Selected Lesson</p>
+                  <p className="mt-1 text-slate-700">
                     {selectedSubjectRate.subject} —{" "}
                     {selectedSubjectRate.curriculum_level}
                   </p>
-                  <p className="mt-2 font-bold">
+                  <p className="mt-2 font-bold text-[#8F1F36]">
                     USD {selectedSubjectRate.hourly_rate}/hour
                   </p>
                 </div>
@@ -314,31 +508,47 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
                   value={parentEmail}
                   readOnly
                   placeholder="Parent email"
-                  className="rounded-xl border border-slate-300 bg-slate-100 px-4 py-3 text-slate-600"
+                  className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-slate-600"
                 />
 
                 <input
                   value={studentName}
                   onChange={(e) => setStudentName(e.target.value)}
                   placeholder="Student name"
-                  className="rounded-xl border border-slate-300 px-4 py-3"
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
                   required
                 />
               </div>
 
               {!parentEmail ? (
-                <p className="mt-3 text-sm text-amber-700">
+                <p className="mt-3 text-sm font-semibold text-[#8F1F36]">
                   Please sign in before booking a lesson.
                 </p>
               ) : null}
 
               <div className="mt-6">
-                <p className="mb-3 text-sm font-semibold">Choose a date</p>
+                <p className="mb-3 text-sm font-semibold text-slate-900">
+                  Choose a date
+                </p>
 
                 {availableDates.length === 0 ? (
-                  <p className="text-sm text-amber-700">
-                    This tutor has not published available slots yet.
-                  </p>
+                  <div className="rounded-2xl border border-[#379CD6]/20 bg-[#F7FCFF] p-5">
+                    <p className="text-sm font-semibold text-[#156B96]">
+                      This tutor has not published available slots yet.
+                    </p>
+
+                    <p className="mt-2 text-sm leading-7 text-slate-600">
+                      You can still request this tutor and share your preferred
+                      schedule. Alkebula will help coordinate availability.
+                    </p>
+
+                    <Link
+                      href={`/enquire/${tutor.id}`}
+                      className="mt-4 inline-flex rounded-xl bg-[#8F1F36] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#6F1729]"
+                    >
+                      Request This Tutor
+                    </Link>
+                  </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {availableDates.map((date) => (
@@ -351,13 +561,16 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
                         }}
                         className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
                           selectedDate === date
-                            ? "border-slate-900 bg-slate-900 text-white"
-                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                            ? "border-[#8F1F36] bg-[#8F1F36] text-white"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-[#F7FCFF]"
                         }`}
                       >
-                        <span className="block font-semibold">{formatDate(date)}</span>
+                        <span className="block font-semibold">
+                          {formatDate(date)}
+                        </span>
                         <span className="text-xs opacity-80">
-                          {slots.filter((slot) => slot.date === date).length} slots
+                          {slots.filter((slot) => slot.date === date).length}{" "}
+                          slots
                         </span>
                       </button>
                     ))}
@@ -367,7 +580,9 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
 
               {selectedDate && slotsForSelectedDate.length > 0 ? (
                 <div className="mt-6">
-                  <p className="mb-3 text-sm font-semibold">Choose a time</p>
+                  <p className="mb-3 text-sm font-semibold text-slate-900">
+                    Choose a time
+                  </p>
 
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {slotsForSelectedDate.map((slot) => (
@@ -377,11 +592,12 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
                         onClick={() => setSelectedSlotId(slot.id)}
                         className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
                           selectedSlotId === slot.id
-                            ? "border-emerald-700 bg-emerald-700 text-white"
-                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                            ? "border-[#156B96] bg-[#156B96] text-white"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-[#F7FCFF]"
                         }`}
                       >
-                        {formatTime(slot.start_time)} - {formatTime(slot.end_time)}
+                        {formatTime(slot.start_time)} -{" "}
+                        {formatTime(slot.end_time)}
                       </button>
                     ))}
                   </div>
@@ -391,13 +607,22 @@ export default function TutorProfilePage({ params }: { params: { id: string } })
               <button
                 type="submit"
                 disabled={booking || slots.length === 0 || !selectedSubjectRate}
-                className="mt-6 rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                className="mt-6 rounded-xl bg-[#8F1F36] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#6F1729] disabled:opacity-60"
               >
                 {booking ? "Booking..." : "Book Lesson"}
               </button>
 
-              {message ? <p className="mt-4 text-green-600">{message}</p> : null}
-              {errorMessage ? <p className="mt-4 text-red-600">{errorMessage}</p> : null}
+              {message ? (
+                <p className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-semibold text-green-700">
+                  {message}
+                </p>
+              ) : null}
+
+              {errorMessage ? (
+                <p className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+                  {errorMessage}
+                </p>
+              ) : null}
             </form>
           </div>
         </div>
