@@ -43,6 +43,22 @@ type Slot = {
   is_booked: boolean;
 };
 
+function getPublicTutorName(fullName?: string | null) {
+  if (!fullName) return "Alkebula Tutor";
+
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+
+  if (parts.length === 0) return "Alkebula Tutor";
+
+  const firstName = parts[0];
+  const lastInitial =
+    parts.length > 1
+      ? `${parts[parts.length - 1].charAt(0).toUpperCase()}.`
+      : "";
+
+  return [firstName, lastInitial].filter(Boolean).join(" ");
+}
+
 function truncateBio(text?: string | null, max = 200) {
   if (!text) return "Approved Alkebula School educator.";
   if (text.length <= max) return text;
@@ -50,7 +66,11 @@ function truncateBio(text?: string | null, max = 200) {
 }
 
 function getQualification(tutor: Tutor) {
-  return tutor.qualification || tutor.qualifications || "Qualification pending update";
+  return (
+    tutor.qualification ||
+    tutor.qualifications ||
+    "Qualification pending update"
+  );
 }
 
 function getExperience(tutor: Tutor) {
@@ -264,6 +284,7 @@ export default function TutorProfilePage({
 
   const imageUrl = `/api/tutor-photo?id=${tutor.id}`;
   const shortBio = truncateBio(tutor.bio, 200);
+  const publicTutorName = getPublicTutorName(tutor.full_name);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-white text-slate-900">
@@ -271,13 +292,13 @@ export default function TutorProfilePage({
         <div className="absolute right-0 top-16 hidden h-80 w-80 rounded-full bg-[#EEF9FF] blur-3xl lg:block" />
         <div className="absolute bottom-0 left-0 hidden h-72 w-72 rounded-full bg-[#FFF5F7] blur-3xl lg:block" />
 
-        <div className="relative mx-auto max-w-7xl px-6 py-14 lg:px-8 lg:py-18">
+        <div className="relative mx-auto max-w-7xl px-6 py-14 lg:px-8 lg:py-20">
           <div className="grid gap-10 lg:grid-cols-[340px_1fr] lg:items-center">
             <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70">
               <div className="flex h-96 w-full items-center justify-center overflow-hidden rounded-3xl border border-slate-200 bg-white">
                 <img
                   src={imageUrl}
-                  alt={tutor.full_name}
+                  alt={publicTutorName}
                   className="h-full w-full object-contain object-center"
                 />
               </div>
@@ -289,7 +310,7 @@ export default function TutorProfilePage({
               </p>
 
               <h1 className="mt-4 text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">
-                {tutor.full_name}
+                {publicTutorName}
               </h1>
 
               <div className="mt-5 flex flex-wrap gap-3">
