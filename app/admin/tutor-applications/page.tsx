@@ -5,6 +5,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type SubjectRate = {
   curriculum_level: string;
+  class_level?: string | null;
+  student_level?: string | null;
+  level?: string | null;
   subject: string;
   hourly_rate: number;
 };
@@ -15,6 +18,8 @@ type Application = {
   email: string;
   phone: string;
   city: string;
+  qualification?: string | null;
+  years_of_experience?: number | null;
   hourly_rate?: number | null;
   proposed_public_bio: string;
   subjects: string[];
@@ -35,10 +40,15 @@ type Application = {
   degree_certificate_url?: string | null;
   high_school_certificate_url?: string | null;
 
-  public_profile_photo_url?: string | null;
+  signed_profile_photo_url?: string | null;
   signed_cv_url?: string | null;
   signed_degree_certificate_url?: string | null;
   signed_high_school_certificate_url?: string | null;
+
+  declaration_no_criminal_past?: boolean | null;
+  declaration_internet_15mbps?: boolean | null;
+  declaration_has_i5_laptop?: boolean | null;
+  declaration_information_true?: boolean | null;
 };
 
 type InterviewFormState = {
@@ -48,11 +58,12 @@ type InterviewFormState = {
 
 const ADMIN_ALLOWED_EMAILS = ["admin@alkebulaschool.com"];
 
-function getPublicProfilePhotoUrl(path?: string | null) {
-  if (!path) return null;
-  if (path.startsWith("http")) return path;
+function getRateLevel(item: SubjectRate) {
+  return item.class_level || item.student_level || item.level || "Level not specified";
+}
 
-  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
+function yesNo(value?: boolean | null) {
+  return value ? "Yes" : "No";
 }
 
 export default function TutorApplicationsAdminPage() {
@@ -100,64 +111,53 @@ export default function TutorApplicationsAdminPage() {
     if (authorized) loadApplications();
   }, [authorized]);
 
-  async function createDocumentSignedUrl(path?: string | null) {
-    if (!path) return null;
-
-    const supabase = getSupabaseBrowserClient();
-
-    const { data, error } = await supabase.storage
-      .from("educator-documents")
-      .createSignedUrl(path, 60 * 60);
-
-    if (error) {
-      console.error("Signed URL error:", error.message);
-      return null;
-    }
-
-    return data.signedUrl;
-  }
-
   async function loadApplications() {
     setLoading(true);
     setErrorMessage("");
 
-    const res = await fetch("/api/educator-applications");
-    const data = await res.json();
+    try {
+      const supabase = getSupabaseBrowserClient();
 
-    if (!res.ok) {
-      setErrorMessage(data.error || "Failed to load applications");
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error("Admin session expired. Please sign in again.");
+      }
+
+      const res = await fetch("/api/admin/tutor-applications", {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load applications.");
+      }
+
+      const loadedApplications: Application[] = data.data || [];
+
+      setApplications(loadedApplications);
+
+      const initialForms: Record<string, InterviewFormState> = {};
+      loadedApplications.forEach((app) => {
+        initialForms[app.id] = {
+          interview_at: "",
+          interview_notes: "",
+        };
+      });
+
+      setInterviewForms(initialForms);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Failed to load applications."
+      );
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const rawApplications: Application[] = data.data || [];
-
-    const loadedApplications = await Promise.all(
-      rawApplications.map(async (app) => ({
-        ...app,
-        public_profile_photo_url: getPublicProfilePhotoUrl(app.profile_photo_url),
-        signed_cv_url: await createDocumentSignedUrl(app.cv_url),
-        signed_degree_certificate_url: await createDocumentSignedUrl(
-          app.degree_certificate_url
-        ),
-        signed_high_school_certificate_url: await createDocumentSignedUrl(
-          app.high_school_certificate_url
-        ),
-      }))
-    );
-
-    setApplications(loadedApplications);
-
-    const initialForms: Record<string, InterviewFormState> = {};
-    loadedApplications.forEach((app) => {
-      initialForms[app.id] = {
-        interview_at: "",
-        interview_notes: "",
-      };
-    });
-
-    setInterviewForms(initialForms);
-    setLoading(false);
   }
 
   function updateInterviewForm(
@@ -186,31 +186,33 @@ export default function TutorApplicationsAdminPage() {
 
       const supabase = getSupabaseBrowserClient();
 
-const {
-  data: { session },
-} = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-if (!session?.access_token) {
-  throw new Error("Admin session expired. Please sign in again.");
-}
+      if (!session?.access_token) {
+        throw new Error("Admin session expired. Please sign in again.");
+      }
 
-const res = await fetch(`/api/educator-applications/${id}`, {
-  method: "PATCH",
-  headers: {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${session.access_token}`,
-  },
-  body: JSON.stringify(payload),
-});
+      const res = await fetch(`/api/educator-applications/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || "Update failed");
+      if (!res.ok) {
+        throw new Error(data.error || "Update failed.");
+      }
 
       setMessage(successMessage);
       await loadApplications();
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Update failed");
+      setErrorMessage(error instanceof Error ? error.message : "Update failed.");
     } finally {
       setActingId("");
     }
@@ -229,8 +231,7 @@ const res = await fetch(`/api/educator-applications/${id}`, {
       {
         action: "schedule_interview",
         interview_at: new Date(form.interview_at).toISOString(),
-        interview_notes:
-          form.interview_notes || "Interview scheduled by admin.",
+        interview_notes: form.interview_notes || "Interview scheduled by admin.",
       },
       "Interview scheduled."
     );
@@ -259,17 +260,32 @@ const res = await fetch(`/api/educator-applications/${id}`, {
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
-      <section className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
-        <h1 className="text-4xl font-bold">Tutor Applications</h1>
+      <section className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-20">
+        <div className="rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,#FFF5F7,transparent_24%),radial-gradient(circle_at_top_right,#EEF9FF,transparent_34%),#FFFFFF] p-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+            Admin Review
+          </p>
 
-        <p className="mt-4 max-w-3xl text-slate-600">
-          Review tutor applications, uploaded documents, references, subject
-          rates, interview scheduling, and approval status.
-        </p>
+          <h1 className="mt-3 text-4xl font-bold text-slate-950">
+            Tutor Applications
+          </h1>
 
-        {message ? <p className="mt-4 text-green-600">{message}</p> : null}
+          <p className="mt-4 max-w-3xl leading-8 text-slate-600">
+            Review tutor applications, uploaded documents, references, subject
+            rates, interview scheduling, and approval status.
+          </p>
+        </div>
+
+        {message ? (
+          <div className="mt-6 rounded-xl border border-green-200 bg-green-50 p-4 text-green-700">
+            {message}
+          </div>
+        ) : null}
+
         {errorMessage ? (
-          <p className="mt-4 text-red-600">{errorMessage}</p>
+          <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
+            {errorMessage}
+          </div>
         ) : null}
 
         {loading ? (
@@ -279,94 +295,150 @@ const res = await fetch(`/api/educator-applications/${id}`, {
             <p className="text-lg font-medium">No tutor applications yet.</p>
           </div>
         ) : (
-          <div className="mt-8 space-y-6">
+          <div className="mt-8 space-y-8">
             {applications.map((app) => (
               <div
                 key={app.id}
-                className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
               >
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div className="flex gap-4">
-                    {app.public_profile_photo_url ? (
+                <div className="flex flex-wrap items-start justify-between gap-6">
+                  <div className="flex flex-wrap gap-5">
+                    {app.signed_profile_photo_url ? (
                       <img
-                        src={app.public_profile_photo_url}
+                        src={app.signed_profile_photo_url}
                         alt={app.full_name}
-                        className="h-28 w-28 rounded-2xl object-cover ring-1 ring-slate-200"
+                        className="h-32 w-32 rounded-2xl object-cover ring-1 ring-slate-200"
                       />
                     ) : (
-                      <div className="flex h-28 w-28 items-center justify-center rounded-2xl bg-slate-100 text-xs text-slate-500">
+                      <div className="flex h-32 w-32 items-center justify-center rounded-2xl bg-slate-100 text-xs text-slate-500">
                         No photo
                       </div>
                     )}
 
                     <div>
-                      <h2 className="text-2xl font-semibold">
+                      <h2 className="text-2xl font-bold text-slate-950">
                         {app.full_name}
                       </h2>
+
                       <p className="mt-1 text-sm text-slate-600">
                         {app.email}
                       </p>
+
                       <p className="text-sm text-slate-600">{app.phone}</p>
-                      <p className="text-sm text-slate-600">
-                        City: {app.city || "—"}
+
+                      <p className="mt-3 text-sm text-slate-600">
+                        City:{" "}
+                        <span className="font-semibold text-slate-900">
+                          {app.city || "—"}
+                        </span>
                       </p>
+
+                      <p className="text-sm text-slate-600">
+                        Qualification:{" "}
+                        <span className="font-semibold text-slate-900">
+                          {app.qualification || "—"}
+                        </span>
+                      </p>
+
+                      <p className="text-sm text-slate-600">
+                        Experience:{" "}
+                        <span className="font-semibold text-slate-900">
+                          {app.years_of_experience
+                            ? `${app.years_of_experience} years`
+                            : "—"}
+                        </span>
+                      </p>
+
                       <p className="text-sm text-slate-600">
                         Base / lowest rate:{" "}
-                        <span className="font-semibold">
-                          {app.hourly_rate ? `$${app.hourly_rate}/hour` : "—"}
+                        <span className="font-semibold text-slate-900">
+                          {app.hourly_rate ? `USD ${app.hourly_rate}/hour` : "—"}
                         </span>
                       </p>
                     </div>
                   </div>
 
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
+                  <span className="rounded-full border border-[#379CD6]/20 bg-[#F7FCFF] px-4 py-2 text-sm font-bold text-[#156B96]">
                     {app.status}
                   </span>
                 </div>
 
-                <div className="mt-5 grid gap-3 text-sm text-slate-700 md:grid-cols-2">
-                  <div>
-                    <span className="font-medium">Bio:</span>{" "}
+                <div className="mt-6 grid gap-4 text-sm text-slate-700 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <span className="font-bold text-slate-950">Bio:</span>{" "}
                     {app.proposed_public_bio || "—"}
                   </div>
 
-                  <div>
-                    <span className="font-medium">Applied:</span>{" "}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <span className="font-bold text-slate-950">Applied:</span>{" "}
                     {app.created_at
                       ? new Date(app.created_at).toLocaleString()
                       : "—"}
                   </div>
 
-                  <div>
-                    <span className="font-medium">Subjects:</span>{" "}
-                    {app.subjects?.join(", ") || "—"}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <span className="font-bold text-slate-950">Subjects:</span>{" "}
+                    {app.subjects?.length ? app.subjects.join(", ") : "—"}
                   </div>
 
-                  <div>
-                    <span className="font-medium">Curricula:</span>{" "}
-                    {app.curricula?.join(", ") || "—"}
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <span className="font-bold text-slate-950">Curricula:</span>{" "}
+                    {app.curricula?.length ? app.curricula.join(", ") : "—"}
                   </div>
                 </div>
 
-                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <h3 className="font-semibold">Subject Rates</h3>
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-[#F7FCFF] p-5">
+                  <h3 className="text-lg font-bold text-slate-950">
+                    Subject Rates
+                  </h3>
 
                   {app.subject_rates && app.subject_rates.length > 0 ? (
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      {app.subject_rates.map((item, index) => (
-                        <div
-                          key={`${item.curriculum_level}-${item.subject}-${index}`}
-                          className="rounded-xl border border-slate-200 bg-white p-4 text-sm"
-                        >
-                          <p className="font-semibold">{item.subject}</p>
-                          <p className="mt-1 text-slate-600">
-                            {item.curriculum_level}
-                          </p>
-                          <p className="mt-2 font-semibold text-slate-900">
-                            USD {item.hourly_rate}/hour
-                          </p>
-                        </div>
-                      ))}
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                      <div className="hidden grid-cols-4 bg-white px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] text-[#156B96] md:grid">
+                        <span>Curriculum</span>
+                        <span>Class / Level</span>
+                        <span>Subject</span>
+                        <span>Rate</span>
+                      </div>
+
+                      <div className="divide-y divide-slate-200">
+                        {app.subject_rates.map((item, index) => (
+                          <div
+                            key={`${item.curriculum_level}-${item.subject}-${index}`}
+                            className="grid gap-3 px-4 py-4 text-sm md:grid-cols-4"
+                          >
+                            <span>
+                              <span className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-400 md:hidden">
+                                Curriculum
+                              </span>
+                              {item.curriculum_level || "—"}
+                            </span>
+
+                            <span>
+                              <span className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-400 md:hidden">
+                                Class / Level
+                              </span>
+                              {getRateLevel(item)}
+                            </span>
+
+                            <span>
+                              <span className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-400 md:hidden">
+                                Subject
+                              </span>
+                              <strong>{item.subject || "—"}</strong>
+                            </span>
+
+                            <span>
+                              <span className="block text-xs font-bold uppercase tracking-[0.12em] text-slate-400 md:hidden">
+                                Rate
+                              </span>
+                              <strong className="text-[#8F1F36]">
+                                USD {item.hourly_rate}/hour
+                              </strong>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ) : (
                     <p className="mt-3 text-sm text-slate-600">
@@ -376,39 +448,17 @@ const res = await fetch(`/api/educator-applications/${id}`, {
                 </div>
 
                 <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <h3 className="font-semibold">Professional References</h3>
-
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
-                      <p className="font-semibold">Referee 1</p>
-                      <p className="mt-2">
-                        Name: {app.referee_1_name || "—"}
-                      </p>
-                      <p>Email: {app.referee_1_email || "—"}</p>
-                      <p>Phone: {app.referee_1_phone || "—"}</p>
-                    </div>
-
-                    <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
-                      <p className="font-semibold">Referee 2</p>
-                      <p className="mt-2">
-                        Name: {app.referee_2_name || "—"}
-                      </p>
-                      <p>Email: {app.referee_2_email || "—"}</p>
-                      <p>Phone: {app.referee_2_phone || "—"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <h3 className="font-semibold">Uploaded Documents</h3>
+                  <h3 className="text-lg font-bold text-slate-950">
+                    Uploaded Documents
+                  </h3>
 
                   <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                    {app.public_profile_photo_url ? (
+                    {app.signed_profile_photo_url ? (
                       <a
-                        href={app.public_profile_photo_url}
+                        href={app.signed_profile_photo_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100"
                       >
                         View Profile Photo
                       </a>
@@ -419,7 +469,7 @@ const res = await fetch(`/api/educator-applications/${id}`, {
                         href={app.signed_cv_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100"
                       >
                         View CV
                       </a>
@@ -430,7 +480,7 @@ const res = await fetch(`/api/educator-applications/${id}`, {
                         href={app.signed_degree_certificate_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100"
                       >
                         View University Certificate
                       </a>
@@ -441,16 +491,62 @@ const res = await fetch(`/api/educator-applications/${id}`, {
                         href={app.signed_high_school_certificate_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 hover:bg-slate-100"
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100"
                       >
                         View High School Certificate
                       </a>
                     ) : null}
                   </div>
+
+                  {!app.signed_profile_photo_url &&
+                  !app.signed_cv_url &&
+                  !app.signed_degree_certificate_url &&
+                  !app.signed_high_school_certificate_url ? (
+                    <p className="mt-3 text-sm text-red-600">
+                      No accessible document links found for this application.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  <h3 className="font-semibold">Schedule Interview</h3>
+                  <h3 className="text-lg font-bold text-slate-950">
+                    Professional References
+                  </h3>
+
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+                      <p className="font-bold text-slate-950">Referee 1</p>
+                      <p className="mt-2">Name: {app.referee_1_name || "—"}</p>
+                      <p>Email: {app.referee_1_email || "—"}</p>
+                      <p>Phone: {app.referee_1_phone || "—"}</p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm">
+                      <p className="font-bold text-slate-950">Referee 2</p>
+                      <p className="mt-2">Name: {app.referee_2_name || "—"}</p>
+                      <p>Email: {app.referee_2_email || "—"}</p>
+                      <p>Phone: {app.referee_2_phone || "—"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="text-lg font-bold text-slate-950">
+                    Declarations
+                  </h3>
+
+                  <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
+                    <p>No criminal past: {yesNo(app.declaration_no_criminal_past)}</p>
+                    <p>15 Mbps internet: {yesNo(app.declaration_internet_15mbps)}</p>
+                    <p>Has i5 laptop: {yesNo(app.declaration_has_i5_laptop)}</p>
+                    <p>Information true: {yesNo(app.declaration_information_true)}</p>
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <h3 className="text-lg font-bold text-slate-950">
+                    Schedule Interview
+                  </h3>
 
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <div>
@@ -496,7 +592,7 @@ const res = await fetch(`/api/educator-applications/${id}`, {
                   <button
                     disabled={actingId === app.id}
                     onClick={() => scheduleInterview(app)}
-                    className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 disabled:opacity-50"
+                    className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-5 py-3 text-sm font-bold text-[#156B96] disabled:opacity-50"
                   >
                     {actingId === app.id ? "Working..." : "Schedule Interview"}
                   </button>
@@ -514,7 +610,7 @@ const res = await fetch(`/api/educator-applications/${id}`, {
                         "Application rejected."
                       )
                     }
-                    className="rounded-xl border border-red-300 px-5 py-3 text-sm font-semibold text-red-700 disabled:opacity-50"
+                    className="rounded-xl border border-red-300 bg-white px-5 py-3 text-sm font-bold text-red-700 disabled:opacity-50"
                   >
                     {actingId === app.id ? "Working..." : "Reject"}
                   </button>
@@ -528,7 +624,7 @@ const res = await fetch(`/api/educator-applications/${id}`, {
                         "Application approved and tutor added to directory."
                       )
                     }
-                    className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white disabled:opacity-50"
+                    className="rounded-xl bg-[#8F1F36] px-5 py-3 text-sm font-bold text-white disabled:opacity-50"
                   >
                     {actingId === app.id ? "Working..." : "Approve"}
                   </button>
