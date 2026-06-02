@@ -6,6 +6,8 @@ import {
   sendTutorRejectedEmail,
 } from "@/lib/email";
 
+export const dynamic = "force-dynamic";
+
 const ADMIN_EMAIL = "admin@alkebulaschool.com";
 
 function getAdminClient() {
@@ -27,9 +29,11 @@ function normalizeEmail(email?: string | null) {
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const supabase = getAdminClient();
 
     const authHeader = request.headers.get("authorization") || "";
@@ -54,7 +58,7 @@ export async function PATCH(
     const { data: application, error: fetchError } = await supabase
       .from("educator_applications")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (fetchError || !application) {
@@ -74,6 +78,8 @@ export async function PATCH(
             profile_photo_url: application.profile_photo_url,
             bio: application.proposed_public_bio,
             city: application.city,
+            qualification: application.qualification || null,
+            years_of_experience: application.years_of_experience || null,
             subjects: application.subjects || [],
             curricula: application.curricula || [],
             subject_rates: application.subject_rates || [],
@@ -96,7 +102,7 @@ export async function PATCH(
       const { error: updateError } = await supabase
         .from("educator_applications")
         .update({ status: "approved" })
-        .eq("id", params.id);
+        .eq("id", id);
 
       if (updateError) {
         return NextResponse.json(
@@ -128,7 +134,7 @@ export async function PATCH(
           status: "rejected",
           rejection_reason: body.rejection_reason || null,
         })
-        .eq("id", params.id);
+        .eq("id", id);
 
       if (updateError) {
         return NextResponse.json(
@@ -168,7 +174,7 @@ export async function PATCH(
           interview_at: body.interview_at,
           interview_notes: body.interview_notes || null,
         })
-        .eq("id", params.id);
+        .eq("id", id);
 
       if (updateError) {
         return NextResponse.json(

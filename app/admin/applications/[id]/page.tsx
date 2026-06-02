@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 
 type Application = {
   id: string;
@@ -49,28 +49,28 @@ const STATUS_OPTIONS = [
     label: "Return to Pending Review",
     shortLabel: "Pending Review",
     className: "bg-slate-700 hover:bg-slate-800",
-    badgeClass: "bg-amber-100 text-amber-800",
+    badgeClass: "bg-[#FFF5F7] text-[#8F1F36] border border-[#8F1F36]/20",
   },
   {
     value: "shortlisted",
     label: "Shortlist for Interview",
     shortLabel: "Shortlisted",
-    className: "bg-blue-600 hover:bg-blue-700",
-    badgeClass: "bg-blue-100 text-blue-800",
+    className: "bg-[#156B96] hover:bg-[#0F587D]",
+    badgeClass: "bg-[#F7FCFF] text-[#156B96] border border-[#379CD6]/20",
   },
   {
     value: "approved",
     label: "Approve Educator",
     shortLabel: "Approved",
     className: "bg-green-600 hover:bg-green-700",
-    badgeClass: "bg-green-100 text-green-800",
+    badgeClass: "bg-green-50 text-green-700 border border-green-200",
   },
   {
     value: "rejected",
     label: "Reject Application",
     shortLabel: "Rejected",
     className: "bg-red-600 hover:bg-red-700",
-    badgeClass: "bg-red-100 text-red-800",
+    badgeClass: "bg-red-50 text-red-700 border border-red-200",
   },
 ];
 
@@ -113,6 +113,7 @@ function normalizeStatus(status?: string | null) {
 
 function getStatusConfig(status?: string | null) {
   const normalized = normalizeStatus(status);
+
   return (
     STATUS_OPTIONS.find((option) => option.value === normalized) ||
     STATUS_OPTIONS[0]
@@ -146,6 +147,7 @@ function FieldCard({
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
         {label}
       </p>
+
       <p className="mt-2 break-words text-sm font-medium text-slate-900">
         {displayValue(value)}
       </p>
@@ -156,8 +158,10 @@ function FieldCard({
 export default function AdminApplicationDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
+
   const [app, setApp] = useState<Application | null>(null);
   const [documents, setDocuments] = useState<DocumentRecord[]>([]);
   const [interviews, setInterviews] = useState<InterviewRecord[]>([]);
@@ -172,12 +176,15 @@ export default function AdminApplicationDetailPage({
   const [interviewer, setInterviewer] = useState("");
   const [notes, setNotes] = useState("");
 
-  const statusConfig = useMemo(() => getStatusConfig(app?.status), [app?.status]);
+  const statusConfig = useMemo(
+    () => getStatusConfig(app?.status),
+    [app?.status]
+  );
 
   useEffect(() => {
     loadApplication();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id]);
+  }, [id]);
 
   async function loadApplication() {
     setLoading(true);
@@ -185,7 +192,7 @@ export default function AdminApplicationDetailPage({
     setError("");
 
     try {
-      const response = await fetch(`/api/admin-application/${params.id}`);
+      const response = await fetch(`/api/admin-application/${id}`);
       const result = await response.json();
 
       if (!response.ok) {
@@ -196,7 +203,9 @@ export default function AdminApplicationDetailPage({
       setDocuments(result.documents || []);
       setInterviews(result.interviews || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load application.");
+      setError(
+        err instanceof Error ? err.message : "Failed to load application."
+      );
     } finally {
       setLoading(false);
     }
@@ -208,7 +217,7 @@ export default function AdminApplicationDetailPage({
     setError("");
 
     try {
-      const response = await fetch(`/api/applications/${params.id}/status`, {
+      const response = await fetch(`/api/applications/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -261,7 +270,7 @@ export default function AdminApplicationDetailPage({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          applicationId: params.id,
+          applicationId: id,
           scheduledAt,
           mode,
           interviewer,
@@ -320,19 +329,19 @@ export default function AdminApplicationDetailPage({
     <main className="min-h-screen bg-white p-6 text-slate-900 lg:p-10">
       <Link
         href="/admin/applications"
-        className="text-sm font-semibold text-blue-700 hover:underline"
+        className="text-sm font-semibold text-[#8F1F36] hover:underline"
       >
         ← Back to applications
       </Link>
 
-      <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+      <div className="mt-6 rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,#FFF5F7,transparent_24%),radial-gradient(circle_at_top_right,#EEF9FF,transparent_34%),#FFFFFF] p-6">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
+            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#379CD6]">
               Educator Application
             </p>
 
-            <h1 className="mt-3 text-4xl font-bold">
+            <h1 className="mt-3 text-4xl font-bold text-slate-950">
               {app.full_name || "Unnamed applicant"}
             </h1>
 
@@ -375,26 +384,31 @@ export default function AdminApplicationDetailPage({
       </div>
 
       {message ? (
-        <div className="mt-5 rounded-2xl bg-green-50 p-4 text-green-700">
+        <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 p-4 text-green-700">
           {message}
         </div>
       ) : null}
 
       {error ? (
-        <div className="mt-5 rounded-2xl bg-red-50 p-4 text-red-700">
+        <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-700">
           {error}
         </div>
       ) : null}
 
       <section className="mt-8">
-        <h2 className="text-2xl font-bold">Applicant Details</h2>
+        <h2 className="text-2xl font-bold text-slate-950">
+          Applicant Details
+        </h2>
 
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <FieldCard label="Email" value={app.email} />
           <FieldCard label="Phone" value={app.phone} />
           <FieldCard label="Location" value={app.location} />
           <FieldCard label="Primary Subject" value={app.primary_subject} />
-          <FieldCard label="Curriculum Expertise" value={app.curriculum_expertise} />
+          <FieldCard
+            label="Curriculum Expertise"
+            value={app.curriculum_expertise}
+          />
           <FieldCard label="Years Experience" value={app.years_experience} />
           <FieldCard label="Teaching Mode" value={app.teaching_mode} />
           <FieldCard label="Availability" value={app.availability} />
@@ -417,21 +431,24 @@ export default function AdminApplicationDetailPage({
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
             Professional Bio
           </p>
+
           <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
             {app.bio || "-"}
           </p>
         </div>
       </section>
 
-      <section className="mt-8 rounded-3xl border border-slate-200 p-6">
-        <h2 className="text-2xl font-bold">Uploaded Documents</h2>
+      <section className="mt-8 rounded-[2rem] border border-slate-200 p-6">
+        <h2 className="text-2xl font-bold text-slate-950">
+          Uploaded Documents
+        </h2>
 
         {documents.length === 0 ? (
           <p className="mt-4 text-slate-600">No documents uploaded yet.</p>
         ) : (
           <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-100 text-slate-700">
+              <thead className="bg-[#F7FCFF] text-slate-700">
                 <tr>
                   <th className="p-3">Document Type</th>
                   <th className="p-3">File Path</th>
@@ -446,22 +463,27 @@ export default function AdminApplicationDetailPage({
                     <td className="p-3 capitalize">
                       {(doc.document_type || "document").replaceAll("_", " ")}
                     </td>
-                    <td className="p-3 max-w-md break-all text-slate-600">
+
+                    <td className="max-w-md break-all p-3 text-slate-600">
                       {doc.file_url || "-"}
                     </td>
+
                     <td className="p-3">{formatDate(doc.uploaded_at)}</td>
+
                     <td className="p-3">
                       {doc.signed_url ? (
                         <a
                           href={doc.signed_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                          className="rounded-xl bg-[#156B96] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0F587D]"
                         >
                           View Document
                         </a>
                       ) : (
-                        <span className="text-sm text-red-600">Unavailable</span>
+                        <span className="text-sm text-red-600">
+                          Unavailable
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -472,15 +494,25 @@ export default function AdminApplicationDetailPage({
         )}
       </section>
 
-      <section className="mt-8 rounded-3xl border border-slate-200 p-6">
-        <h2 className="text-2xl font-bold">Schedule Interview</h2>
+      <section className="mt-8 rounded-[2rem] border border-slate-200 p-6">
+        <h2 className="text-2xl font-bold text-slate-950">
+          Schedule Interview
+        </h2>
+
         <p className="mt-2 text-sm text-slate-600">
-          Scheduling an interview automatically keeps the applicant in the shortlisted category.
+          Scheduling an interview automatically keeps the applicant in the
+          shortlisted category.
         </p>
 
-        <form onSubmit={scheduleInterview} className="mt-5 grid gap-4 md:grid-cols-2">
+        <form
+          onSubmit={scheduleInterview}
+          className="mt-5 grid gap-4 md:grid-cols-2"
+        >
           <div>
-            <label className="mb-2 block text-sm font-semibold">Date & Time</label>
+            <label className="mb-2 block text-sm font-semibold">
+              Date & Time
+            </label>
+
             <input
               type="datetime-local"
               value={scheduledAt}
@@ -492,6 +524,7 @@ export default function AdminApplicationDetailPage({
 
           <div>
             <label className="mb-2 block text-sm font-semibold">Mode</label>
+
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value)}
@@ -503,7 +536,10 @@ export default function AdminApplicationDetailPage({
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-semibold">Interviewer</label>
+            <label className="mb-2 block text-sm font-semibold">
+              Interviewer
+            </label>
+
             <input
               type="text"
               value={interviewer}
@@ -516,6 +552,7 @@ export default function AdminApplicationDetailPage({
 
           <div className="md:col-span-2">
             <label className="mb-2 block text-sm font-semibold">Notes</label>
+
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -528,7 +565,7 @@ export default function AdminApplicationDetailPage({
             <button
               type="submit"
               disabled={interviewLoading || statusLoading}
-              className="rounded-xl bg-[#C6A75E] px-5 py-3 font-semibold text-[#1A1A1A] disabled:opacity-60"
+              className="rounded-xl bg-[#8F1F36] px-5 py-3 font-semibold text-white disabled:opacity-60"
             >
               {interviewLoading ? "Scheduling..." : "Schedule Interview"}
             </button>
@@ -536,15 +573,17 @@ export default function AdminApplicationDetailPage({
         </form>
       </section>
 
-      <section className="mt-8 rounded-3xl border border-slate-200 p-6">
-        <h2 className="text-2xl font-bold">Interview History</h2>
+      <section className="mt-8 rounded-[2rem] border border-slate-200 p-6">
+        <h2 className="text-2xl font-bold text-slate-950">
+          Interview History
+        </h2>
 
         {interviews.length === 0 ? (
           <p className="mt-4 text-slate-600">No interviews scheduled yet.</p>
         ) : (
           <div className="mt-5 overflow-x-auto rounded-2xl border border-slate-200">
             <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-100 text-slate-700">
+              <thead className="bg-[#F7FCFF] text-slate-700">
                 <tr>
                   <th className="p-3">Scheduled At</th>
                   <th className="p-3">Mode</th>
@@ -557,10 +596,20 @@ export default function AdminApplicationDetailPage({
               <tbody>
                 {interviews.map((interview) => (
                   <tr key={interview.id} className="border-t">
-                    <td className="p-3">{formatDate(interview.scheduled_at)}</td>
-                    <td className="p-3 capitalize">{interview.mode || "-"}</td>
+                    <td className="p-3">
+                      {formatDate(interview.scheduled_at)}
+                    </td>
+
+                    <td className="p-3 capitalize">
+                      {interview.mode || "-"}
+                    </td>
+
                     <td className="p-3">{interview.interviewer || "-"}</td>
-                    <td className="p-3 capitalize">{interview.outcome || "-"}</td>
+
+                    <td className="p-3 capitalize">
+                      {interview.outcome || "-"}
+                    </td>
+
                     <td className="p-3">{interview.notes || "-"}</td>
                   </tr>
                 ))}

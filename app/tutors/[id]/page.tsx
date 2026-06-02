@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 type SubjectRate = {
@@ -81,14 +81,21 @@ function getExperience(tutor: Tutor) {
 }
 
 function getRateLevel(item: SubjectRate) {
-  return item.class_level || item.student_level || item.level || "Level on request";
+  return (
+    item.class_level ||
+    item.student_level ||
+    item.level ||
+    "Level on request"
+  );
 }
 
 export default function TutorProfilePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
+
   const [tutor, setTutor] = useState<Tutor | null>(null);
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +112,7 @@ export default function TutorProfilePage({
   useEffect(() => {
     loadTutor();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [id]);
 
   function formatDate(date: string) {
     return new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
@@ -120,6 +127,9 @@ export default function TutorProfilePage({
   }
 
   async function loadTutor() {
+    setLoading(true);
+    setErrorMessage("");
+
     try {
       const supabase = getSupabaseBrowserClient();
 
@@ -134,7 +144,7 @@ export default function TutorProfilePage({
       const { data: tutorData, error: tutorError } = await supabase
         .from("educator_directory")
         .select("*")
-        .eq("id", params.id)
+        .eq("id", id)
         .eq("approval_status", "approved")
         .eq("is_public", true)
         .single();
@@ -179,7 +189,8 @@ export default function TutorProfilePage({
 
     return (tutor?.subjects || []).map((subject) => ({
       curriculum_level: tutor?.curricula?.[0] || "Not specified",
-      class_level: tutor?.class_levels?.[0] || tutor?.student_levels?.[0] || null,
+      class_level:
+        tutor?.class_levels?.[0] || tutor?.student_levels?.[0] || null,
       subject,
       hourly_rate: Number(tutor?.hourly_rate || 0),
     }));
@@ -249,7 +260,9 @@ export default function TutorProfilePage({
         throw new Error(data.error || "Booking failed.");
       }
 
-      setMessage("Booking created successfully. Confirmation emails have been sent.");
+      setMessage(
+        "Booking created successfully. Confirmation emails have been sent."
+      );
       setStudentName("");
       setSelectedSlotId("");
       await loadTutor();

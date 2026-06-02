@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: { id: string } }
-) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function GET(_request: Request, context: RouteContext) {
   try {
+    const { id } = await context.params;
     const supabase = createAdminSupabaseClient();
 
     const { data, error } = await supabase
@@ -22,7 +24,7 @@ export async function GET(
           hourly_rate
         )
       `)
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (error || !data) {

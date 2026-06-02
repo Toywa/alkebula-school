@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const supabase = createAdminSupabaseClient();
 
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (bookingError || !booking) {
@@ -55,10 +59,12 @@ export async function GET(
     });
   } catch (error) {
     console.error("Booking detail route error:", error);
+
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Unexpected server error.",
+        error:
+          error instanceof Error ? error.message : "Unexpected server error.",
       },
       { status: 500 }
     );

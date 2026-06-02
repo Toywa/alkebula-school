@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 const allowedStatuses = [
   "submitted",
   "under_review",
@@ -12,9 +14,10 @@ const allowedStatuses = [
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
     const status = body.status as string;
 
@@ -30,7 +33,7 @@ export async function PATCH(
     const { data, error } = await supabase
       .from("educator_applications")
       .update({ status })
-      .eq("id", params.id)
+      .eq("id", id)
       .select("id, full_name, status")
       .single();
 

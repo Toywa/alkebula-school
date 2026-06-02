@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { use, useEffect, useState } from "react";
 
 type EducatorInfo = {
   id: string;
@@ -31,8 +31,10 @@ type Enquiry = {
 export default function AdminParentEnquiryDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
+
   const [enquiry, setEnquiry] = useState<Enquiry | null>(null);
   const [loading, setLoading] = useState(true);
   const [statusLoading, setStatusLoading] = useState(false);
@@ -48,7 +50,7 @@ export default function AdminParentEnquiryDetailPage({
   useEffect(() => {
     async function loadEnquiry() {
       try {
-        const response = await fetch(`/api/parent-enquiries/${params.id}`);
+        const response = await fetch(`/api/parent-enquiries/${id}`);
         const result = await response.json();
 
         if (!response.ok) {
@@ -57,7 +59,8 @@ export default function AdminParentEnquiryDetailPage({
 
         setEnquiry(result.enquiry);
       } catch (err) {
-        const msg = err instanceof Error ? err.message : "Failed to load enquiry.";
+        const msg =
+          err instanceof Error ? err.message : "Failed to load enquiry.";
         setError(msg);
       } finally {
         setLoading(false);
@@ -65,7 +68,7 @@ export default function AdminParentEnquiryDetailPage({
     }
 
     loadEnquiry();
-  }, [params.id]);
+  }, [id]);
 
   async function updateStatus(status: string) {
     setStatusLoading(true);
@@ -73,7 +76,7 @@ export default function AdminParentEnquiryDetailPage({
     setError("");
 
     try {
-      const response = await fetch(`/api/parent-enquiries/${params.id}/status`, {
+      const response = await fetch(`/api/parent-enquiries/${id}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -90,6 +93,7 @@ export default function AdminParentEnquiryDetailPage({
       setEnquiry((prev) =>
         prev ? { ...prev, status: result.enquiry.status } : prev
       );
+
       setMessage(`Status updated to ${result.enquiry.status}.`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Update failed.";
@@ -167,113 +171,192 @@ export default function AdminParentEnquiryDetailPage({
   }
 
   if (loading) {
-    return <div className="p-10">Loading enquiry...</div>;
+    return (
+      <main className="min-h-screen bg-white p-6 text-slate-900 lg:p-10">
+        Loading enquiry...
+      </main>
+    );
   }
 
   if (error && !enquiry) {
-    return <div className="p-10 text-red-600">{error}</div>;
+    return (
+      <main className="min-h-screen bg-white p-6 text-red-600 lg:p-10">
+        {error}
+      </main>
+    );
   }
 
   if (!enquiry) {
-    return <div className="p-10 text-red-600">Enquiry not found.</div>;
+    return (
+      <main className="min-h-screen bg-white p-6 text-red-600 lg:p-10">
+        Enquiry not found.
+      </main>
+    );
   }
 
   return (
-    <main className="p-10">
+    <main className="min-h-screen bg-white p-6 text-slate-900 lg:p-10">
       <a
         href="/admin/parent-enquiries"
-        className="text-blue-600 hover:underline"
+        className="text-sm font-semibold text-[#8F1F36] hover:underline"
       >
         ← Back to parent enquiries
       </a>
 
-      <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">{enquiry.parent_name}</h1>
-          <p className="mt-2 text-gray-600 capitalize">
-            Status: {enquiry.status}
-          </p>
-        </div>
+      <div className="mt-6 rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,#FFF5F7,transparent_24%),radial-gradient(circle_at_top_right,#EEF9FF,transparent_34%),#FFFFFF] p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+              Parent Enquiry
+            </p>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => updateStatus("contacted")}
-            disabled={statusLoading}
-            className="rounded-lg bg-slate-700 px-4 py-2 text-white disabled:opacity-60"
-          >
-            Mark Contacted
-          </button>
-          <button
-            onClick={() => updateStatus("matched")}
-            disabled={statusLoading}
-            className="rounded-lg bg-blue-600 px-4 py-2 text-white disabled:opacity-60"
-          >
-            Mark Matched
-          </button>
-          <button
-            onClick={() => updateStatus("closed")}
-            disabled={statusLoading}
-            className="rounded-lg bg-red-600 px-4 py-2 text-white disabled:opacity-60"
-          >
-            Close
-          </button>
+            <h1 className="mt-3 text-3xl font-bold text-slate-950">
+              {enquiry.parent_name}
+            </h1>
+
+            <p className="mt-2 text-sm font-semibold capitalize text-slate-600">
+              Status: {enquiry.status}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => updateStatus("contacted")}
+              disabled={statusLoading}
+              className="rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              Mark Contacted
+            </button>
+
+            <button
+              onClick={() => updateStatus("matched")}
+              disabled={statusLoading}
+              className="rounded-xl bg-[#156B96] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              Mark Matched
+            </button>
+
+            <button
+              onClick={() => updateStatus("closed")}
+              disabled={statusLoading}
+              className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
 
       {message ? (
-        <div className="mt-4 rounded-xl bg-green-50 p-3 text-green-700">
+        <div className="mt-5 rounded-xl border border-green-200 bg-green-50 p-4 text-green-700">
           {message}
         </div>
       ) : null}
 
       {error && enquiry ? (
-        <div className="mt-4 rounded-xl bg-red-50 p-3 text-red-700">
+        <div className="mt-5 rounded-xl border border-red-200 bg-red-50 p-4 text-red-700">
           {error}
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border p-4">
-          <strong>Parent Email:</strong>
-          <p className="mt-2 text-slate-700">{enquiry.parent_email}</p>
+      <section className="mt-8">
+        <h2 className="text-2xl font-bold text-slate-950">Enquiry Details</h2>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <strong>Parent Email:</strong>
+            <p className="mt-2 text-slate-700">{enquiry.parent_email}</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <strong>Parent Phone:</strong>
+            <p className="mt-2 text-slate-700">
+              {enquiry.parent_phone || "-"}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <strong>Student Name:</strong>
+            <p className="mt-2 text-slate-700">{enquiry.student_name}</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <strong>Subject Needed:</strong>
+            <p className="mt-2 text-slate-700">{enquiry.subject}</p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <strong>Preferred Mode:</strong>
+            <p className="mt-2 capitalize text-slate-700">
+              {enquiry.preferred_mode || "-"}
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+            <strong>Preferred Schedule:</strong>
+            <p className="mt-2 text-slate-700">
+              {enquiry.preferred_schedule || "-"}
+            </p>
+          </div>
         </div>
 
-        <div className="rounded-xl border p-4">
-          <strong>Parent Phone:</strong>
-          <p className="mt-2 text-slate-700">{enquiry.parent_phone || "-"}</p>
+        <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-5">
+          <strong>Parent Message:</strong>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+            {enquiry.message || "-"}
+          </p>
         </div>
+      </section>
 
-        <div className="rounded-xl border p-4">
-          <strong>Student Name:</strong>
-          <p className="mt-2 text-slate-700">{enquiry.student_name}</p>
-        </div>
+      <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6">
+        <h2 className="text-2xl font-bold text-slate-950">
+          Create Booking + Invoice
+        </h2>
 
-        <div className="rounded-xl border p-4">
-          <strong>Subject Needed:</strong>
-          <p className="mt-2 text-slate-700">{enquiry.subject}</p>
-        </div>
-      </div>
+        {!enquiry.educators ? (
+          <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            No linked educator found for this enquiry.
+          </p>
+        ) : (
+          <div className="mt-5 rounded-2xl border border-[#379CD6]/15 bg-[#F7FCFF] p-4 text-sm">
+            <p className="font-bold text-[#156B96]">Linked Educator</p>
+            <p className="mt-2 text-slate-700">
+              {enquiry.educators.display_name}
+            </p>
+            <p className="text-slate-600">
+              {enquiry.educators.primary_subject || "-"} ·{" "}
+              {enquiry.educators.curriculum_expertise || "-"}
+            </p>
+          </div>
+        )}
 
-      <div className="mt-8 rounded-xl border p-4">
-        <h2 className="text-2xl font-semibold">Create Booking + Invoice</h2>
-
-        <form onSubmit={createBooking} className="mt-4 grid gap-4 md:grid-cols-2">
+        <form
+          onSubmit={createBooking}
+          className="mt-5 grid gap-4 md:grid-cols-2"
+        >
           <div>
-            <label className="mb-2 block text-sm font-medium">Scheduled At</label>
+            <label className="mb-2 block text-sm font-semibold">
+              Scheduled At
+            </label>
+
             <input
               type="datetime-local"
               value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
-              className="w-full rounded-xl border p-3"
+              className="w-full rounded-xl border border-slate-300 p-3"
+              required
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">Lesson Mode</label>
+            <label className="mb-2 block text-sm font-semibold">
+              Lesson Mode
+            </label>
+
             <select
               value={lessonMode}
               onChange={(e) => setLessonMode(e.target.value)}
-              className="w-full rounded-xl border p-3"
+              className="w-full rounded-xl border border-slate-300 p-3"
             >
               <option value="online">Online</option>
               <option value="in-person">In-person</option>
@@ -282,37 +365,47 @@ export default function AdminParentEnquiryDetailPage({
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">Duration (Minutes)</label>
+            <label className="mb-2 block text-sm font-semibold">
+              Duration (Minutes)
+            </label>
+
             <input
               type="number"
               value={durationMinutes}
               onChange={(e) => setDurationMinutes(e.target.value)}
-              className="w-full rounded-xl border p-3"
+              className="w-full rounded-xl border border-slate-300 p-3"
+              min="15"
+              required
             />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm font-medium">Amount (USD)</label>
+            <label className="mb-2 block text-sm font-semibold">
+              Amount (USD)
+            </label>
+
             <input
               type="number"
               step="0.01"
               value={amountUsd}
               onChange={(e) => setAmountUsd(e.target.value)}
-              className="w-full rounded-xl border p-3"
+              className="w-full rounded-xl border border-slate-300 p-3"
+              min="1"
+              required
             />
           </div>
 
           <div className="md:col-span-2">
             <button
               type="submit"
-              disabled={bookingLoading}
-              className="rounded-xl bg-[#1F3D2B] px-5 py-3 font-medium text-white disabled:opacity-60"
+              disabled={bookingLoading || !enquiry.educators}
+              className="rounded-xl bg-[#8F1F36] px-5 py-3 font-bold text-white disabled:opacity-60"
             >
               {bookingLoading ? "Creating..." : "Create Booking + Invoice"}
             </button>
           </div>
         </form>
-      </div>
+      </section>
 
       <div className="mt-6 text-sm text-slate-500">
         Submitted:{" "}

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 const allowedStatuses = [
   "scheduled",
   "completed",
@@ -10,9 +12,11 @@ const allowedStatuses = [
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const body = await request.json();
     const status = body.status as string;
 
@@ -28,7 +32,7 @@ export async function PATCH(
     const { data, error } = await supabase
       .from("bookings")
       .update({ status })
-      .eq("id", params.id)
+      .eq("id", id)
       .select("*")
       .single();
 
@@ -46,6 +50,7 @@ export async function PATCH(
     });
   } catch (error) {
     console.error("Booking status route error:", error);
+
     return NextResponse.json(
       { ok: false, error: "Unexpected server error." },
       { status: 500 }

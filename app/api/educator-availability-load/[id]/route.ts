@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const supabase = createAdminSupabaseClient();
 
     const { data: periods, error: periodError } = await supabase
       .from("educator_availability_periods")
       .select("*")
-      .eq("educator_id", params.id)
+      .eq("educator_id", id)
       .order("start_date", { ascending: false });
 
     if (periodError) {
@@ -24,7 +28,7 @@ export async function GET(
     const { data: slots, error: slotError } = await supabase
       .from("educator_availability_slots")
       .select("*")
-      .eq("educator_id", params.id)
+      .eq("educator_id", id)
       .order("slot_date", { ascending: true });
 
     if (slotError) {
@@ -40,6 +44,8 @@ export async function GET(
       slots: slots || [],
     });
   } catch (error) {
+    console.error("Educator availability load error:", error);
+
     return NextResponse.json(
       { ok: false, error: "Unexpected server error" },
       { status: 500 }

@@ -1,17 +1,21 @@
 import { NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const supabase = createAdminSupabaseClient();
 
     const { data: educator, error: educatorError } = await supabase
       .from("educators")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (educatorError || !educator) {
@@ -24,12 +28,15 @@ export async function GET(
     const { data: bookings, error: bookingsError } = await supabase
       .from("bookings")
       .select("*")
-      .eq("educator_id", params.id)
+      .eq("educator_id", id)
       .order("scheduled_at", { ascending: true });
 
     if (bookingsError) {
       return NextResponse.json(
-        { ok: false, error: bookingsError.message || "Failed to load bookings." },
+        {
+          ok: false,
+          error: bookingsError.message || "Failed to load bookings.",
+        },
         { status: 500 }
       );
     }
@@ -41,10 +48,12 @@ export async function GET(
     });
   } catch (error) {
     console.error("Educator bookings route error:", error);
+
     return NextResponse.json(
       {
         ok: false,
-        error: error instanceof Error ? error.message : "Unexpected server error.",
+        error:
+          error instanceof Error ? error.message : "Unexpected server error.",
       },
       { status: 500 }
     );

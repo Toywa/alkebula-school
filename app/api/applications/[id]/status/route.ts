@@ -5,6 +5,8 @@ import {
   sendTutorRejectedEmail,
 } from "@/lib/email";
 
+export const dynamic = "force-dynamic";
+
 const allowedStatuses = [
   "submitted",
   "under_review",
@@ -16,9 +18,11 @@ const allowedStatuses = [
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
+
     const body = await request.json();
     const status = body.status as string;
 
@@ -34,7 +38,7 @@ export async function PATCH(
     const { data: application, error: applicationError } = await supabase
       .from("educator_applications")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", id)
       .single();
 
     if (applicationError || !application) {
@@ -49,7 +53,7 @@ export async function PATCH(
     const { error: updateError } = await supabase
       .from("educator_applications")
       .update({ status })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (updateError) {
       return NextResponse.json(
@@ -64,14 +68,14 @@ export async function PATCH(
       const { data: existingEducator } = await supabase
         .from("educators")
         .select("id")
-        .eq("application_id", params.id)
+        .eq("application_id", id)
         .maybeSingle();
 
       if (!existingEducator) {
         const { data: documents } = await supabase
           .from("educator_documents")
           .select("*")
-          .eq("application_id", params.id)
+          .eq("application_id", id)
           .eq("document_type", "profile_photo")
           .limit(1);
 
@@ -118,10 +122,6 @@ export async function PATCH(
       }
     }
 
-    /*
-      Email sending is intentionally done after the database update/publishing step.
-      We also avoid resending the same decision email when the status is unchanged.
-    */
     let emailResult: unknown = null;
 
     if (status !== previousStatus && application.email) {

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { use, useState } from "react";
 
 export default function ParentEnquiryPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = use(params);
+
   const [parentName, setParentName] = useState("");
   const [parentEmail, setParentEmail] = useState("");
   const [parentPhone, setParentPhone] = useState("");
@@ -34,7 +36,7 @@ export default function ParentEnquiryPage({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          educatorId: params.id,
+          educatorId: id,
           parentName,
           parentEmail,
           parentPhone,

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+
 type ReschedulePayload = {
+  booking_id: string;
   new_slot_id: string;
 };
 
@@ -20,15 +23,21 @@ function getAdminClient() {
   });
 }
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(request: Request) {
   try {
-    const { id } = await params;
     const body = (await request.json()) as ReschedulePayload;
 
-    if (!body.new_slot_id?.trim()) {
+    const bookingId = body.booking_id?.trim();
+    const newSlotId = body.new_slot_id?.trim();
+
+    if (!bookingId) {
+      return NextResponse.json(
+        { error: "Missing booking_id" },
+        { status: 400 }
+      );
+    }
+
+    if (!newSlotId) {
       return NextResponse.json(
         { error: "Missing new_slot_id" },
         { status: 400 }
@@ -42,7 +51,7 @@ export async function PATCH(
       .select(
         "id, educator_id, slot_id, parent_name, student_name, booking_date, start_time, end_time, timezone, status, admin_resolution_status"
       )
-      .eq("id", id)
+      .eq("id", bookingId)
       .single();
 
     if (bookingError || !booking) {
@@ -55,7 +64,7 @@ export async function PATCH(
     const { data: newSlot, error: newSlotError } = await supabase
       .from("availability_slots")
       .select("id, educator_id, slot_date, start_time, end_time, timezone, status")
-      .eq("id", body.new_slot_id.trim())
+      .eq("id", newSlotId)
       .single();
 
     if (newSlotError || !newSlot) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 const allowedStatuses = [
   "new",
   "contacted",
@@ -9,11 +11,14 @@ const allowedStatuses = [
   "closed",
 ] as const;
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+type RouteContext = {
+  params: Promise<{ id: string }>;
+};
+
+export async function PATCH(request: NextRequest, context: RouteContext) {
   try {
+    const { id } = await context.params;
+
     const body = await request.json();
     const status = body.status as string;
 
@@ -29,13 +34,16 @@ export async function PATCH(
     const { data, error } = await supabase
       .from("parent_enquiries")
       .update({ status })
-      .eq("id", params.id)
+      .eq("id", id)
       .select("*")
       .single();
 
     if (error) {
       return NextResponse.json(
-        { ok: false, error: error.message || "Failed to update enquiry status." },
+        {
+          ok: false,
+          error: error.message || "Failed to update enquiry status.",
+        },
         { status: 500 }
       );
     }
@@ -47,6 +55,7 @@ export async function PATCH(
     });
   } catch (error) {
     console.error("Parent enquiry status route error:", error);
+
     return NextResponse.json(
       { ok: false, error: "Unexpected server error." },
       { status: 500 }
