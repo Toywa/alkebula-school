@@ -8,6 +8,52 @@ export default function ParentEnquiryPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const reservedSlugs = [
+  "online-cambridge-igcse-tutors",
+  "edexcel-igcse-tutors",
+  "a-level-online-tutors",
+  "ib-online-tutors",
+  "homeschool-support",
+  "about",
+  "faq",
+  "contact",
+  "educators",
+  "tutors",
+  "legal",
+  "auth",
+  "admin",
+  "parent",
+  "educator",
+  "api",
+];
+
+if (reservedSlugs.includes(id)) {
+  return (
+    <main className="min-h-screen bg-white px-6 py-20 text-slate-900">
+      <section className="mx-auto max-w-3xl rounded-3xl border border-amber-100 bg-white p-8 shadow-sm">
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-amber-700">
+          The Alkebula School
+        </p>
+
+        <h1 className="mt-4 text-3xl font-bold">
+          Page route conflict detected
+        </h1>
+
+        <p className="mt-4 text-slate-600">
+          This address is reserved for a public Alkebula page and should not be
+          handled by the parent enquiry route.
+        </p>
+
+        <a
+          href="/"
+          className="mt-6 inline-flex rounded-xl bg-amber-600 px-6 py-3 text-sm font-bold text-white hover:bg-amber-700"
+        >
+          Go to Homepage
+        </a>
+      </section>
+    </main>
+  );
+}
 
   const [parentName, setParentName] = useState("");
   const [parentEmail, setParentEmail] = useState("");
