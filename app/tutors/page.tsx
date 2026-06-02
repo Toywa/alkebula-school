@@ -32,7 +32,7 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-function getPublicTutorName(fullName?: string | null) {
+function getDefaultPublicTutorName(fullName?: string | null) {
   if (!fullName) return "Alkebula Tutor";
 
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -46,6 +46,24 @@ function getPublicTutorName(fullName?: string | null) {
       : "";
 
   return [firstName, lastInitial].filter(Boolean).join(" ");
+}
+
+function getTutorNameCounts(tutors: Tutor[]) {
+  return tutors.reduce<Record<string, number>>((counts, tutor) => {
+    const defaultName = getDefaultPublicTutorName(tutor.full_name);
+    counts[defaultName] = (counts[defaultName] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function getPublicTutorName(tutor: Tutor, nameCounts: Record<string, number>) {
+  const defaultName = getDefaultPublicTutorName(tutor.full_name);
+
+  if ((nameCounts[defaultName] || 0) > 1 && tutor.full_name) {
+    return tutor.full_name;
+  }
+
+  return defaultName;
 }
 
 function getQualification(tutor: Tutor) {
@@ -112,7 +130,9 @@ export default async function TutorsPage() {
 
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
               Meet approved educators supporting Cambridge, Edexcel, A Level,
-              and IB learners through structured, premium academic support.
+              and IB learners through structured, premium academic support. When
+              tutors share the same first name and last initial, their full names
+              are shown to avoid confusion.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
@@ -164,8 +184,12 @@ export default async function TutorsPage() {
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {(tutors as Tutor[]).map((tutor) => {
-              const publicTutorName = getPublicTutorName(tutor.full_name);
+            {(() => {
+              const tutorList = tutors as Tutor[];
+              const nameCounts = getTutorNameCounts(tutorList);
+
+              return tutorList.map((tutor) => {
+                const publicTutorName = getPublicTutorName(tutor, nameCounts);
               const highlights = getSubjectRateHighlights(tutor.subject_rates);
               const imageUrl = `/api/tutor-photo?id=${tutor.id}`;
               const minimumRate = getMinimumRate(tutor);
@@ -293,7 +317,8 @@ export default async function TutorsPage() {
                   </div>
                 </article>
               );
-            })}
+              });
+            })()}
           </div>
         )}
       </section>

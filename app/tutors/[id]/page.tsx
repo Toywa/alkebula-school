@@ -43,7 +43,7 @@ type Slot = {
   is_booked: boolean;
 };
 
-function getPublicTutorName(fullName?: string | null) {
+function getDefaultPublicTutorName(fullName?: string | null) {
   if (!fullName) return "Alkebula Tutor";
 
   const parts = fullName.trim().split(/\s+/).filter(Boolean);
@@ -57,6 +57,28 @@ function getPublicTutorName(fullName?: string | null) {
       : "";
 
   return [firstName, lastInitial].filter(Boolean).join(" ");
+}
+
+function getTutorNameCounts(tutors: Pick<Tutor, "full_name">[]) {
+  return tutors.reduce<Record<string, number>>((counts, tutor) => {
+    const defaultName = getDefaultPublicTutorName(tutor.full_name);
+    counts[defaultName] = (counts[defaultName] || 0) + 1;
+    return counts;
+  }, {});
+}
+
+function getDuplicateAwarePublicTutorName(
+  tutor: Tutor,
+  allTutors: Pick<Tutor, "full_name">[]
+) {
+  const defaultName = getDefaultPublicTutorName(tutor.full_name);
+  const nameCounts = getTutorNameCounts(allTutors);
+
+  if ((nameCounts[defaultName] || 0) > 1 && tutor.full_name) {
+    return tutor.full_name;
+  }
+
+  return defaultName;
 }
 
 function truncateBio(text?: string | null, max = 200) {
@@ -97,6 +119,7 @@ export default function TutorProfilePage({
   const { id } = use(params);
 
   const [tutor, setTutor] = useState<Tutor | null>(null);
+  const [publicTutorName, setPublicTutorName] = useState("Alkebula Tutor");
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState(false);
@@ -154,6 +177,19 @@ export default function TutorProfilePage({
       }
 
       setTutor(tutorData);
+
+      const { data: approvedTutorNames } = await supabase
+        .from("educator_directory")
+        .select("full_name")
+        .eq("approval_status", "approved")
+        .eq("is_public", true);
+
+      setPublicTutorName(
+        getDuplicateAwarePublicTutorName(
+          tutorData,
+          (approvedTutorNames || []) as Pick<Tutor, "full_name">[]
+        )
+      );
 
       const { data: slotData } = await supabase
         .from("tutor_availability_slots")
@@ -297,7 +333,6 @@ export default function TutorProfilePage({
 
   const imageUrl = `/api/tutor-photo?id=${tutor.id}`;
   const shortBio = truncateBio(tutor.bio, 200);
-  const publicTutorName = getPublicTutorName(tutor.full_name);
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-white text-slate-900">

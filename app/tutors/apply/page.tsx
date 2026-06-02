@@ -347,6 +347,25 @@ export default function TutorApplyPage() {
       const form = e.currentTarget;
       const formData = new FormData(form);
 
+      const qualification = String(formData.get("qualification") || "").trim();
+      const yearsOfExperienceRaw = String(
+        formData.get("years_of_experience") || ""
+      ).trim();
+      const yearsOfExperience = Number(yearsOfExperienceRaw);
+
+      if (!qualification) {
+        throw new Error("Please enter your highest qualification.");
+      }
+
+      if (
+        !yearsOfExperienceRaw ||
+        Number.isNaN(yearsOfExperience) ||
+        yearsOfExperience < 0 ||
+        yearsOfExperience > 60
+      ) {
+        throw new Error("Please enter a valid number of years of experience.");
+      }
+
       if (subjectRates.length < 1) {
         throw new Error(
           "Please select at least one subject and provide its hourly rate."
@@ -469,6 +488,8 @@ export default function TutorApplyPage() {
         email: String(formData.get("email") || "").trim(),
         phone: String(formData.get("phone") || "").trim(),
         city: String(formData.get("city") || "").trim(),
+        qualification,
+        years_of_experience: yearsOfExperience,
         hourly_rate: lowestHourlyRate,
         proposed_public_bio: String(
           formData.get("proposed_public_bio") || ""
@@ -560,6 +581,9 @@ export default function TutorApplyPage() {
                 Enter a separate <strong>USD hourly rate</strong> for each subject.
                 Profile photo should be below <strong>5MB</strong>. CV and
                 certificates should each be below <strong>10MB</strong>.
+                Your highest qualification and years of teaching experience will
+                be reviewed by admin and may appear on your approved public tutor
+                profile.
               </p>
             </div>
 
@@ -590,6 +614,24 @@ export default function TutorApplyPage() {
                 <input
                   name="city"
                   placeholder="City"
+                  className="rounded-xl border border-slate-300 px-4 py-3"
+                  required
+                />
+
+                <input
+                  name="qualification"
+                  placeholder="Highest qualification, e.g. BSc Mathematics"
+                  className="rounded-xl border border-slate-300 px-4 py-3"
+                  required
+                />
+
+                <input
+                  name="years_of_experience"
+                  type="number"
+                  min="0"
+                  max="60"
+                  step="1"
+                  placeholder="Years of teaching experience"
                   className="rounded-xl border border-slate-300 px-4 py-3"
                   required
                 />

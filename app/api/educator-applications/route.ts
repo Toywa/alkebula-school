@@ -72,6 +72,8 @@ export async function POST(req: Request) {
       email,
       phone,
       city,
+      qualification,
+      years_of_experience,
       hourly_rate,
       proposed_public_bio,
 
@@ -99,6 +101,26 @@ export async function POST(req: Request) {
     } = body;
 
     const cleanedSubjectRates = normalizeSubjectRates(subject_rates);
+    const cleanedQualification = String(qualification || "").trim();
+    const cleanedYearsOfExperience = Number(years_of_experience);
+
+    if (!cleanedQualification) {
+      return NextResponse.json(
+        { error: "Please enter your highest qualification." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      Number.isNaN(cleanedYearsOfExperience) ||
+      cleanedYearsOfExperience < 0 ||
+      cleanedYearsOfExperience > 60
+    ) {
+      return NextResponse.json(
+        { error: "Please enter a valid number of years of experience." },
+        { status: 400 }
+      );
+    }
 
     if (
       !full_name ||
@@ -193,11 +215,16 @@ export async function POST(req: Request) {
         email,
         phone,
         city,
+        qualification: cleanedQualification,
+        years_of_experience: cleanedYearsOfExperience,
 
         hourly_rate: Number(hourly_rate || lowestHourlyRate || 0),
         proposed_public_bio,
 
-        subjects: Array.isArray(subjects) && subjects.length > 0 ? subjects : derivedSubjects,
+        subjects:
+          Array.isArray(subjects) && subjects.length > 0
+            ? subjects
+            : derivedSubjects,
         curricula:
           Array.isArray(curricula) && curricula.length > 0
             ? curricula
