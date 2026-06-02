@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+export const dynamic = "force-dynamic";
 
 type SubjectRate = {
   curriculum_level?: string | null;
