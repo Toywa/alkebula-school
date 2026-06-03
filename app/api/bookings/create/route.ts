@@ -15,6 +15,7 @@ type BookingRequestBody = {
   studentName?: string;
   subject?: string;
   curriculum?: string;
+  classLevel?: string;
   slotId?: string;
   parentTimezone?: string;
 };
@@ -132,6 +133,10 @@ function getPackageCurriculumLabel(item: SubjectRate) {
   return item.curriculum_level || item.curriculum || "";
 }
 
+function getPackageClassLevel(item: SubjectRate) {
+  return item.class_level || "";
+}
+
 function findMatchingSubjectPackage(
   subjectRates: SubjectRate[],
   selectedSubject: string,
@@ -194,14 +199,22 @@ export async function POST(req: NextRequest) {
     const studentName = normalizeText(body.studentName);
     const subject = normalizeText(body.subject);
     const curriculum = normalizeText(body.curriculum);
+    const classLevel = normalizeText(body.classLevel);
     const slotId = normalizeText(body.slotId);
     const parentTimezone = cleanTimeZone(body.parentTimezone, "UTC");
 
-    if (!tutorEmail || !studentName || !subject || !curriculum || !slotId) {
+    if (
+      !tutorEmail ||
+      !studentName ||
+      !subject ||
+      !curriculum ||
+      !classLevel ||
+      !slotId
+    ) {
       return NextResponse.json(
         {
           error:
-            "Missing required booking details. Please select tutor, subject, curriculum, student name, and time slot.",
+            "Missing required booking details. Please select tutor, subject, curriculum, class/level, student name, and time slot.",
         },
         { status: 400 }
       );
@@ -248,6 +261,8 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const finalClassLevel = classLevel || getPackageClassLevel(matchingPackage);
 
     const finalHourlyRate = money(matchingPackage.hourly_rate);
 
@@ -344,6 +359,7 @@ export async function POST(req: NextRequest) {
           student_name: studentName,
           subject,
           curriculum,
+          class_level: finalClassLevel,
           date: lessonDate,
           time,
           status: "booked",
@@ -377,6 +393,7 @@ export async function POST(req: NextRequest) {
           parent_email: parentEmail,
           subject,
           curriculum,
+          class_level: finalClassLevel,
           lesson_date: lessonDate,
           start_time: startTime,
           end_time: endTime,
@@ -442,6 +459,7 @@ export async function POST(req: NextRequest) {
       studentName,
       subject,
       curriculum,
+      classLevel: finalClassLevel,
       date: lessonDate,
       time,
       hourlyRate: finalHourlyRate,

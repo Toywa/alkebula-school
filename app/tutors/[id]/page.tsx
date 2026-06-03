@@ -372,6 +372,7 @@ export default function TutorProfilePage({
           studentName,
           subject: selectedSubjectRate.subject,
           curriculum: selectedSubjectRate.curriculum_level,
+          classLevel: getRateLevel(selectedSubjectRate),
           slotId: selectedSlot.id,
           parentTimezone,
         }),
@@ -653,6 +654,10 @@ export default function TutorProfilePage({
                   <p className="mt-1 text-slate-700">
                     {selectedSubjectRate.subject} —{" "}
                     {selectedSubjectRate.curriculum_level}
+                  </p>
+                  <p className="mt-1 text-slate-700">
+                    Class / Level:{" "}
+                    <strong>{getRateLevel(selectedSubjectRate)}</strong>
                   </p>
                   <p className="mt-2 font-bold text-[#8F1F36]">
                     USD {selectedSubjectRate.hourly_rate}/hour
