@@ -26,6 +26,8 @@ type MessageRecipient = {
   source: string;
 };
 
+type TutorRecipientMode = "selected" | "all";
+
 function roleBadgeClass(role: MessageRole) {
   if (role === "admin") return "bg-slate-900 text-white";
   if (role === "educator") return "bg-blue-100 text-blue-800";
@@ -54,6 +56,9 @@ export default function AdminMessagesPage() {
   const [recipientRole, setRecipientRole] =
     useState<MessageRecipient["role"]>("educator");
   const [recipientEmail, setRecipientEmail] = useState("");
+  const [selectedTutorEmails, setSelectedTutorEmails] = useState<string[]>([]);
+  const [tutorRecipientMode, setTutorRecipientMode] =
+    useState<TutorRecipientMode>("selected");
   const [newSubject, setNewSubject] = useState("");
   const [newMessage, setNewMessage] = useState("");
 
@@ -70,7 +75,45 @@ export default function AdminMessagesPage() {
     [recipients, recipientRole]
   );
 
+  const approvedTutorRecipients = useMemo(
+    () => recipients.filter((item) => item.role === "educator"),
+    [recipients]
+  );
+
+  const selectedTutorRecipientDetails = useMemo(
+    () =>
+      approvedTutorRecipients.filter((item) =>
+        selectedTutorEmails.includes(item.email)
+      ),
+    [approvedTutorRecipients, selectedTutorEmails]
+  );
+
+  const effectiveTutorRecipients = useMemo(() => {
+    if (recipientRole !== "educator") return [];
+
+    return tutorRecipientMode === "all"
+      ? approvedTutorRecipients
+      : selectedTutorRecipientDetails;
+  }, [
+    approvedTutorRecipients,
+    recipientRole,
+    selectedTutorRecipientDetails,
+    tutorRecipientMode,
+  ]);
+
   useEffect(() => {
+    if (recipientRole === "educator") {
+      setRecipientEmail("");
+
+      setSelectedTutorEmails((prev) =>
+        prev.filter((email) =>
+          approvedTutorRecipients.some((item) => item.email === email)
+        )
+      );
+
+      return;
+    }
+
     const selectedStillExists = filteredRecipients.some(
       (item) => item.email === recipientEmail
     );
@@ -78,7 +121,12 @@ export default function AdminMessagesPage() {
     if (!selectedStillExists) {
       setRecipientEmail(filteredRecipients[0]?.email || "");
     }
-  }, [filteredRecipients, recipientEmail]);
+  }, [
+    approvedTutorRecipients,
+    filteredRecipients,
+    recipientEmail,
+    recipientRole,
+  ]);
 
   async function getAccessToken() {
     const supabase = getSupabaseBrowserClient();
@@ -151,7 +199,13 @@ export default function AdminMessagesPage() {
 
       if (firstTutor) {
         setRecipientRole(firstTutor.role);
-        setRecipientEmail(firstTutor.email);
+
+        if (firstTutor.role === "educator") {
+          setSelectedTutorEmails([firstTutor.email]);
+          setRecipientEmail("");
+        } else {
+          setRecipientEmail(firstTutor.email);
+        }
       }
     } catch (error) {
       setErrorMessage(
@@ -196,6 +250,22 @@ export default function AdminMessagesPage() {
     }
   }
 
+  function toggleTutorSelection(email: string) {
+    setSelectedTutorEmails((prev) =>
+      prev.includes(email)
+        ? prev.filter((item) => item !== email)
+        : [...prev, email]
+    );
+  }
+
+  function selectAllTutors() {
+    setSelectedTutorEmails(approvedTutorRecipients.map((item) => item.email));
+  }
+
+  function clearTutorSelection() {
+    setSelectedTutorEmails([]);
+  }
+
   async function sendNewMessage() {
     try {
       setSendingNewMessage(true);
@@ -205,40 +275,58 @@ export default function AdminMessagesPage() {
       const subject = newSubject.trim();
       const message = newMessage.trim();
 
-      if (!recipientEmail) {
-        throw new Error("Please choose a recipient.");
-      }
-
       if (!subject || !message) {
         throw new Error("Subject and message are required.");
       }
 
       const token = await getAccessToken();
 
-      const response = await fetch("/api/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          senderRole: "admin",
-          recipientRole,
-          recipientEmail,
-          subject,
-          message,
-        }),
-      });
+      const targetRecipients =
+        recipientRole === "educator"
+          ? effectiveTutorRecipients
+          : filteredRecipients.filter((item) => item.email === recipientEmail);
 
-      const data = await response.json();
+      if (targetRecipients.length < 1) {
+        throw new Error("Please choose at least one recipient.");
+      }
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to send message.");
+      let sentCount = 0;
+
+      for (const recipient of targetRecipients) {
+        const response = await fetch("/api/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            senderRole: "admin",
+            recipientRole: recipient.role,
+            recipientEmail: recipient.email,
+            subject,
+            message,
+          }),
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(
+            data.error ||
+              `Failed to send message to ${recipient.name || recipient.email}.`
+          );
+        }
+
+        sentCount += 1;
       }
 
       setNewSubject("");
       setNewMessage("");
-      setSuccessMessage("Message sent successfully.");
+      setSuccessMessage(
+        sentCount === 1
+          ? "Message sent successfully."
+          : `Message sent successfully to ${sentCount} recipients.`
+      );
 
       await loadMessages();
     } catch (error) {
@@ -381,8 +469,8 @@ export default function AdminMessagesPage() {
             <div>
               <h2 className="text-2xl font-semibold">Send New Message</h2>
               <p className="mt-2 text-sm text-slate-600">
-                Choose one approved tutor, tutor applicant, or parent and send a
-                direct platform message.
+                Choose one tutor, several tutors, all approved tutors, a tutor
+                applicant, or a parent and send a direct platform message.
               </p>
             </div>
 
@@ -402,9 +490,15 @@ export default function AdminMessagesPage() {
               </label>
               <select
                 value={recipientRole}
-                onChange={(event) =>
-                  setRecipientRole(event.target.value as MessageRecipient["role"])
-                }
+                onChange={(event) => {
+                  const nextRole = event.target.value as MessageRecipient["role"];
+                  setRecipientRole(nextRole);
+
+                  if (nextRole === "educator") {
+                    setTutorRecipientMode("selected");
+                    setRecipientEmail("");
+                  }
+                }}
                 className="w-full rounded-xl border bg-white px-4 py-3 text-sm"
               >
                 <option value="educator">Approved Tutors</option>
@@ -413,31 +507,148 @@ export default function AdminMessagesPage() {
               </select>
             </div>
 
-            <div className="md:col-span-2">
-              <label className="mb-2 block text-sm font-medium">Recipient</label>
-              <select
-                value={recipientEmail}
-                onChange={(event) => setRecipientEmail(event.target.value)}
-                className="w-full rounded-xl border bg-white px-4 py-3 text-sm"
-                disabled={loadingRecipients || filteredRecipients.length === 0}
-              >
-                {loadingRecipients ? (
-                  <option>Loading recipients...</option>
-                ) : filteredRecipients.length === 0 ? (
-                  <option>No recipients available in this category</option>
-                ) : (
-                  filteredRecipients.map((recipient) => (
-                    <option
-                      key={`${recipient.role}-${recipient.email}`}
-                      value={recipient.email}
+            {recipientRole === "educator" ? (
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium">
+                  Tutor Recipient Mode
+                </label>
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setTutorRecipientMode("selected")}
+                    className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold ${
+                      tutorRecipientMode === "selected"
+                        ? "border-[#8F1F36] bg-[#FFF5F7] text-[#8F1F36]"
+                        : "border-slate-300 bg-white text-slate-700"
+                    }`}
+                  >
+                    Select specific tutors
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setTutorRecipientMode("all")}
+                    className={`rounded-xl border px-4 py-3 text-left text-sm font-semibold ${
+                      tutorRecipientMode === "all"
+                        ? "border-[#8F1F36] bg-[#FFF5F7] text-[#8F1F36]"
+                        : "border-slate-300 bg-white text-slate-700"
+                    }`}
+                  >
+                    All approved tutors
+                  </button>
+                </div>
+
+                <p className="mt-2 text-xs text-slate-500">
+                  {tutorRecipientMode === "all"
+                    ? `This message will be sent to all ${approvedTutorRecipients.length} approved tutors.`
+                    : `${selectedTutorEmails.length} tutor(s) selected.`}
+                </p>
+              </div>
+            ) : (
+              <div className="md:col-span-2">
+                <label className="mb-2 block text-sm font-medium">
+                  Recipient
+                </label>
+                <select
+                  value={recipientEmail}
+                  onChange={(event) => setRecipientEmail(event.target.value)}
+                  className="w-full rounded-xl border bg-white px-4 py-3 text-sm"
+                  disabled={loadingRecipients || filteredRecipients.length === 0}
+                >
+                  {loadingRecipients ? (
+                    <option>Loading recipients...</option>
+                  ) : filteredRecipients.length === 0 ? (
+                    <option>No recipients available in this category</option>
+                  ) : (
+                    filteredRecipients.map((recipient) => (
+                      <option
+                        key={`${recipient.role}-${recipient.email}`}
+                        value={recipient.email}
+                      >
+                        {recipient.name} — {recipient.email}
+                        {recipient.status ? ` (${recipient.status})` : ""}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+            )}
+
+            {recipientRole === "educator" && tutorRecipientMode === "selected" ? (
+              <div className="md:col-span-3 rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-slate-900">
+                      Select Approved Tutors
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Choose one tutor, three tutors, five tutors, or any number
+                      of approved tutors.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={selectAllTutors}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                     >
-                      {recipient.name} — {recipient.email}
-                      {recipient.status ? ` (${recipient.status})` : ""}
-                    </option>
-                  ))
+                      Select All
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={clearTutorSelection}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                {loadingRecipients ? (
+                  <p className="mt-4 text-sm text-slate-600">
+                    Loading tutors...
+                  </p>
+                ) : approvedTutorRecipients.length === 0 ? (
+                  <p className="mt-4 text-sm text-slate-600">
+                    No approved tutors available.
+                  </p>
+                ) : (
+                  <div className="mt-4 grid max-h-72 gap-3 overflow-y-auto pr-2 md:grid-cols-2">
+                    {approvedTutorRecipients.map((recipient) => (
+                      <label
+                        key={`approved-tutor-${recipient.email}`}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm ${
+                          selectedTutorEmails.includes(recipient.email)
+                            ? "border-[#8F1F36] bg-[#FFF5F7]"
+                            : "border-slate-200 bg-white"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedTutorEmails.includes(
+                            recipient.email
+                          )}
+                          onChange={() => toggleTutorSelection(recipient.email)}
+                          className="mt-1"
+                        />
+
+                        <span>
+                          <span className="block font-semibold text-slate-900">
+                            {recipient.name}
+                          </span>
+                          <span className="block text-xs text-slate-500">
+                            {recipient.email}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 )}
-              </select>
-            </div>
+              </div>
+            ) : null}
 
             <div className="md:col-span-3">
               <label className="mb-2 block text-sm font-medium">Subject</label>
@@ -464,7 +675,13 @@ export default function AdminMessagesPage() {
           <button
             type="button"
             onClick={sendNewMessage}
-            disabled={sendingNewMessage || loadingRecipients || !recipientEmail}
+            disabled={
+              sendingNewMessage ||
+              loadingRecipients ||
+              (recipientRole === "educator"
+                ? effectiveTutorRecipients.length < 1
+                : !recipientEmail)
+            }
             className="mt-5 rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
           >
             {sendingNewMessage ? "Sending..." : "Send Message"}
