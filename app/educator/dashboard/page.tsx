@@ -93,6 +93,17 @@ function formatDateTime(value?: string | null) {
   }
 }
 
+
+function getParentFirstName(parentEmail?: string | null) {
+  const localPart = String(parentEmail || "").split("@")[0].trim();
+
+  if (!localPart) return "Parent";
+
+  const firstPart = localPart.split(/[._\-\s]+/).filter(Boolean)[0] || "Parent";
+
+  return firstPart.charAt(0).toUpperCase() + firstPart.slice(1).toLowerCase();
+}
+
 function lessonTimeLabel(lesson: Lesson) {
   return `${lesson.lesson_date || "—"} · ${lesson.start_time || "—"} - ${
     lesson.end_time || "—"
@@ -575,11 +586,18 @@ export default function EducatorDashboardPage() {
             </Link>
 
             <Link
-  href="/educator/public-profile"
-  className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-5 py-3 text-sm font-semibold text-[#156B96] hover:bg-[#EEF9FF]"
->
-  Edit Public Profile
-</Link>
+              href="/educator/upcoming-lessons"
+              className="rounded-xl bg-[#8F1F36] px-5 py-3 text-sm font-semibold text-white hover:bg-[#6F1729]"
+            >
+              Upcoming Lessons
+            </Link>
+
+            <Link
+              href="/educator/public-profile"
+              className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-5 py-3 text-sm font-semibold text-[#156B96] hover:bg-[#EEF9FF]"
+            >
+              Edit Public Profile
+            </Link>
 
             <Link
               href="/educator/availability"
@@ -746,7 +764,7 @@ export default function EducatorDashboardPage() {
                             Student: {lesson.student_name || "—"}
                           </p>
                           <p className="text-sm text-slate-600">
-                            Parent: {lesson.parent_email || "—"}
+                            Parent: {getParentFirstName(lesson.parent_email)}
                           </p>
                         </div>
 

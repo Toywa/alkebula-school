@@ -238,6 +238,13 @@ export default function AdminResolutionsPage() {
 
             <div className="flex flex-wrap gap-3">
               <Link
+                href="/admin/upcoming-lessons"
+                className="rounded-xl bg-[#156B96] px-5 py-3 text-sm font-semibold text-white hover:bg-[#0F4F70]"
+              >
+                Upcoming Lessons
+              </Link>
+
+              <Link
                 href="/admin/classrooms"
                 className="rounded-xl bg-green-700 px-5 py-3 text-sm font-semibold text-white hover:bg-green-800"
               >
@@ -281,7 +288,14 @@ export default function AdminResolutionsPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-6 py-10 lg:px-8">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-6">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <DashboardCard
+            title="Upcoming Lessons"
+            subtitle="All Scheduled Lessons"
+            href="/admin/upcoming-lessons"
+            blue
+          />
+
           <DashboardCard
             title="Classrooms"
             subtitle="Live Lesson Monitor"
