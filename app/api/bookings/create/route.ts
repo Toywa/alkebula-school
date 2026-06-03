@@ -16,6 +16,7 @@ type BookingRequestBody = {
   subject?: string;
   curriculum?: string;
   slotId?: string;
+  parentTimezone?: string;
 };
 
 function getSupabaseAdmin() {
@@ -58,6 +59,73 @@ function formatTimeRange(startTime?: string | null, endTime?: string | null) {
   if (start && end) return `${start} - ${end}`;
   if (start) return start;
   return "";
+}
+
+function isValidTimeZone(timeZone: string) {
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const values: Record<string, string> = {};
+
+  parts.forEach((part) => {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  });
+
+  const asUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second)
+  );
+
+  return asUtc - date.getTime();
+}
+
+function zonedDateTimeToUtc(date: string, time: string, timeZone: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+
+  let offset = getTimeZoneOffsetMs(utcGuess, timeZone);
+  let utcDate = new Date(utcGuess.getTime() - offset);
+
+  offset = getTimeZoneOffsetMs(utcDate, timeZone);
+  utcDate = new Date(utcGuess.getTime() - offset);
+
+  return utcDate;
+}
+
+function cleanTimeZone(value?: string | null, fallback = "UTC") {
+  const candidate = normalizeText(value);
+
+  if (candidate && isValidTimeZone(candidate)) {
+    return candidate;
+  }
+
+  return fallback;
 }
 
 function getPackageCurriculumLabel(item: SubjectRate) {
@@ -127,6 +195,7 @@ export async function POST(req: NextRequest) {
     const subject = normalizeText(body.subject);
     const curriculum = normalizeText(body.curriculum);
     const slotId = normalizeText(body.slotId);
+    const parentTimezone = cleanTimeZone(body.parentTimezone, "UTC");
 
     if (!tutorEmail || !studentName || !subject || !curriculum || !slotId) {
       return NextResponse.json(
@@ -147,7 +216,7 @@ export async function POST(req: NextRequest) {
 
     const { data: tutorProfile, error: tutorError } = await supabase
       .from("educator_directory")
-      .select("id,email,full_name,hourly_rate,subject_rates,approval_status,is_public")
+      .select("id,email,full_name,hourly_rate,subject_rates,approval_status,is_public,timezone")
       .eq("email", tutorEmail)
       .eq("approval_status", "approved")
       .eq("is_public", true)
@@ -194,7 +263,7 @@ export async function POST(req: NextRequest) {
 
     const { data: selectedSlot, error: slotError } = await supabase
       .from("tutor_availability_slots")
-      .select("id,tutor_email,date,slot_date,start_time,end_time,is_booked,status,timezone")
+      .select("id,tutor_email,date,slot_date,start_time,end_time,is_booked,status,timezone,tutor_timezone,start_at_utc,end_at_utc")
       .eq("id", slotId)
       .single();
 
@@ -227,11 +296,36 @@ export async function POST(req: NextRequest) {
     const endTime = selectedSlot.end_time;
     const time = formatTimeRange(startTime, endTime);
 
+    const tutorTimezone = cleanTimeZone(
+      selectedSlot.tutor_timezone || selectedSlot.timezone || tutorProfile.timezone,
+      "Africa/Nairobi"
+    );
+
     if (!lessonDate || !startTime) {
       return NextResponse.json(
         {
           error:
             "Selected time slot is missing date or start time. Please choose another slot.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const startAtUtc =
+      selectedSlot.start_at_utc ||
+      zonedDateTimeToUtc(lessonDate, startTime, tutorTimezone).toISOString();
+
+    const endAtUtc =
+      selectedSlot.end_at_utc ||
+      (endTime
+        ? zonedDateTimeToUtc(lessonDate, endTime, tutorTimezone).toISOString()
+        : null);
+
+    if (endAtUtc && new Date(endAtUtc) <= new Date(startAtUtc)) {
+      return NextResponse.json(
+        {
+          error:
+            "Selected time slot has an invalid timezone conversion. Please choose another slot or contact admin.",
         },
         { status: 400 }
       );
@@ -253,7 +347,12 @@ export async function POST(req: NextRequest) {
           date: lessonDate,
           time,
           status: "booked",
-          slot_id: null,
+          slot_id: slotId,
+
+          start_at_utc: startAtUtc,
+          end_at_utc: endAtUtc,
+          tutor_timezone: tutorTimezone,
+          parent_timezone: parentTimezone,
 
           hourly_rate: finalHourlyRate,
           lesson_amount: lessonAmount,
@@ -281,6 +380,10 @@ export async function POST(req: NextRequest) {
           lesson_date: lessonDate,
           start_time: startTime,
           end_time: endTime,
+          start_at_utc: startAtUtc,
+          end_at_utc: endAtUtc,
+          tutor_timezone: tutorTimezone,
+          parent_timezone: parentTimezone,
           status: "upcoming",
 
           hourly_rate: finalHourlyRate,

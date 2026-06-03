@@ -42,6 +42,43 @@ function displayRole(role: MessageRole) {
   return "Parent";
 }
 
+function buildSendSummary({
+  recipientRole,
+  tutorRecipientMode,
+  sentCount,
+  targetRecipients,
+}: {
+  recipientRole: MessageRecipient["role"];
+  tutorRecipientMode: TutorRecipientMode;
+  sentCount: number;
+  targetRecipients: MessageRecipient[];
+}) {
+  if (recipientRole === "educator") {
+    if (tutorRecipientMode === "all") {
+      return `Message sent successfully to all ${sentCount} approved tutors.`;
+    }
+
+    if (sentCount === 1) {
+      return `Message sent successfully to ${
+        targetRecipients[0]?.name || "the selected tutor"
+      }.`;
+    }
+
+    return `Message sent successfully to ${sentCount} selected tutors.`;
+  }
+
+  if (sentCount === 1) {
+    const recipientLabel =
+      recipientRole === "applicant" ? "tutor applicant" : "parent";
+
+    return `Message sent successfully to ${
+      targetRecipients[0]?.name || `the selected ${recipientLabel}`
+    }.`;
+  }
+
+  return `Message sent successfully to ${sentCount} recipients.`;
+}
+
 export default function AdminMessagesPage() {
   const [loading, setLoading] = useState(true);
   const [loadingRecipients, setLoadingRecipients] = useState(true);
@@ -323,9 +360,12 @@ export default function AdminMessagesPage() {
       setNewSubject("");
       setNewMessage("");
       setSuccessMessage(
-        sentCount === 1
-          ? "Message sent successfully."
-          : `Message sent successfully to ${sentCount} recipients.`
+        buildSendSummary({
+          recipientRole,
+          tutorRecipientMode,
+          sentCount,
+          targetRecipients,
+        })
       );
 
       await loadMessages();

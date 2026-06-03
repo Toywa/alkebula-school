@@ -34,6 +34,80 @@ function getDatesInRange(start: string, end: string, selectedDays: number[]) {
   return dates;
 }
 
+function isValidTimeZone(timeZone: string) {
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const values: Record<string, string> = {};
+
+  parts.forEach((part) => {
+    if (part.type !== "literal") {
+      values[part.type] = part.value;
+    }
+  });
+
+  const asUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second)
+  );
+
+  return asUtc - date.getTime();
+}
+
+function zonedDateTimeToUtc(date: string, time: string, timeZone: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+
+  let offset = getTimeZoneOffsetMs(utcGuess, timeZone);
+  let utcDate = new Date(utcGuess.getTime() - offset);
+
+  offset = getTimeZoneOffsetMs(utcDate, timeZone);
+  utcDate = new Date(utcGuess.getTime() - offset);
+
+  return utcDate;
+}
+
+function formatInTimeZone(isoDate: string, timeZone: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "short",
+  }).format(new Date(isoDate));
+}
+
+function getBrowserTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Nairobi";
+}
+
 export default function MayJuneAvailabilityPage() {
   const [email, setEmail] = useState("");
   const [approved, setApproved] = useState(false);
@@ -43,16 +117,14 @@ export default function MayJuneAvailabilityPage() {
   const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
-  const [timezone, setTimezone] = useState("UTC");
+  const [timezone, setTimezone] = useState("Africa/Nairobi");
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (tz) setTimezone(tz);
-
+    setTimezone(getBrowserTimeZone());
     checkTutor();
   }, []);
 
@@ -73,13 +145,22 @@ export default function MayJuneAvailabilityPage() {
 
     const { data } = await supabase
       .from("educator_directory")
-      .select("email,approval_status")
+      .select("email,approval_status,timezone")
       .eq("email", userEmail)
       .eq("approval_status", "approved")
       .single();
 
     setApproved(!!data);
+
+    if (data?.timezone && isValidTimeZone(data.timezone)) {
+      setTimezone(data.timezone);
+    }
+
     setChecking(false);
+  }
+
+  function useDetectedTimezone() {
+    setTimezone(getBrowserTimeZone());
   }
 
   function toggleDay(day: number) {
@@ -110,21 +191,41 @@ export default function MayJuneAvailabilityPage() {
         throw new Error("End time must be later than start time.");
       }
 
+      if (!isValidTimeZone(timezone)) {
+        throw new Error(
+          "Please use a valid IANA timezone, for example Africa/Nairobi or Europe/London."
+        );
+      }
+
       const month = months.find((m) => m.label === selectedMonth);
       if (!month) throw new Error("Invalid month selected.");
 
       const dates = getDatesInRange(month.start, month.end, selectedDays);
 
-      const rows = dates.map((date) => ({
-        tutor_email: email,
-        date,
-        slot_date: date,
-        start_time: startTime,
-        end_time: endTime,
-        timezone,
-        status: "available",
-        is_booked: false,
-      }));
+      const rows = dates.map((date) => {
+        const startAtUtc = zonedDateTimeToUtc(date, startTime, timezone);
+        const endAtUtc = zonedDateTimeToUtc(date, endTime, timezone);
+
+        if (endAtUtc <= startAtUtc) {
+          throw new Error(
+            "One or more generated slots has an invalid end time. Please review your time range."
+          );
+        }
+
+        return {
+          tutor_email: email,
+          date,
+          slot_date: date,
+          start_time: startTime,
+          end_time: endTime,
+          timezone,
+          tutor_timezone: timezone,
+          start_at_utc: startAtUtc.toISOString(),
+          end_at_utc: endAtUtc.toISOString(),
+          status: "available",
+          is_booked: false,
+        };
+      });
 
       const supabase = getSupabaseBrowserClient();
 
@@ -134,7 +235,9 @@ export default function MayJuneAvailabilityPage() {
 
       if (error) throw new Error(error.message);
 
-      setMessage(`${rows.length} availability slots created for ${selectedMonth}.`);
+      setMessage(
+        `${rows.length} timezone-safe availability slots created for ${selectedMonth}.`
+      );
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to create slots."
@@ -164,6 +267,12 @@ export default function MayJuneAvailabilityPage() {
 
   const month = months.find((m) => m.label === selectedMonth)!;
   const previewDates = getDatesInRange(month.start, month.end, selectedDays);
+  const firstPreviewDate = previewDates[0] || month.start;
+
+  const previewStartUtc =
+    startTime && firstPreviewDate && isValidTimeZone(timezone)
+      ? zonedDateTimeToUtc(firstPreviewDate, startTime, timezone).toISOString()
+      : "";
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
@@ -173,13 +282,23 @@ export default function MayJuneAvailabilityPage() {
         </p>
 
         <h1 className="mt-4 text-4xl font-bold">
-          May & June 2026 Availability
+          Timezone-Sensitive Availability
         </h1>
 
         <p className="mt-4 text-slate-600">
-          Signed in as <strong>{email}</strong>. Create bookable slots for May
-          and June 2026.
+          Signed in as <strong>{email}</strong>. Create bookable slots in your
+          own timezone. Alkebula stores the true lesson time in UTC so parents,
+          tutors and admin can view the same lesson correctly across countries.
         </p>
+
+        <div className="mt-8 rounded-3xl border border-[#379CD6]/20 bg-[#F7FCFF] p-5 text-sm text-slate-700">
+          <p className="font-bold text-[#156B96]">Timezone safety note</p>
+          <p className="mt-2 leading-7">
+            Do not manually calculate London, Nairobi, Dubai or New York time.
+            Create slots in your own timezone. The system stores UTC timestamps
+            for accurate timezone conversion later.
+          </p>
+        </div>
 
         <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-6">
           <div className="grid gap-6 md:grid-cols-2">
@@ -199,16 +318,35 @@ export default function MayJuneAvailabilityPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Timezone</label>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <label className="block text-sm font-medium">
+                  Your teaching timezone
+                </label>
+
+                <button
+                  type="button"
+                  onClick={useDetectedTimezone}
+                  className="text-xs font-semibold text-[#8F1F36] hover:underline"
+                >
+                  Use detected timezone
+                </button>
+              </div>
+
               <input
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
+                placeholder="Example: Africa/Nairobi"
                 className="w-full rounded-xl border border-slate-300 px-4 py-3"
               />
+
+              <p className="mt-2 text-xs text-slate-500">
+                Use an IANA timezone such as Africa/Nairobi, Europe/London,
+                Asia/Dubai or America/New_York.
+              </p>
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Start Time</label>
+              <label className="mb-2 block text-sm font-medium">Start Time in Your Timezone</label>
               <input
                 type="time"
                 value={startTime}
@@ -218,7 +356,7 @@ export default function MayJuneAvailabilityPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">End Time</label>
+              <label className="mb-2 block text-sm font-medium">End Time in Your Timezone</label>
               <input
                 type="time"
                 value={endTime}
@@ -250,11 +388,30 @@ export default function MayJuneAvailabilityPage() {
 
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
             <p className="font-semibold">Preview</p>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm leading-7 text-slate-600">
               This will create <strong>{previewDates.length}</strong> slots for{" "}
               <strong>{selectedMonth}</strong>, from{" "}
-              <strong>{startTime}</strong> to <strong>{endTime}</strong>.
+              <strong>{startTime}</strong> to <strong>{endTime}</strong> in{" "}
+              <strong>{timezone}</strong>.
             </p>
+
+            {previewStartUtc ? (
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+                <p className="font-semibold text-slate-900">
+                  First slot conversion preview
+                </p>
+                <p className="mt-2">
+                  Tutor time:{" "}
+                  <strong>{formatInTimeZone(previewStartUtc, timezone)}</strong>
+                </p>
+                <p className="mt-1">
+                  UTC stored time:{" "}
+                  <strong>
+                    {new Date(previewStartUtc).toISOString().replace(".000", "")}
+                  </strong>
+                </p>
+              </div>
+            ) : null}
           </div>
 
           <button

@@ -41,6 +41,10 @@ type Slot = {
   start_time: string;
   end_time: string;
   is_booked: boolean;
+  timezone?: string | null;
+  tutor_timezone?: string | null;
+  start_at_utc?: string | null;
+  end_at_utc?: string | null;
 };
 
 function getDefaultPublicTutorName(fullName?: string | null) {
@@ -111,6 +115,86 @@ function getRateLevel(item: SubjectRate) {
   );
 }
 
+function getBrowserTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
+function isValidTimeZone(timeZone: string) {
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function formatUtcInTimeZone(
+  utcValue: string | null | undefined,
+  timeZone: string,
+  options?: Intl.DateTimeFormatOptions
+) {
+  if (!utcValue || !isValidTimeZone(timeZone)) return "—";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "short",
+    ...options,
+  }).format(new Date(utcValue));
+}
+
+function formatSlotTimeForParent(slot: Slot, parentTimezone: string) {
+  if (slot.start_at_utc) {
+    const start = formatUtcInTimeZone(slot.start_at_utc, parentTimezone, {
+      weekday: undefined,
+      month: undefined,
+      day: undefined,
+    });
+
+    const end = slot.end_at_utc
+      ? formatUtcInTimeZone(slot.end_at_utc, parentTimezone, {
+          weekday: undefined,
+          month: undefined,
+          day: undefined,
+        })
+      : "";
+
+    return end && end !== "—" ? `${start} - ${end}` : start;
+  }
+
+  return `${slot.start_time?.slice(0, 5)} - ${slot.end_time?.slice(0, 5)}`;
+}
+
+function formatSlotDateForParent(slot: Slot, parentTimezone: string) {
+  if (slot.start_at_utc) {
+    return formatUtcInTimeZone(slot.start_at_utc, parentTimezone, {
+      hour: undefined,
+      minute: undefined,
+      timeZoneName: undefined,
+    });
+  }
+
+  return new Date(`${slot.date}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function getTutorTimezone(slot?: Slot | null, tutor?: Tutor | null) {
+  return (
+    slot?.tutor_timezone ||
+    slot?.timezone ||
+    tutor?.timezone ||
+    "Tutor timezone"
+  );
+}
+
 export default function TutorProfilePage({
   params,
 }: {
@@ -127,12 +211,14 @@ export default function TutorProfilePage({
   const [errorMessage, setErrorMessage] = useState("");
 
   const [parentEmail, setParentEmail] = useState("");
+  const [parentTimezone, setParentTimezone] = useState("UTC");
   const [studentName, setStudentName] = useState("");
   const [selectedSubjectRateIndex, setSelectedSubjectRateIndex] = useState(0);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState("");
 
   useEffect(() => {
+    setParentTimezone(getBrowserTimeZone());
     loadTutor();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
@@ -287,6 +373,7 @@ export default function TutorProfilePage({
           subject: selectedSubjectRate.subject,
           curriculum: selectedSubjectRate.curriculum_level,
           slotId: selectedSlot.id,
+          parentTimezone,
         }),
       });
 
@@ -333,6 +420,8 @@ export default function TutorProfilePage({
 
   const imageUrl = `/api/tutor-photo?id=${tutor.id}`;
   const shortBio = truncateBio(tutor.bio, 200);
+  const selectedSlotForPreview =
+    slots.find((slot) => slot.id === selectedSlotId) || null;
 
   return (
     <main className="min-h-screen overflow-x-hidden bg-white text-slate-900">
@@ -568,6 +657,11 @@ export default function TutorProfilePage({
                   <p className="mt-2 font-bold text-[#8F1F36]">
                     USD {selectedSubjectRate.hourly_rate}/hour
                   </p>
+                  <p className="mt-3 rounded-xl bg-white p-3 text-xs leading-6 text-slate-600">
+                    Your timezone has been detected as{" "}
+                    <strong>{parentTimezone}</strong>. Available lesson times
+                    are shown in your timezone where UTC slot data is available.
+                  </p>
                 </div>
               ) : null}
 
@@ -620,29 +714,40 @@ export default function TutorProfilePage({
                   </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {availableDates.map((date) => (
-                      <button
-                        key={date}
-                        type="button"
-                        onClick={() => {
-                          setSelectedDate(date);
-                          setSelectedSlotId("");
-                        }}
-                        className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
-                          selectedDate === date
-                            ? "border-[#8F1F36] bg-[#8F1F36] text-white"
-                            : "border-slate-300 bg-white text-slate-700 hover:bg-[#F7FCFF]"
-                        }`}
-                      >
-                        <span className="block font-semibold">
-                          {formatDate(date)}
-                        </span>
-                        <span className="text-xs opacity-80">
-                          {slots.filter((slot) => slot.date === date).length}{" "}
-                          slots
-                        </span>
-                      </button>
-                    ))}
+                    {availableDates.map((date) => {
+                      const firstSlotForDate = slots.find(
+                        (slot) => slot.date === date
+                      );
+
+                      return (
+                        <button
+                          key={date}
+                          type="button"
+                          onClick={() => {
+                            setSelectedDate(date);
+                            setSelectedSlotId("");
+                          }}
+                          className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                            selectedDate === date
+                              ? "border-[#8F1F36] bg-[#8F1F36] text-white"
+                              : "border-slate-300 bg-white text-slate-700 hover:bg-[#F7FCFF]"
+                          }`}
+                        >
+                          <span className="block font-semibold">
+                            {firstSlotForDate
+                              ? formatSlotDateForParent(
+                                  firstSlotForDate,
+                                  parentTimezone
+                                )
+                              : formatDate(date)}
+                          </span>
+                          <span className="text-xs opacity-80">
+                            {slots.filter((slot) => slot.date === date).length}{" "}
+                            slots
+                          </span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -665,11 +770,45 @@ export default function TutorProfilePage({
                             : "border-slate-300 bg-white text-slate-700 hover:bg-[#F7FCFF]"
                         }`}
                       >
-                        {formatTime(slot.start_time)} -{" "}
-                        {formatTime(slot.end_time)}
+                        {formatSlotTimeForParent(slot, parentTimezone)}
                       </button>
                     ))}
                   </div>
+                </div>
+              ) : null}
+
+              {selectedSlotForPreview ? (
+                <div className="mt-6 rounded-2xl border border-[#379CD6]/15 bg-[#F7FCFF] p-4 text-sm text-slate-700">
+                  <p className="font-bold text-[#156B96]">
+                    Timezone confirmation
+                  </p>
+
+                  <p className="mt-2">
+                    Parent time:{" "}
+                    <strong>
+                      {selectedSlotForPreview.start_at_utc
+                        ? formatUtcInTimeZone(
+                            selectedSlotForPreview.start_at_utc,
+                            parentTimezone
+                          )
+                        : formatSlotTimeForParent(
+                            selectedSlotForPreview,
+                            parentTimezone
+                          )}
+                    </strong>
+                  </p>
+
+                  <p className="mt-1">
+                    Tutor timezone:{" "}
+                    <strong>
+                      {getTutorTimezone(selectedSlotForPreview, tutor)}
+                    </strong>
+                  </p>
+
+                  <p className="mt-2 text-xs leading-6 text-slate-500">
+                    This booking will store the confirmed lesson time in UTC so
+                    admin, tutor and parent calendars stay synchronized.
+                  </p>
                 </div>
               ) : null}
 
