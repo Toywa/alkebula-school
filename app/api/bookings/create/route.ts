@@ -229,15 +229,29 @@ export async function POST(req: NextRequest) {
 
     const { data: tutorProfile, error: tutorError } = await supabase
       .from("educator_directory")
-      .select("id,email,full_name,hourly_rate,subject_rates,approval_status,is_public,timezone")
+      .select("id,email,full_name,hourly_rate,subject_rates,approval_status,is_public,profile_status,timezone")
       .eq("email", tutorEmail)
       .eq("approval_status", "approved")
       .eq("is_public", true)
+      .or("profile_status.is.null,profile_status.eq.active")
       .single();
 
     if (tutorError || !tutorProfile) {
       return NextResponse.json(
-        { error: "Tutor is not approved or is not publicly available." },
+        { error: "Tutor is not approved, is hidden, suspended, removed, or is not publicly available." },
+        { status: 400 }
+      );
+    }
+
+    if (
+      tutorProfile.profile_status &&
+      tutorProfile.profile_status !== "active"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "This tutor profile is currently not available for new bookings.",
+        },
         { status: 400 }
       );
     }

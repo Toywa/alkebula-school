@@ -32,6 +32,7 @@ type Tutor = {
   class_levels?: string[] | null;
   student_levels?: string[] | null;
   timezone?: string | null;
+  profile_status?: string | null;
 };
 
 type Slot = {
@@ -256,6 +257,7 @@ export default function TutorProfilePage({
         .eq("id", id)
         .eq("approval_status", "approved")
         .eq("is_public", true)
+        .or("profile_status.is.null,profile_status.eq.active")
         .single();
 
       if (tutorError || !tutorData) {
@@ -268,7 +270,8 @@ export default function TutorProfilePage({
         .from("educator_directory")
         .select("full_name")
         .eq("approval_status", "approved")
-        .eq("is_public", true);
+        .eq("is_public", true)
+        .or("profile_status.is.null,profile_status.eq.active");
 
       setPublicTutorName(
         getDuplicateAwarePublicTutorName(

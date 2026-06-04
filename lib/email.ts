@@ -636,3 +636,184 @@ export async function sendTutorRejectedEmail({
   }
 }
 
+export type TutorProfileStatusAction =
+  | "hide_profile"
+  | "restore_profile"
+  | "suspend_profile"
+  | "remove_tutor";
+
+function getTutorProfileStatusEmailCopy({
+  action,
+  tutorName,
+  reason,
+  note,
+}: {
+  action: TutorProfileStatusAction;
+  tutorName: string;
+  reason?: string | null;
+  note?: string | null;
+}) {
+  const safeReason = reason || "Administrative review";
+  const safeNote = note || "No additional admin note was provided.";
+
+  if (action === "hide_profile") {
+    return {
+      subject: "Your Alkebula tutor profile has been temporarily hidden",
+      title: "Tutor Profile Temporarily Hidden",
+      intro: `Dear ${tutorName}, your approved tutor profile has been temporarily hidden from public view.`,
+      body: `
+        <p style="font-size:15px;line-height:1.8;color:#334155;">
+          This action does not remove you from The Alkebula School platform. It means your public tutor profile is
+          temporarily not visible to parents and new bookings may be paused while the matter is reviewed or corrected.
+        </p>
+
+        <div style="margin:24px 0;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+          ${detailsBlock([
+            { label: "Reason", value: safeReason },
+            { label: "Admin Note", value: safeNote },
+          ])}
+        </div>
+
+        <p style="font-size:15px;line-height:1.8;color:#334155;">
+          Please review your tutor profile, availability, rates, photo, qualifications, subjects, and class levels where applicable.
+          You may contact admin if you need clarification or believe the matter has been resolved.
+        </p>
+      `,
+    };
+  }
+
+  if (action === "suspend_profile") {
+    return {
+      subject: "Your Alkebula tutor profile has been suspended pending review",
+      title: "Tutor Profile Suspended",
+      intro: `Dear ${tutorName}, your tutor profile has been suspended pending administrative review.`,
+      body: `
+        <p style="font-size:15px;line-height:1.8;color:#334155;">
+          During suspension, your public profile will not be visible to parents and new bookings may be paused.
+          This action is taken to protect service quality, platform integrity, parent confidence, and student safety.
+        </p>
+
+        <div style="margin:24px 0;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+          ${detailsBlock([
+            { label: "Reason", value: safeReason },
+            { label: "Admin Note", value: safeNote },
+          ])}
+        </div>
+
+        <p style="font-size:15px;line-height:1.8;color:#334155;">
+          Admin will review the matter and advise on the next steps where appropriate.
+        </p>
+      `,
+    };
+  }
+
+  if (action === "remove_tutor") {
+    return {
+      subject: "Your Alkebula tutor account has been removed from active participation",
+      title: "Tutor Account Removed",
+      intro: `Dear ${tutorName}, your tutor profile has been removed from active participation on The Alkebula School platform.`,
+      body: `
+        <p style="font-size:15px;line-height:1.8;color:#334155;">
+          This means your public tutor profile will no longer be available for parent bookings and you are no longer active
+          as a participating Alkebula tutor.
+        </p>
+
+        <div style="margin:24px 0;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+          ${detailsBlock([
+            { label: "Reason", value: safeReason },
+            { label: "Admin Note", value: safeNote },
+          ])}
+        </div>
+
+        <p style="font-size:15px;line-height:1.8;color:#334155;">
+          If you believe this decision requires review, you may contact admin through the official communication channel.
+        </p>
+      `,
+    };
+  }
+
+  return {
+    subject: "Your Alkebula tutor profile has been restored",
+    title: "Tutor Profile Restored",
+    intro: `Dear ${tutorName}, your tutor profile has been restored to active public visibility.`,
+    body: `
+      <p style="font-size:15px;line-height:1.8;color:#334155;">
+        Your tutor profile is now active again and may be visible to parents, subject to your public profile settings,
+        availability, and platform requirements.
+      </p>
+
+      <div style="margin:24px 0;padding:20px;border:1px solid #e2e8f0;border-radius:16px;background:#ffffff;">
+        ${detailsBlock([
+          { label: "Reason", value: safeReason },
+          { label: "Admin Note", value: safeNote },
+        ])}
+      </div>
+
+      <p style="font-size:15px;line-height:1.8;color:#334155;">
+        Please ensure your availability, subject packages, class levels, rates, timezone, and profile details remain accurate.
+      </p>
+    `,
+  };
+}
+
+export async function sendTutorProfileStatusEmail({
+  tutorEmail,
+  tutorName,
+  action,
+  reason,
+  note,
+}: {
+  tutorEmail: string;
+  tutorName: string;
+  action: TutorProfileStatusAction;
+  reason?: string | null;
+  note?: string | null;
+}) {
+  if (!process.env.RESEND_API_KEY || !process.env.EMAIL_FROM) {
+    return {
+      success: false,
+      error: "Missing email configuration",
+    };
+  }
+
+  try {
+    const copy = getTutorProfileStatusEmailCopy({
+      action,
+      tutorName,
+      reason,
+      note,
+    });
+
+    const result = await resend.emails.send({
+      from: process.env.EMAIL_FROM,
+      to: tutorEmail,
+      replyTo: process.env.ADMIN_EMAIL || undefined,
+      subject: copy.subject,
+      html: wrapEmail(copy.title, copy.intro, copy.body),
+    });
+
+    if (result.error) {
+      return {
+        success: false,
+        error:
+          typeof result.error.message === "string"
+            ? result.error.message
+            : "Tutor profile status email failed",
+      };
+    }
+
+    return {
+      success: true,
+      result,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Tutor profile status email failed",
+    };
+  }
+}
+
