@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import LiveActivityTicker from "@/components/LiveActivityTicker";
 
 const programmeLinks = [
   {
@@ -68,15 +69,15 @@ const platformLinks = [
 
 const legalLinks = [
   {
-    href: "/legal/terms",
+    href: "/terms",
     label: "Terms & Conditions",
   },
   {
-    href: "/legal/refund-policy",
+    href: "/refund-policy",
     label: "Refund Policy",
   },
   {
-    href: "/legal/privacy-policy",
+    href: "/privacy-policy",
     label: "Privacy Policy",
   },
   {
@@ -156,6 +157,8 @@ function FooterLink({
 export default function Footer() {
   return (
     <footer className="mt-20 bg-[#8F1F36] text-white">
+      <LiveActivityTicker />
+
       <div className="mx-auto grid max-w-7xl gap-8 px-6 py-10 md:grid-cols-2 lg:grid-cols-5">
         <div>
           <FooterHeading>Social</FooterHeading>
