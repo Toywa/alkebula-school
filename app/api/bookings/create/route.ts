@@ -53,15 +53,6 @@ function money(value: unknown) {
   return Number.isFinite(amount) ? amount : 0;
 }
 
-function formatTimeRange(startTime?: string | null, endTime?: string | null) {
-  const start = startTime || "";
-  const end = endTime || "";
-
-  if (start && end) return `${start} - ${end}`;
-  if (start) return start;
-  return "";
-}
-
 function isValidTimeZone(timeZone: string) {
   try {
     Intl.DateTimeFormat("en-US", { timeZone });
@@ -69,54 +60,6 @@ function isValidTimeZone(timeZone: string) {
   } catch {
     return false;
   }
-}
-
-function getTimeZoneOffsetMs(date: Date, timeZone: string) {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  });
-
-  const parts = formatter.formatToParts(date);
-  const values: Record<string, string> = {};
-
-  parts.forEach((part) => {
-    if (part.type !== "literal") {
-      values[part.type] = part.value;
-    }
-  });
-
-  const asUtc = Date.UTC(
-    Number(values.year),
-    Number(values.month) - 1,
-    Number(values.day),
-    Number(values.hour),
-    Number(values.minute),
-    Number(values.second)
-  );
-
-  return asUtc - date.getTime();
-}
-
-function zonedDateTimeToUtc(date: string, time: string, timeZone: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute] = time.split(":").map(Number);
-
-  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
-
-  let offset = getTimeZoneOffsetMs(utcGuess, timeZone);
-  let utcDate = new Date(utcGuess.getTime() - offset);
-
-  offset = getTimeZoneOffsetMs(utcDate, timeZone);
-  utcDate = new Date(utcGuess.getTime() - offset);
-
-  return utcDate;
 }
 
 function cleanTimeZone(value?: string | null, fallback = "UTC") {
@@ -151,6 +94,24 @@ function findMatchingSubjectPackage(
 
     return packageSubject === subject && packageCurriculum === curriculum;
   });
+}
+
+function extractRpcMessage(errorMessage: string) {
+  if (!errorMessage) return "Booking failed.";
+
+  if (errorMessage.includes("already been booked")) {
+    return "This time slot has already been booked. Please choose another available time.";
+  }
+
+  if (errorMessage.includes("overlapping")) {
+    return "This tutor already has a lesson overlapping this time. Please choose another available time.";
+  }
+
+  if (errorMessage.includes("missing UTC")) {
+    return "This slot is missing timezone-safe UTC data. Please choose another slot or ask the tutor to recreate availability.";
+  }
+
+  return errorMessage;
 }
 
 export async function GET() {
@@ -192,7 +153,6 @@ export async function POST(req: NextRequest) {
     }
 
     const parentEmail = normalizeEmail(user.email);
-
     const body = (await req.json()) as BookingRequestBody;
 
     const tutorEmail = normalizeEmail(body.tutorEmail);
@@ -238,19 +198,9 @@ export async function POST(req: NextRequest) {
 
     if (tutorError || !tutorProfile) {
       return NextResponse.json(
-        { error: "Tutor is not approved, is hidden, suspended, removed, or is not publicly available." },
-        { status: 400 }
-      );
-    }
-
-    if (
-      tutorProfile.profile_status &&
-      tutorProfile.profile_status !== "active"
-    ) {
-      return NextResponse.json(
         {
           error:
-            "This tutor profile is currently not available for new bookings.",
+            "Tutor is not approved, is hidden, suspended, removed, or is not publicly available.",
         },
         { status: 400 }
       );
@@ -277,7 +227,6 @@ export async function POST(req: NextRequest) {
     }
 
     const finalClassLevel = classLevel || getPackageClassLevel(matchingPackage);
-
     const finalHourlyRate = money(matchingPackage.hourly_rate);
 
     if (finalHourlyRate <= 0) {
@@ -290,182 +239,62 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { data: selectedSlot, error: slotError } = await supabase
-      .from("tutor_availability_slots")
-      .select("id,tutor_email,date,slot_date,start_time,end_time,is_booked,status,timezone,tutor_timezone,start_at_utc,end_at_utc")
-      .eq("id", slotId)
-      .single();
+    const lessonAmount = finalHourlyRate;
+    const platformCommission = lessonAmount * 0.3;
+    const tutorPayoutAmount = lessonAmount * 0.7;
 
-    if (slotError || !selectedSlot) {
-      return NextResponse.json(
-        { error: "Selected time slot was not found." },
-        { status: 404 }
-      );
-    }
+    const { data: created, error: rpcError } = await supabase.rpc(
+      "create_booking_atomic",
+      {
+        p_parent_email: parentEmail,
+        p_tutor_email: tutorEmail,
+        p_student_name: studentName,
+        p_subject: subject,
+        p_curriculum: curriculum,
+        p_class_level: finalClassLevel,
+        p_slot_id: slotId,
+        p_parent_timezone: parentTimezone,
+        p_hourly_rate: finalHourlyRate,
+        p_lesson_amount: lessonAmount,
+        p_platform_commission: platformCommission,
+        p_tutor_payout_amount: tutorPayoutAmount,
+      }
+    );
 
-    if (normalizeEmail(selectedSlot.tutor_email) !== tutorEmail) {
-      return NextResponse.json(
-        { error: "Selected time slot does not belong to this tutor." },
-        { status: 400 }
-      );
-    }
+    if (rpcError || !created) {
+      console.error("Atomic booking error:", rpcError);
 
-    if (selectedSlot.is_booked || selectedSlot.status === "booked") {
       return NextResponse.json(
         {
-          error:
-            "This time slot has already been booked. Please choose another available time.",
+          error: extractRpcMessage(
+            rpcError?.message || "Booking failed. Please choose another available time."
+          ),
         },
         { status: 409 }
       );
     }
 
-    const lessonDate = selectedSlot.date || selectedSlot.slot_date;
-    const startTime = selectedSlot.start_time;
-    const endTime = selectedSlot.end_time;
-    const time = formatTimeRange(startTime, endTime);
+    const result = created as {
+      booking: any;
+      lesson: any;
+      slot: any;
+      pricing: {
+        hourlyRate: number;
+        lessonAmount: number;
+        platformCommission: number;
+        tutorPayoutAmount: number;
+      };
+    };
 
-    const tutorTimezone = cleanTimeZone(
-      selectedSlot.tutor_timezone || selectedSlot.timezone || tutorProfile.timezone,
-      "Africa/Nairobi"
-    );
-
-    if (!lessonDate || !startTime) {
-      return NextResponse.json(
-        {
-          error:
-            "Selected time slot is missing date or start time. Please choose another slot.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const startAtUtc =
-      selectedSlot.start_at_utc ||
-      zonedDateTimeToUtc(lessonDate, startTime, tutorTimezone).toISOString();
-
-    const endAtUtc =
-      selectedSlot.end_at_utc ||
-      (endTime
-        ? zonedDateTimeToUtc(lessonDate, endTime, tutorTimezone).toISOString()
-        : null);
-
-    if (endAtUtc && new Date(endAtUtc) <= new Date(startAtUtc)) {
-      return NextResponse.json(
-        {
-          error:
-            "Selected time slot has an invalid timezone conversion. Please choose another slot or contact admin.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const lessonAmount = finalHourlyRate;
-    const platformCommission = lessonAmount * 0.3;
-    const tutorPayoutAmount = lessonAmount * 0.7;
-
-    const { data: booking, error: bookingError } = await supabase
-      .from("bookings")
-      .insert([
-        {
-          parent_email: parentEmail,
-          tutor_email: tutorEmail,
-          student_name: studentName,
-          subject,
-          curriculum,
-          class_level: finalClassLevel,
-          date: lessonDate,
-          time,
-          status: "booked",
-          slot_id: slotId,
-
-          start_at_utc: startAtUtc,
-          end_at_utc: endAtUtc,
-          tutor_timezone: tutorTimezone,
-          parent_timezone: parentTimezone,
-
-          hourly_rate: finalHourlyRate,
-          lesson_amount: lessonAmount,
-          platform_commission: platformCommission,
-          tutor_payout_amount: tutorPayoutAmount,
-        },
-      ])
-      .select()
-      .single();
-
-    if (bookingError) {
-      console.error("Booking error:", bookingError);
-      return NextResponse.json({ error: bookingError.message }, { status: 400 });
-    }
-
-    const { data: lesson, error: lessonError } = await supabase
-      .from("tutor_lessons")
-      .insert([
-        {
-          tutor_email: tutorEmail,
-          student_name: studentName,
-          parent_email: parentEmail,
-          subject,
-          curriculum,
-          class_level: finalClassLevel,
-          lesson_date: lessonDate,
-          start_time: startTime,
-          end_time: endTime,
-          start_at_utc: startAtUtc,
-          end_at_utc: endAtUtc,
-          tutor_timezone: tutorTimezone,
-          parent_timezone: parentTimezone,
-          status: "upcoming",
-
-          hourly_rate: finalHourlyRate,
-          amount_due: tutorPayoutAmount,
-          lesson_amount: lessonAmount,
-          platform_commission: platformCommission,
-          tutor_payout_amount: tutorPayoutAmount,
-
-          payment_status: "unpaid",
-        },
-      ])
-      .select()
-      .single();
-
-    if (lessonError) {
-      console.error("Lesson creation error:", lessonError);
-
-      return NextResponse.json(
-        {
-          error:
-            "Booking was created, but lesson record failed. Admin should review this booking.",
-          booking,
-          details: lessonError.message,
-        },
-        { status: 500 }
-      );
-    }
-
-    const { error: slotUpdateError } = await supabase
-      .from("tutor_availability_slots")
-      .update({
-        is_booked: true,
-        status: "booked",
-      })
-      .eq("id", slotId)
-      .eq("tutor_email", tutorEmail)
-      .eq("is_booked", false);
-
-    if (slotUpdateError) {
-      console.error("Slot update error:", slotUpdateError);
-      return NextResponse.json(
-        {
-          error:
-            "Lesson was created, but the slot could not be marked as booked. Admin should review this booking.",
-          booking,
-          lesson,
-          details: slotUpdateError.message,
-        },
-        { status: 500 }
-      );
-    }
+    const slot = result.slot || {};
+    const lesson = result.lesson || {};
+    const date = lesson.lesson_date || slot.date || slot.slot_date || "";
+    const time =
+      lesson.start_time && lesson.end_time
+        ? `${String(lesson.start_time).slice(0, 5)} - ${String(
+            lesson.end_time
+          ).slice(0, 5)}`
+        : result.booking?.time || "";
 
     const emailResult = await sendBookingEmails({
       parentEmail,
@@ -474,7 +303,7 @@ export async function POST(req: NextRequest) {
       subject,
       curriculum,
       classLevel: finalClassLevel,
-      date: lessonDate,
+      date,
       time,
       hourlyRate: finalHourlyRate,
       lessonAmount,
@@ -484,14 +313,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      booking,
-      lesson,
-      pricing: {
-        hourlyRate: finalHourlyRate,
-        lessonAmount,
-        platformCommission,
-        tutorPayoutAmount,
-      },
+      booking: result.booking,
+      lesson: result.lesson,
+      pricing: result.pricing,
       emailResult,
     });
   } catch (err) {

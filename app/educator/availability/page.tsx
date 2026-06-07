@@ -1,11 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
-const months = [
-  { label: "May 2026", start: "2026-05-01", end: "2026-05-31" },
-  { label: "June 2026", start: "2026-06-01", end: "2026-06-30" },
+const TIMEZONE_OPTIONS = [
+  "Africa/Nairobi",
+  "Europe/London",
+  "Asia/Dubai",
+  "Asia/Qatar",
+  "Asia/Riyadh",
+  "America/New_York",
+  "America/Chicago",
+  "America/Los_Angeles",
+  "America/Toronto",
+  "Africa/Johannesburg",
+  "Africa/Lagos",
+  "Africa/Accra",
+  "Africa/Kampala",
+  "Africa/Kigali",
+  "Africa/Dar_es_Salaam",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Amsterdam",
+  "Australia/Sydney",
+  "Asia/Singapore",
+  "UTC",
 ];
 
 const days = [
@@ -18,20 +37,8 @@ const days = [
   { label: "Sat", value: 6 },
 ];
 
-function getDatesInRange(start: string, end: string, selectedDays: number[]) {
-  const dates: string[] = [];
-  const current = new Date(`${start}T00:00:00`);
-  const last = new Date(`${end}T00:00:00`);
-
-  while (current <= last) {
-    if (selectedDays.includes(current.getDay())) {
-      dates.push(current.toISOString().slice(0, 10));
-    }
-
-    current.setDate(current.getDate() + 1);
-  }
-
-  return dates;
+function getBrowserTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Nairobi";
 }
 
 function isValidTimeZone(timeZone: string) {
@@ -59,9 +66,7 @@ function getTimeZoneOffsetMs(date: Date, timeZone: string) {
   const values: Record<string, string> = {};
 
   parts.forEach((part) => {
-    if (part.type !== "literal") {
-      values[part.type] = part.value;
-    }
+    if (part.type !== "literal") values[part.type] = part.value;
   });
 
   const asUtc = Date.UTC(
@@ -104,17 +109,42 @@ function formatInTimeZone(isoDate: string, timeZone: string) {
   }).format(new Date(isoDate));
 }
 
-function getBrowserTimeZone() {
-  return Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Nairobi";
+function getMonthOptions() {
+  return [
+    { label: "June 2026", start: "2026-06-01", end: "2026-06-30" },
+    { label: "July 2026", start: "2026-07-01", end: "2026-07-31" },
+  ];
 }
 
-export default function MayJuneAvailabilityPage() {
+function getDatesInRange(start: string, end: string) {
+  const dates: string[] = [];
+  const current = new Date(`${start}T00:00:00`);
+  const last = new Date(`${end}T00:00:00`);
+
+  while (current <= last) {
+    dates.push(current.toISOString().slice(0, 10));
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function getDateLabel(date: string) {
+  return new Date(`${date}T00:00:00`).toLocaleDateString("en-GB", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+export default function EducatorAvailabilityPage() {
   const [email, setEmail] = useState("");
   const [approved, setApproved] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  const [selectedMonth, setSelectedMonth] = useState("May 2026");
-  const [selectedDays, setSelectedDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const monthOptions = useMemo(() => getMonthOptions(), []);
+  const [selectedMonth, setSelectedMonth] = useState(monthOptions[0]?.label || "");
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [timezone, setTimezone] = useState("Africa/Nairobi");
@@ -127,6 +157,25 @@ export default function MayJuneAvailabilityPage() {
     setTimezone(getBrowserTimeZone());
     checkTutor();
   }, []);
+
+  const selectedMonthRecord =
+    monthOptions.find((item) => item.label === selectedMonth) || monthOptions[0];
+
+  const monthDates = useMemo(() => {
+    if (!selectedMonthRecord) return [];
+    return getDatesInRange(selectedMonthRecord.start, selectedMonthRecord.end);
+  }, [selectedMonthRecord]);
+
+  const selectedDatesSorted = useMemo(() => {
+    return [...selectedDates].sort();
+  }, [selectedDates]);
+
+  const firstPreviewDate = selectedDatesSorted[0];
+
+  const previewStartUtc =
+    startTime && firstPreviewDate && isValidTimeZone(timezone)
+      ? zonedDateTimeToUtc(firstPreviewDate, startTime, timezone).toISOString()
+      : "";
 
   async function checkTutor() {
     const supabase = getSupabaseBrowserClient();
@@ -163,10 +212,22 @@ export default function MayJuneAvailabilityPage() {
     setTimezone(getBrowserTimeZone());
   }
 
-  function toggleDay(day: number) {
-    setSelectedDays((prev) =>
-      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+  function toggleDate(date: string) {
+    setSelectedDates((prev) =>
+      prev.includes(date) ? prev.filter((item) => item !== date) : [...prev, date]
     );
+  }
+
+  function selectWeekday(day: number) {
+    const matchingDates = monthDates.filter((date) => {
+      return new Date(`${date}T00:00:00`).getDay() === day;
+    });
+
+    setSelectedDates((prev) => Array.from(new Set([...prev, ...matchingDates])));
+  }
+
+  function clearDates() {
+    setSelectedDates([]);
   }
 
   async function createSlots() {
@@ -179,8 +240,8 @@ export default function MayJuneAvailabilityPage() {
         throw new Error("Only approved educators can create availability slots.");
       }
 
-      if (!selectedDays.length) {
-        throw new Error("Please choose at least one day of the week.");
+      if (!selectedDatesSorted.length) {
+        throw new Error("Please choose at least one calendar date.");
       }
 
       if (!startTime || !endTime) {
@@ -192,24 +253,15 @@ export default function MayJuneAvailabilityPage() {
       }
 
       if (!isValidTimeZone(timezone)) {
-        throw new Error(
-          "Please use a valid IANA timezone, for example Africa/Nairobi or Europe/London."
-        );
+        throw new Error("Please select a valid timezone.");
       }
 
-      const month = months.find((m) => m.label === selectedMonth);
-      if (!month) throw new Error("Invalid month selected.");
-
-      const dates = getDatesInRange(month.start, month.end, selectedDays);
-
-      const rows = dates.map((date) => {
+      const rows = selectedDatesSorted.map((date) => {
         const startAtUtc = zonedDateTimeToUtc(date, startTime, timezone);
         const endAtUtc = zonedDateTimeToUtc(date, endTime, timezone);
 
         if (endAtUtc <= startAtUtc) {
-          throw new Error(
-            "One or more generated slots has an invalid end time. Please review your time range."
-          );
+          throw new Error("One or more slots has an invalid end time.");
         }
 
         return {
@@ -235,9 +287,15 @@ export default function MayJuneAvailabilityPage() {
 
       if (error) throw new Error(error.message);
 
+      await supabase
+        .from("educator_directory")
+        .update({ timezone })
+        .eq("email", email);
+
       setMessage(
-        `${rows.length} timezone-safe availability slots created for ${selectedMonth}.`
+        `${rows.length} timezone-safe availability slots created successfully.`
       );
+      setSelectedDates([]);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Failed to create slots."
@@ -265,38 +323,29 @@ export default function MayJuneAvailabilityPage() {
     );
   }
 
-  const month = months.find((m) => m.label === selectedMonth)!;
-  const previewDates = getDatesInRange(month.start, month.end, selectedDays);
-  const firstPreviewDate = previewDates[0] || month.start;
-
-  const previewStartUtc =
-    startTime && firstPreviewDate && isValidTimeZone(timezone)
-      ? zonedDateTimeToUtc(firstPreviewDate, startTime, timezone).toISOString()
-      : "";
-
   return (
     <main className="min-h-screen bg-white text-slate-900">
-      <section className="mx-auto max-w-4xl px-6 py-16 lg:px-8 lg:py-20">
+      <section className="mx-auto max-w-5xl px-6 py-16 lg:px-8 lg:py-20">
         <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
           The Alkebula School
         </p>
 
         <h1 className="mt-4 text-4xl font-bold">
-          Timezone-Sensitive Availability
+          Teaching Availability Calendar
         </h1>
 
         <p className="mt-4 text-slate-600">
-          Signed in as <strong>{email}</strong>. Create bookable slots in your
-          own timezone. Alkebula stores the true lesson time in UTC so parents,
-          tutors and admin can view the same lesson correctly across countries.
+          Signed in as <strong>{email}</strong>. Choose your teaching timezone
+          and calendar dates. Alkebula stores the true lesson time in UTC so
+          parents, tutors and admin see synchronized times. For this phase,
+          only June and July 2026 slots can be created.
         </p>
 
         <div className="mt-8 rounded-3xl border border-[#379CD6]/20 bg-[#F7FCFF] p-5 text-sm text-slate-700">
           <p className="font-bold text-[#156B96]">Timezone safety note</p>
           <p className="mt-2 leading-7">
-            Do not manually calculate London, Nairobi, Dubai or New York time.
-            Create slots in your own timezone. The system stores UTC timestamps
-            for accurate timezone conversion later.
+            Create availability in your own timezone. Parents will see the same
+            UTC slot converted automatically into their selected timezone.
           </p>
         </div>
 
@@ -306,10 +355,13 @@ export default function MayJuneAvailabilityPage() {
               <label className="mb-2 block text-sm font-medium">Month</label>
               <select
                 value={selectedMonth}
-                onChange={(e) => setSelectedMonth(e.target.value)}
+                onChange={(e) => {
+                  setSelectedMonth(e.target.value);
+                  setSelectedDates([]);
+                }}
                 className="w-full rounded-xl border border-slate-300 px-4 py-3"
               >
-                {months.map((m) => (
+                {monthOptions.map((m) => (
                   <option key={m.label} value={m.label}>
                     {m.label}
                   </option>
@@ -332,21 +384,30 @@ export default function MayJuneAvailabilityPage() {
                 </button>
               </div>
 
-              <input
+              <select
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                placeholder="Example: Africa/Nairobi"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3"
-              />
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+              >
+                {Array.from(new Set([timezone, getBrowserTimeZone(), ...TIMEZONE_OPTIONS]))
+                  .filter(Boolean)
+                  .map((zone) => (
+                    <option key={zone} value={zone}>
+                      {zone}
+                    </option>
+                  ))}
+              </select>
 
               <p className="mt-2 text-xs text-slate-500">
-                Use an IANA timezone such as Africa/Nairobi, Europe/London,
-                Asia/Dubai or America/New_York.
+                The detected timezone is loaded automatically, but you can
+                choose another one if you teach from a different location.
               </p>
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">Start Time in Your Timezone</label>
+              <label className="mb-2 block text-sm font-medium">
+                Start Time in Your Timezone
+              </label>
               <input
                 type="time"
                 value={startTime}
@@ -356,7 +417,9 @@ export default function MayJuneAvailabilityPage() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium">End Time in Your Timezone</label>
+              <label className="mb-2 block text-sm font-medium">
+                End Time in Your Timezone
+              </label>
               <input
                 type="time"
                 value={endTime}
@@ -367,32 +430,62 @@ export default function MayJuneAvailabilityPage() {
           </div>
 
           <div className="mt-6">
-            <p className="mb-3 text-sm font-medium">Repeat on these days</p>
-            <div className="flex flex-wrap gap-3">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-medium">
+                Select June or July calendar dates
+              </p>
+
+              <button
+                type="button"
+                onClick={clearDates}
+                className="text-xs font-bold text-[#8F1F36] hover:underline"
+              >
+                Clear selected dates
+              </button>
+            </div>
+
+            <div className="mb-4 flex flex-wrap gap-2">
               {days.map((day) => (
                 <button
                   key={day.value}
                   type="button"
-                  onClick={() => toggleDay(day.value)}
-                  className={`rounded-xl border px-4 py-2 text-sm font-semibold ${
-                    selectedDays.includes(day.value)
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-300 bg-white text-slate-700"
-                  }`}
+                  onClick={() => selectWeekday(day.value)}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-[#F7FCFF]"
                 >
-                  {day.label}
+                  Add all {day.label}
                 </button>
               ))}
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7">
+              {monthDates.map((date) => {
+                const selected = selectedDates.includes(date);
+
+                return (
+                  <button
+                    key={date}
+                    type="button"
+                    onClick={() => toggleDate(date)}
+                    className={`rounded-2xl border px-3 py-3 text-left text-sm transition ${
+                      selected
+                        ? "border-[#8F1F36] bg-[#8F1F36] text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:bg-[#F7FCFF]"
+                    }`}
+                  >
+                    <span className="block font-bold">{getDateLabel(date)}</span>
+                    <span className="text-xs opacity-80">{date}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
           <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
             <p className="font-semibold">Preview</p>
             <p className="mt-2 text-sm leading-7 text-slate-600">
-              This will create <strong>{previewDates.length}</strong> slots for{" "}
-              <strong>{selectedMonth}</strong>, from{" "}
-              <strong>{startTime}</strong> to <strong>{endTime}</strong> in{" "}
-              <strong>{timezone}</strong>.
+              This will create <strong>{selectedDatesSorted.length}</strong>{" "}
+              slots from <strong>{startTime}</strong> to{" "}
+              <strong>{endTime}</strong> in <strong>{timezone}</strong>.
             </p>
 
             {previewStartUtc ? (
@@ -420,7 +513,7 @@ export default function MayJuneAvailabilityPage() {
             disabled={loading}
             className="mt-6 rounded-xl bg-slate-900 px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
           >
-            {loading ? "Creating..." : `Create ${selectedMonth} Slots`}
+            {loading ? "Creating..." : "Create Selected Slots"}
           </button>
 
           {message ? <p className="mt-4 text-green-600">{message}</p> : null}

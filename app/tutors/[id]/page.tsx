@@ -4,6 +4,30 @@ import Link from "next/link";
 import { use, useEffect, useMemo, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
+const TIMEZONE_OPTIONS = [
+  "Africa/Nairobi",
+  "Europe/London",
+  "Asia/Dubai",
+  "Asia/Qatar",
+  "Asia/Riyadh",
+  "America/New_York",
+  "America/Chicago",
+  "America/Los_Angeles",
+  "America/Toronto",
+  "Africa/Johannesburg",
+  "Africa/Lagos",
+  "Africa/Accra",
+  "Africa/Kampala",
+  "Africa/Kigali",
+  "Africa/Dar_es_Salaam",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Amsterdam",
+  "Australia/Sydney",
+  "Asia/Singapore",
+  "UTC",
+];
+
 type SubjectRate = {
   curriculum_level: string;
   class_level?: string | null;
@@ -47,6 +71,16 @@ type Slot = {
   start_at_utc?: string | null;
   end_at_utc?: string | null;
 };
+
+
+const BOOKING_WINDOW_START = "2026-06-01";
+const BOOKING_WINDOW_END = "2026-07-31";
+
+function isSlotInAllowedBookingWindow(slot: Slot) {
+  const date = slot.date || slot.slot_date || "";
+
+  return date >= BOOKING_WINDOW_START && date <= BOOKING_WINDOW_END;
+}
 
 function getDefaultPublicTutorName(fullName?: string | null) {
   if (!fullName) return "Alkebula Tutor";
@@ -187,6 +221,35 @@ function formatSlotDateForParent(slot: Slot, parentTimezone: string) {
   });
 }
 
+function getSlotDateKeyForParent(slot: Slot, parentTimezone: string) {
+  if (slot.start_at_utc && isValidTimeZone(parentTimezone)) {
+    const formatter = new Intl.DateTimeFormat("en-CA", {
+      timeZone: parentTimezone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+
+    return formatter.format(new Date(slot.start_at_utc));
+  }
+
+  return slot.date;
+}
+
+function sortSlotsByUtc(slots: Slot[]) {
+  return [...slots].sort((a, b) => {
+    const aTime = a.start_at_utc
+      ? new Date(a.start_at_utc).getTime()
+      : new Date(`${a.date}T${a.start_time || "00:00"}`).getTime();
+
+    const bTime = b.start_at_utc
+      ? new Date(b.start_at_utc).getTime()
+      : new Date(`${b.date}T${b.start_time || "00:00"}`).getTime();
+
+    return aTime - bTime;
+  });
+}
+
 function getTutorTimezone(slot?: Slot | null, tutor?: Tutor | null) {
   return (
     slot?.tutor_timezone ||
@@ -285,18 +348,23 @@ export default function TutorProfilePage({
         .select("*")
         .eq("tutor_email", tutorData.email)
         .eq("is_booked", false)
+        .gte("date", BOOKING_WINDOW_START)
+        .lte("date", BOOKING_WINDOW_END)
+        .or("status.is.null,status.eq.available")
         .order("date", { ascending: true })
         .order("start_time", { ascending: true });
 
-      const cleanSlots = (slotData || []).map((slot: any) => ({
-        ...slot,
-        date: slot.date || slot.slot_date,
-      }));
+      const cleanSlots = (slotData || [])
+        .map((slot: any) => ({
+          ...slot,
+          date: slot.date || slot.slot_date,
+        }))
+        .filter((slot: Slot) => isSlotInAllowedBookingWindow(slot));
 
       setSlots(cleanSlots);
 
       if (cleanSlots.length > 0) {
-        setSelectedDate(cleanSlots[0].date);
+        setSelectedDate(getSlotDateKeyForParent(cleanSlots[0], parentTimezone));
       }
     } catch (error) {
       setErrorMessage(
@@ -324,12 +392,33 @@ export default function TutorProfilePage({
   const selectedSubjectRate = subjectRateOptions[selectedSubjectRateIndex];
 
   const availableDates = useMemo(() => {
-    return Array.from(new Set(slots.map((slot) => slot.date).filter(Boolean)));
-  }, [slots]);
+    const dateKeys = slots
+      .map((slot) => getSlotDateKeyForParent(slot, parentTimezone))
+      .filter(Boolean);
+
+    return Array.from(new Set(dateKeys)).sort();
+  }, [slots, parentTimezone]);
 
   const slotsForSelectedDate = useMemo(() => {
-    return slots.filter((slot) => slot.date === selectedDate);
-  }, [slots, selectedDate]);
+    return sortSlotsByUtc(
+      slots.filter(
+        (slot) => getSlotDateKeyForParent(slot, parentTimezone) === selectedDate
+      )
+    );
+  }, [slots, selectedDate, parentTimezone]);
+
+  useEffect(() => {
+    if (!availableDates.length) {
+      setSelectedDate("");
+      setSelectedSlotId("");
+      return;
+    }
+
+    if (!selectedDate || !availableDates.includes(selectedDate)) {
+      setSelectedDate(availableDates[0]);
+      setSelectedSlotId("");
+    }
+  }, [availableDates, selectedDate]);
 
   async function handleBooking(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -648,8 +737,13 @@ export default function TutorProfilePage({
               </p>
 
               <h3 className="mt-3 text-3xl font-bold text-slate-950">
-                Book an available slot.
+                Book an available June or July slot.
               </h3>
+
+              <p className="mt-3 text-sm leading-7 text-slate-600">
+                Only June and July 2026 availability is currently shown. Older
+                May slots are hidden even if they were previously created.
+              </p>
 
               {selectedSubjectRate ? (
                 <div className="mt-5 rounded-2xl border border-[#379CD6]/15 bg-[#F7FCFF] p-4 text-sm">
@@ -665,11 +759,35 @@ export default function TutorProfilePage({
                   <p className="mt-2 font-bold text-[#8F1F36]">
                     USD {selectedSubjectRate.hourly_rate}/hour
                   </p>
-                  <p className="mt-3 rounded-xl bg-white p-3 text-xs leading-6 text-slate-600">
-                    Your timezone has been detected as{" "}
-                    <strong>{parentTimezone}</strong>. Available lesson times
-                    are shown in your timezone where UTC slot data is available.
-                  </p>
+                  <div className="mt-3 rounded-xl bg-white p-3 text-xs leading-6 text-slate-600">
+                    <label className="mb-2 block font-bold text-slate-700">
+                      Your viewing timezone
+                    </label>
+
+                    <select
+                      value={parentTimezone}
+                      onChange={(e) => {
+                        setParentTimezone(e.target.value);
+                        setSelectedSlotId("");
+                      }}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                    >
+                      {Array.from(
+                        new Set([parentTimezone, getBrowserTimeZone(), ...TIMEZONE_OPTIONS])
+                      )
+                        .filter(Boolean)
+                        .map((zone) => (
+                          <option key={zone} value={zone}>
+                            {zone}
+                          </option>
+                        ))}
+                    </select>
+
+                    <p className="mt-2">
+                      Lesson times below are converted automatically to this
+                      timezone. The confirmed booking is stored in UTC.
+                    </p>
+                  </div>
                 </div>
               ) : null}
 
@@ -705,12 +823,12 @@ export default function TutorProfilePage({
                 {availableDates.length === 0 ? (
                   <div className="rounded-2xl border border-[#379CD6]/20 bg-[#F7FCFF] p-5">
                     <p className="text-sm font-semibold text-[#156B96]">
-                      This tutor has not published available slots yet.
+                      This tutor has not published available June or July slots yet.
                     </p>
 
                     <p className="mt-2 text-sm leading-7 text-slate-600">
                       You can still request this tutor and share your preferred
-                      schedule. Alkebula will help coordinate availability.
+                      June or July schedule. Alkebula will help coordinate availability.
                     </p>
 
                     <Link
@@ -750,7 +868,7 @@ export default function TutorProfilePage({
                               : formatDate(date)}
                           </span>
                           <span className="text-xs opacity-80">
-                            {slots.filter((slot) => slot.date === date).length}{" "}
+                            {slots.filter((slot) => getSlotDateKeyForParent(slot, parentTimezone) === date).length}{" "}
                             slots
                           </span>
                         </button>

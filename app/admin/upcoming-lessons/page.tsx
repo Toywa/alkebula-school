@@ -6,6 +6,20 @@ import { getSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 const ADMIN_ALLOWED_EMAILS = ["admin@alkebulaschool.com"];
 
+const TIMEZONE_OPTIONS = [
+  "Africa/Nairobi",
+  "Europe/London",
+  "Asia/Dubai",
+  "Asia/Qatar",
+  "America/New_York",
+  "America/Toronto",
+  "Africa/Johannesburg",
+  "Africa/Lagos",
+  "Asia/Singapore",
+  "Australia/Sydney",
+  "UTC",
+];
+
 type Lesson = {
   id: string;
   tutor_email: string;
@@ -13,9 +27,14 @@ type Lesson = {
   student_name: string | null;
   subject: string | null;
   curriculum: string | null;
+  class_level?: string | null;
   lesson_date: string | null;
   start_time: string | null;
   end_time: string | null;
+  start_at_utc?: string | null;
+  end_at_utc?: string | null;
+  tutor_timezone?: string | null;
+  parent_timezone?: string | null;
   status: string | null;
   payment_status: string | null;
   lesson_amount: number | null;
@@ -31,11 +50,24 @@ type TutorDirectoryRecord = {
 
 type LessonWithTutor = Lesson & {
   tutor_name: string;
-  timezone: string;
+  fallback_timezone: string;
 };
 
 function normalizeEmail(email?: string | null) {
   return String(email || "").trim().toLowerCase();
+}
+
+function getBrowserTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Nairobi";
+}
+
+function isValidTimeZone(timeZone: string) {
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function formatDate(date?: string | null) {
@@ -52,6 +84,62 @@ function formatDate(date?: string | null) {
 function formatTime(time?: string | null) {
   if (!time) return "—";
   return time.slice(0, 5);
+}
+
+function getUtcDateKey(utcValue?: string | null, timeZone = "Africa/Nairobi") {
+  if (!utcValue || !isValidTimeZone(timeZone)) return "No date";
+
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(utcValue));
+}
+
+function formatUtcInTimeZone(
+  utcValue?: string | null,
+  timeZone = "Africa/Nairobi",
+  options?: Intl.DateTimeFormatOptions
+) {
+  if (!utcValue || !isValidTimeZone(timeZone)) return "—";
+
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "short",
+    ...options,
+  }).format(new Date(utcValue));
+}
+
+function getLessonTimeForZone(lesson: LessonWithTutor, zone: string) {
+  if (lesson.start_at_utc) {
+    const start = formatUtcInTimeZone(lesson.start_at_utc, zone, {
+      year: undefined,
+      month: undefined,
+      day: undefined,
+      weekday: undefined,
+    });
+
+    const end = lesson.end_at_utc
+      ? formatUtcInTimeZone(lesson.end_at_utc, zone, {
+          year: undefined,
+          month: undefined,
+          day: undefined,
+          weekday: undefined,
+        })
+      : "";
+
+    return end && end !== "—" ? `${start} - ${end}` : start;
+  }
+
+  return `${formatTime(lesson.start_time)} - ${formatTime(lesson.end_time)}`;
 }
 
 function getStatusClass(status?: string | null) {
@@ -92,8 +180,11 @@ export default function AdminUpcomingLessonsPage() {
   const [lessons, setLessons] = useState<LessonWithTutor[]>([]);
   const [loadingLessons, setLoadingLessons] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [adminTimezone, setAdminTimezone] = useState("Africa/Nairobi");
 
   useEffect(() => {
+    setAdminTimezone(getBrowserTimeZone());
+
     async function checkAdminAndLoadLessons() {
       const supabase = getSupabaseBrowserClient();
 
@@ -128,13 +219,16 @@ export default function AdminUpcomingLessonsPage() {
       setErrorMessage("");
 
       const supabase = getSupabaseBrowserClient();
-      const today = new Date().toISOString().slice(0, 10);
+      const bookingWindowStart = "2026-06-01";
+      const bookingWindowEnd = "2026-07-31";
 
       const { data: lessonData, error: lessonError } = await supabase
         .from("tutor_lessons")
         .select("*")
-        .gte("lesson_date", today)
+        .gte("lesson_date", bookingWindowStart)
+        .lte("lesson_date", bookingWindowEnd)
         .in("status", ["upcoming", "booked"])
+        .order("start_at_utc", { ascending: true, nullsFirst: false })
         .order("lesson_date", { ascending: true })
         .order("start_time", { ascending: true });
 
@@ -169,7 +263,8 @@ export default function AdminUpcomingLessonsPage() {
         return {
           ...lesson,
           tutor_name: tutorRecord?.full_name || lesson.tutor_email || "Tutor",
-          timezone: tutorRecord?.timezone || "Africa/Nairobi",
+          fallback_timezone:
+            lesson.tutor_timezone || tutorRecord?.timezone || "Africa/Nairobi",
         };
       });
 
@@ -187,12 +282,15 @@ export default function AdminUpcomingLessonsPage() {
 
   const groupedLessons = useMemo(() => {
     return lessons.reduce<Record<string, LessonWithTutor[]>>((groups, lesson) => {
-      const key = lesson.lesson_date || "No date";
+      const key = lesson.start_at_utc
+        ? getUtcDateKey(lesson.start_at_utc, adminTimezone)
+        : lesson.lesson_date || "No date";
+
       groups[key] = groups[key] || [];
       groups[key].push(lesson);
       return groups;
     }, {});
-  }, [lessons]);
+  }, [lessons, adminTimezone]);
 
   if (checkingAuth) {
     return (
@@ -237,18 +335,35 @@ export default function AdminUpcomingLessonsPage() {
               </h1>
 
               <p className="mt-4 max-w-3xl leading-8 text-slate-600">
-                View all future scheduled lessons, including tutor name, student
-                name, parent email, lesson date, lesson time and timezone.
+                View future lessons using synchronized UTC data. Change the
+                admin timezone below to inspect the same lesson from different
+                timezones.
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={loadUpcomingLessons}
-              className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
-            >
-              Refresh
-            </button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <select
+                value={adminTimezone}
+                onChange={(e) => setAdminTimezone(e.target.value)}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+              >
+                {Array.from(new Set([adminTimezone, getBrowserTimeZone(), ...TIMEZONE_OPTIONS]))
+                  .filter(Boolean)
+                  .map((zone) => (
+                    <option key={zone} value={zone}>
+                      {zone}
+                    </option>
+                  ))}
+              </select>
+
+              <button
+                type="button"
+                onClick={loadUpcomingLessons}
+                className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+              >
+                Refresh
+              </button>
+            </div>
           </div>
 
           {errorMessage ? (
@@ -286,7 +401,7 @@ export default function AdminUpcomingLessonsPage() {
                     <thead className="bg-slate-50">
                       <tr>
                         <th className="px-5 py-3 text-left font-bold text-slate-700">
-                          Time
+                          Admin Time
                         </th>
                         <th className="px-5 py-3 text-left font-bold text-slate-700">
                           Tutor
@@ -301,7 +416,7 @@ export default function AdminUpcomingLessonsPage() {
                           Lesson
                         </th>
                         <th className="px-5 py-3 text-left font-bold text-slate-700">
-                          Timezone
+                          Timezones
                         </th>
                         <th className="px-5 py-3 text-left font-bold text-slate-700">
                           Status
@@ -316,8 +431,7 @@ export default function AdminUpcomingLessonsPage() {
                       {dateLessons.map((lesson) => (
                         <tr key={lesson.id} className="align-top">
                           <td className="px-5 py-4 font-semibold text-slate-950">
-                            {formatTime(lesson.start_time)} -{" "}
-                            {formatTime(lesson.end_time)}
+                            {getLessonTimeForZone(lesson, adminTimezone)}
                           </td>
                           <td className="px-5 py-4">
                             <p className="font-semibold text-slate-950">
@@ -339,10 +453,24 @@ export default function AdminUpcomingLessonsPage() {
                             </p>
                             <p className="mt-1 text-xs text-slate-500">
                               {lesson.curriculum || "—"}
+                              {lesson.class_level ? ` • ${lesson.class_level}` : ""}
                             </p>
                           </td>
                           <td className="px-5 py-4 text-slate-700">
-                            {lesson.timezone}
+                            <p>
+                              Admin: <strong>{adminTimezone}</strong>
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Tutor: {lesson.tutor_timezone || lesson.fallback_timezone}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Parent: {lesson.parent_timezone || "—"}
+                            </p>
+                            {lesson.start_at_utc ? (
+                              <p className="mt-1 text-xs text-slate-400">
+                                UTC: {new Date(lesson.start_at_utc).toISOString().replace(".000", "")}
+                              </p>
+                            ) : null}
                           </td>
                           <td className="px-5 py-4">
                             <span
