@@ -587,6 +587,33 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="bg-white px-6 py-16">
+        <div className="mx-auto grid max-w-7xl gap-8 rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-white to-[#F7FCFF] p-8 shadow-sm lg:grid-cols-[1fr_auto] lg:items-center lg:p-12">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+              Parent Confidence
+            </p>
+
+            <h2 className="mt-3 text-3xl font-bold text-slate-950 sm:text-4xl">
+              See why international families trust Alkebula.
+            </h2>
+
+            <p className="mt-4 max-w-3xl text-base leading-8 text-slate-600">
+              Read professional, privacy-conscious parent testimonials from
+              families using The Alkebula School for structured online tutoring,
+              exam preparation, and homeschool support.
+            </p>
+          </div>
+
+          <Link
+            href="/testimonials"
+            className="inline-flex items-center justify-center rounded-xl bg-[#8F1F36] px-7 py-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
+          >
+            Read Parent Testimonials
+          </Link>
+        </div>
+      </section>
+
       <PlatformMomentumStats />
     </main>
   );

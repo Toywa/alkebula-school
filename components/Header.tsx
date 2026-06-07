@@ -165,6 +165,7 @@ export default function Header() {
             </div>
           </div>
 
+          <NavLink href="/testimonials">Testimonials</NavLink>
           <NavLink href="/faq">FAQ</NavLink>
           <NavLink href="/contact">Contact</NavLink>
           <NavLink href="/educators">Find Tutors</NavLink>
@@ -228,6 +229,13 @@ export default function Header() {
               {item.label}
             </Link>
           ))}
+
+          <Link
+            href="/testimonials"
+            className="shrink-0 rounded-full border border-[#8F1F36]/15 bg-white px-3 py-1.5 text-xs font-bold text-[#8F1F36] transition hover:border-[#8F1F36]/30 hover:bg-[#FFF5F7]"
+          >
+            Parent Testimonials
+          </Link>
         </div>
       </div>
     </header>
