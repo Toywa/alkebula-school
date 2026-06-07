@@ -41,6 +41,36 @@ const activityItems: ActivityItem[] = [
   { role: "Student", action: "exploring IB tutoring", location: "Singapore" },
   { role: "Parent", action: "checking availability", location: "Sydney, Australia" },
   { role: "Tutor", action: "updating profile", location: "Pretoria, South Africa" },
+  { role: "Parent", action: "viewing GCSE support", location: "Bristol, United Kingdom" },
+  { role: "Student", action: "exploring maths tutoring", location: "Cairo, Egypt" },
+  { role: "Family", action: "viewing international tutors", location: "Brussels, Belgium" },
+  { role: "Tutor", action: "preparing a Cambridge lesson", location: "Nakuru, Kenya" },
+  { role: "Parent", action: "checking tutor experience", location: "Boston, United States" },
+  { role: "Student", action: "reviewing science support", location: "Madrid, Spain" },
+  { role: "Family", action: "exploring academic support", location: "Geneva, Switzerland" },
+  { role: "Tutor", action: "updating teaching rates", location: "Thika, Kenya" },
+  { role: "Parent", action: "viewing A Level support", location: "Oxford, United Kingdom" },
+  { role: "Student", action: "learning online", location: "Hong Kong" },
+  { role: "Family", action: "browsing tutor profiles", location: "Melbourne, Australia" },
+  { role: "Tutor", action: "online", location: "Durban, South Africa" },
+  { role: "Parent", action: "viewing homeschool options", location: "Auckland, New Zealand" },
+  { role: "Student", action: "exploring English tutoring", location: "Rome, Italy" },
+  { role: "Family", action: "checking lesson availability", location: "Stockholm, Sweden" },
+  { role: "Tutor", action: "reviewing upcoming lessons", location: "Naivasha, Kenya" },
+  { role: "Parent", action: "viewing premium tutoring", location: "Zurich, Switzerland" },
+  { role: "Student", action: "exploring exam support", location: "Oslo, Norway" },
+  { role: "Family", action: "comparing curriculum options", location: "Vienna, Austria" },
+  { role: "Tutor", action: "preparing online resources", location: "Kampala, Uganda" },
+  { role: "Parent", action: "checking class-level support", location: "Washington DC, United States" },
+  { role: "Student", action: "viewing revision support", location: "Athens, Greece" },
+  { role: "Family", action: "exploring IB support", location: "Copenhagen, Denmark" },
+  { role: "Tutor", action: "updating timezone availability", location: "Lamu, Kenya" },
+  { role: "Parent", action: "viewing tutor qualifications", location: "Dublin, Ireland" },
+  { role: "Student", action: "learning online", location: "Lisbon, Portugal" },
+  { role: "Family", action: "reviewing subject packages", location: "Helsinki, Finland" },
+  { role: "Tutor", action: "online", location: "Abuja, Nigeria" },
+  { role: "Parent", action: "exploring lesson bookings", location: "Vancouver, Canada" },
+  { role: "Student", action: "viewing Cambridge tutors", location: "Sharjah, UAE" },
 ];
 
 function buildMessage(item: ActivityItem) {
@@ -69,11 +99,35 @@ export default function LiveActivityTicker() {
   }, [messages.length]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setPlatformVisits((current) => current + 1);
-    }, 18000);
+    let cancelled = false;
 
-    return () => window.clearInterval(timer);
+    async function recordVisit() {
+      try {
+        const response = await fetch("/api/platform-visits", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        });
+
+        const data = await response.json();
+
+        if (!cancelled && response.ok && typeof data.total === "number") {
+          setPlatformVisits(data.total);
+        }
+      } catch {
+        if (!cancelled) {
+          setPlatformVisits(PLATFORM_VISITS_BASELINE);
+        }
+      }
+    }
+
+    recordVisit();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const currentMessage = messages[activeIndex];
