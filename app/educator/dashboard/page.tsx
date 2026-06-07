@@ -69,6 +69,106 @@ type EducatorProfile = {
 
 type AttendanceAction = "end" | "notes";
 
+const TIMEZONE_OPTIONS = [
+  "Africa/Nairobi",
+  "Europe/London",
+  "Asia/Dubai",
+  "Asia/Qatar",
+  "Asia/Riyadh",
+  "America/New_York",
+  "America/Chicago",
+  "America/Los_Angeles",
+  "America/Toronto",
+  "Africa/Johannesburg",
+  "Africa/Lagos",
+  "Africa/Accra",
+  "Africa/Kampala",
+  "Africa/Kigali",
+  "Africa/Dar_es_Salaam",
+  "Europe/Paris",
+  "Europe/Berlin",
+  "Europe/Amsterdam",
+  "Australia/Sydney",
+  "Asia/Singapore",
+  "UTC",
+];
+
+function getBrowserTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || "Africa/Nairobi";
+}
+
+function isValidTimeZone(timeZone: string) {
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  });
+
+  const parts = formatter.formatToParts(date);
+  const values: Record<string, string> = {};
+
+  parts.forEach((part) => {
+    if (part.type !== "literal") values[part.type] = part.value;
+  });
+
+  const asUtc = Date.UTC(
+    Number(values.year),
+    Number(values.month) - 1,
+    Number(values.day),
+    Number(values.hour),
+    Number(values.minute),
+    Number(values.second)
+  );
+
+  return asUtc - date.getTime();
+}
+
+function zonedDateTimeToUtc(date: string, time: string, timeZone: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute] = time.split(":").map(Number);
+  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0));
+
+  let offset = getTimeZoneOffsetMs(utcGuess, timeZone);
+  let utcDate = new Date(utcGuess.getTime() - offset);
+
+  offset = getTimeZoneOffsetMs(utcDate, timeZone);
+  utcDate = new Date(utcGuess.getTime() - offset);
+
+  return utcDate;
+}
+
+function formatInTimeZone(isoDate: string, timeZone: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "short",
+  }).format(new Date(isoDate));
+}
+
+function isJuneOrJuly2026(date: string) {
+  return date >= "2026-06-01" && date <= "2026-07-31";
+}
+
 function usd(value?: number | null) {
   return `USD ${Number(value || 0).toFixed(2)}`;
 }
@@ -146,7 +246,7 @@ export default function EducatorDashboardPage() {
   const [preferredEndTime, setPreferredEndTime] = useState("");
 
   useEffect(() => {
-    const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const detectedTimezone = getBrowserTimeZone();
     if (detectedTimezone) setTimezone(detectedTimezone);
   }, []);
 
@@ -328,7 +428,22 @@ export default function EducatorDashboardPage() {
         throw new Error("Please select date, start time, and end time.");
       }
 
+      if (!isJuneOrJuly2026(slotDate)) {
+        throw new Error("For this campaign phase, please create June or July 2026 slots only.");
+      }
+
       if (startTime >= endTime) {
+        throw new Error("End time must be later than start time.");
+      }
+
+      if (!isValidTimeZone(timezone)) {
+        throw new Error("Please select a valid teaching timezone.");
+      }
+
+      const startAtUtc = zonedDateTimeToUtc(slotDate, startTime, timezone);
+      const endAtUtc = zonedDateTimeToUtc(slotDate, endTime, timezone);
+
+      if (endAtUtc <= startAtUtc) {
         throw new Error("End time must be later than start time.");
       }
 
@@ -343,16 +458,24 @@ export default function EducatorDashboardPage() {
           start_time: startTime,
           end_time: endTime,
           timezone,
+          tutor_timezone: timezone,
+          start_at_utc: startAtUtc.toISOString(),
+          end_at_utc: endAtUtc.toISOString(),
           status: "available",
           is_booked: false,
         });
 
       if (insertError) throw new Error(insertError.message);
 
+      await supabase
+        .from("educator_directory")
+        .update({ timezone })
+        .eq("email", educatorEmail);
+
       setSlotDate("");
       setStartTime("");
       setEndTime("");
-      setMessage("Availability slot saved successfully.");
+      setMessage("Timezone-safe availability slot saved successfully.");
 
       await loadSlots(educatorEmail);
     } catch (err) {
@@ -562,61 +685,73 @@ export default function EducatorDashboardPage() {
   return (
     <main className="min-h-screen bg-white text-slate-900">
       <section className="mx-auto max-w-6xl px-6 py-16 lg:px-8 lg:py-20">
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
-          The Alkebula School
-        </p>
+        <div className="rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,#FFF5F7,transparent_28%),radial-gradient(circle_at_top_right,#EEF9FF,transparent_34%),#FFFFFF] p-8 shadow-sm lg:p-10">
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#379CD6]">
+            The Alkebula School
+          </p>
 
-        <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-bold">Educator Dashboard</h1>
+          <div className="mt-4 flex flex-wrap items-start justify-between gap-6">
+            <div>
+              <h1 className="text-4xl font-bold text-slate-950">
+                Premium Educator Dashboard
+              </h1>
 
-            {profile ? (
-              <p className="mt-3 text-slate-600">
-                Welcome, <strong>{profile.full_name}</strong>
-              </p>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/educator/profile"
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Edit Profile Picture
-            </Link>
-
-            <Link
-              href="/educator/upcoming-lessons"
-              className="rounded-xl bg-[#8F1F36] px-5 py-3 text-sm font-semibold text-white hover:bg-[#6F1729]"
-            >
-              Upcoming Lessons
-            </Link>
-
-            <Link
-              href="/educator/public-profile"
-              className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-5 py-3 text-sm font-semibold text-[#156B96] hover:bg-[#EEF9FF]"
-            >
-              Edit Public Profile
-            </Link>
-
-            <Link
-              href="/educator/availability"
-              className="rounded-xl border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              Bulk Monthly Slots
-            </Link>
-
-            <Link
-              href="/educator/messages"
-              className="relative rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
-            >
-              Message Admin
-              {unreadMessageCount > 0 ? (
-                <span className="ml-2 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
-                  {unreadMessageCount}
-                </span>
+              {profile ? (
+                <p className="mt-3 text-lg text-slate-600">
+                  Welcome, <strong>{profile.full_name}</strong>. You are part of
+                  Alkebula’s approved educator faculty.
+                </p>
               ) : null}
-            </Link>
+
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
+                Please keep your public profile, availability, and lesson
+                readiness at the highest professional standard. June and July
+                slots are especially important for the current parent onboarding
+                campaign.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/educator/public-profile"
+                className="rounded-xl bg-[#8F1F36] px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-[#6F1729]"
+              >
+                Edit Public Profile
+              </Link>
+
+              <Link
+                href="/educator/availability"
+                className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-slate-800"
+              >
+                Create June/July Slots
+              </Link>
+
+              <Link
+                href="/educator/profile"
+                className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-5 py-3 text-sm font-semibold text-[#156B96] hover:bg-[#EEF9FF]"
+              >
+                Update Photo
+              </Link>
+
+              <Link
+                href="/educator/upcoming-lessons"
+                className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Upcoming Lessons
+              </Link>
+
+              <Link
+                href="/educator/messages"
+                className="relative rounded-xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Message Admin
+                {unreadMessageCount > 0 ? (
+                  <span className="ml-2 rounded-full bg-red-600 px-2 py-0.5 text-xs font-bold text-white">
+                    {unreadMessageCount}
+                  </span>
+                ) : null}
+              </Link>
+            </div>
           </div>
         </div>
 
@@ -642,6 +777,59 @@ export default function EducatorDashboardPage() {
             />
           ) : (
           <>
+            <div className="mt-10 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-[2rem] border border-[#8F1F36]/15 bg-[#FFF5F7] p-6">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#8F1F36]">
+                  June Priority Reminder
+                </p>
+
+                <h2 className="mt-3 text-2xl font-bold text-slate-950">
+                  Create availability slots for June and July.
+                </h2>
+
+                <p className="mt-3 text-sm leading-7 text-slate-700">
+                  Parents can only book you when your available slots are
+                  visible. Please create enough June slots immediately and extend
+                  into July where possible. Use the bulk monthly creator for a
+                  faster, timezone-safe setup.
+                </p>
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <Link
+                    href="/educator/availability"
+                    className="rounded-xl bg-[#8F1F36] px-5 py-3 text-sm font-bold text-white hover:bg-[#6F1729]"
+                  >
+                    Open Bulk Monthly Creator
+                  </Link>
+
+                  <Link
+                    href="/legal/tutor-terms"
+                    target="_blank"
+                    className="rounded-xl border border-[#8F1F36]/25 bg-white px-5 py-3 text-sm font-semibold text-[#8F1F36] hover:bg-[#FFF5F7]"
+                  >
+                    Review Tutor Terms
+                  </Link>
+                </div>
+              </div>
+
+              <div className="rounded-[2rem] border border-[#379CD6]/20 bg-[#F7FCFF] p-6">
+                <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#156B96]">
+                  Profile Quality Guide
+                </p>
+
+                <h2 className="mt-3 text-2xl font-bold text-slate-950">
+                  Make your tutor profile parent-ready.
+                </h2>
+
+                <ul className="mt-4 space-y-3 text-sm leading-7 text-slate-700">
+                  <li>• Upload a clear professional photo with a clean background.</li>
+                  <li>• Write a focused bio showing subjects, curricula, and teaching style.</li>
+                  <li>• Add your highest qualification and years of experience.</li>
+                  <li>• Keep subjects accurate and rates reasonable for first bookings.</li>
+                </ul>
+              </div>
+            </div>
+
             <div className="mt-10 grid gap-6 md:grid-cols-4">
               <MetricCard title="Available Slots" value={String(availableSlots.length)} />
               <MetricCard title="Active Lessons" value={String(activeLessons.length)} />
@@ -656,62 +844,125 @@ export default function EducatorDashboardPage() {
               <MetricCard title="Paid Out" value={usd(totalPaidOut)} />
             </div>
 
-            <form onSubmit={saveSlot} className="mt-10 rounded-2xl border p-6">
+            <form
+              onSubmit={saveSlot}
+              className="mt-10 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
+            >
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-2xl font-semibold">
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#379CD6]">
+                    Quick Slot Creator
+                  </p>
+
+                  <h2 className="mt-2 text-2xl font-bold text-slate-950">
                     Add Single Availability Slot
                   </h2>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Best for part-time educators. Pick one exact date and time.
+
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Best for occasional slots. For regular teaching times, use
+                    the bulk monthly creator to create June and July slots
+                    faster.
                   </p>
                 </div>
 
                 <Link
                   href="/educator/availability"
-                  className="rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white hover:bg-slate-800"
+                  className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800"
                 >
                   Use Bulk Monthly Creator
                 </Link>
               </div>
 
               <div className="mt-5 grid gap-4 md:grid-cols-4">
-                <input
-                  type="date"
-                  value={slotDate}
-                  onChange={(e) => setSlotDate(e.target.value)}
-                  className="rounded-xl border p-3"
-                  required
-                />
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={slotDate}
+                    min="2026-06-01"
+                    max="2026-07-31"
+                    onChange={(e) => setSlotDate(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-3"
+                    required
+                  />
+                </div>
 
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="rounded-xl border p-3"
-                  required
-                />
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-3"
+                    required
+                  />
+                </div>
 
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="rounded-xl border p-3"
-                  required
-                />
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-3"
+                    required
+                  />
+                </div>
 
-                <input
-                  value={timezone}
-                  onChange={(e) => setTimezone(e.target.value)}
-                  className="rounded-xl border p-3"
-                />
+                <div>
+                  <label className="mb-2 block text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                    Teaching Timezone
+                  </label>
+                  <select
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    className="w-full rounded-xl border border-slate-300 bg-white p-3"
+                  >
+                    {Array.from(new Set([timezone, getBrowserTimeZone(), ...TIMEZONE_OPTIONS]))
+                      .filter(Boolean)
+                      .map((zone) => (
+                        <option key={zone} value={zone}>
+                          {zone}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
+
+              {slotDate && startTime && endTime && isValidTimeZone(timezone) ? (
+                <div className="mt-5 rounded-2xl border border-[#379CD6]/15 bg-[#F7FCFF] p-4 text-sm text-slate-700">
+                  <p className="font-bold text-[#156B96]">Timezone preview</p>
+                  <p className="mt-2">
+                    Tutor time:{" "}
+                    <strong>
+                      {formatInTimeZone(
+                        zonedDateTimeToUtc(slotDate, startTime, timezone).toISOString(),
+                        timezone
+                      )}
+                    </strong>
+                  </p>
+                  <p className="mt-1">
+                    UTC stored time:{" "}
+                    <strong>
+                      {zonedDateTimeToUtc(slotDate, startTime, timezone)
+                        .toISOString()
+                        .replace(".000", "")}
+                    </strong>
+                  </p>
+                </div>
+              ) : null}
 
               <button
                 disabled={savingSlot}
-                className="mt-5 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                className="mt-5 rounded-xl bg-green-700 px-5 py-3 text-sm font-bold text-white disabled:opacity-60"
               >
-                {savingSlot ? "Saving Slot..." : "Save Single Slot"}
+                {savingSlot ? "Saving Slot..." : "Save Timezone-Safe Slot"}
               </button>
             </form>
 
@@ -1205,9 +1456,11 @@ function TutorTermsGate({
 
 function MetricCard({ title, value }: { title: string; value: string }) {
   return (
-    <div className="rounded-2xl border bg-slate-50 p-6">
-      <p className="text-sm text-slate-500">{title}</p>
-      <p className="mt-2 text-3xl font-bold">{value}</p>
+    <div className="rounded-[1.5rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">
+        {title}
+      </p>
+      <p className="mt-3 text-3xl font-black text-slate-950">{value}</p>
     </div>
   );
 }

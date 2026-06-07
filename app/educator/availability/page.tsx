@@ -326,30 +326,32 @@ export default function EducatorAvailabilityPage() {
   return (
     <main className="min-h-screen bg-white text-slate-900">
       <section className="mx-auto max-w-5xl px-6 py-16 lg:px-8 lg:py-20">
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
-          The Alkebula School
-        </p>
-
-        <h1 className="mt-4 text-4xl font-bold">
-          Teaching Availability Calendar
-        </h1>
-
-        <p className="mt-4 text-slate-600">
-          Signed in as <strong>{email}</strong>. Choose your teaching timezone
-          and calendar dates. Alkebula stores the true lesson time in UTC so
-          parents, tutors and admin see synchronized times. For this phase,
-          only June and July 2026 slots can be created.
-        </p>
-
-        <div className="mt-8 rounded-3xl border border-[#379CD6]/20 bg-[#F7FCFF] p-5 text-sm text-slate-700">
-          <p className="font-bold text-[#156B96]">Timezone safety note</p>
-          <p className="mt-2 leading-7">
-            Create availability in your own timezone. Parents will see the same
-            UTC slot converted automatically into their selected timezone.
+        <div className="rounded-[2rem] border border-slate-200 bg-[radial-gradient(circle_at_top_left,#FFF5F7,transparent_28%),radial-gradient(circle_at_top_right,#EEF9FF,transparent_34%),#FFFFFF] p-8 shadow-sm lg:p-10">
+          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#379CD6]">
+            The Alkebula School
           </p>
+
+          <h1 className="mt-4 text-4xl font-bold text-slate-950">
+            Premium Availability Calendar
+          </h1>
+
+          <p className="mt-4 max-w-3xl text-base leading-8 text-slate-600">
+            Signed in as <strong>{email}</strong>. Create June and July teaching
+            slots in your own timezone. Alkebula stores the true lesson time in
+            UTC so parents, tutors and admin see synchronized times.
+          </p>
+
+          <div className="mt-6 rounded-3xl border border-[#8F1F36]/15 bg-white p-5 text-sm text-slate-700">
+            <p className="font-bold text-[#8F1F36]">June parent onboarding priority</p>
+            <p className="mt-2 leading-7">
+              Please create enough June availability immediately, and add July
+              slots where possible. More visible slots increase your chance of
+              receiving bookings.
+            </p>
+          </div>
         </div>
 
-        <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-6">
+        <div className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="grid gap-6 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-medium">Month</label>
