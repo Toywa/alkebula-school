@@ -35,6 +35,10 @@ const exploreLinks = [
     label: "Testimonials",
   },
   {
+    href: "/get-matched",
+    label: "Get Matched",
+  },
+  {
     href: "/faq",
     label: "FAQ",
   },

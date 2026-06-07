@@ -166,6 +166,7 @@ export default function Header() {
           </div>
 
           <NavLink href="/testimonials">Testimonials</NavLink>
+          <NavLink href="/get-matched">Get Matched</NavLink>
           <NavLink href="/faq">FAQ</NavLink>
           <NavLink href="/contact">Contact</NavLink>
           <NavLink href="/educators">Find Tutors</NavLink>
@@ -235,6 +236,13 @@ export default function Header() {
             className="shrink-0 rounded-full border border-[#8F1F36]/15 bg-white px-3 py-1.5 text-xs font-bold text-[#8F1F36] transition hover:border-[#8F1F36]/30 hover:bg-[#FFF5F7]"
           >
             Parent Testimonials
+          </Link>
+
+          <Link
+            href="/get-matched"
+            className="shrink-0 rounded-full border border-[#379CD6]/25 bg-white px-3 py-1.5 text-xs font-bold text-[#156B96] transition hover:border-[#379CD6]/40 hover:bg-[#EEF9FF]"
+          >
+            Get Matched With a Tutor
           </Link>
         </div>
       </div>
