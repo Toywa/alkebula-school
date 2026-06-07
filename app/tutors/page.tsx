@@ -48,6 +48,60 @@ function getDefaultPublicTutorName(fullName?: string | null) {
   return [firstName, lastInitial].filter(Boolean).join(" ");
 }
 
+const premiumTutorOrder = [
+  "antony kinyili",
+  "charles m",
+  "david m",
+  "evans w",
+  "massimo s",
+  "sara p",
+  "arkwings a",
+  "chineke g",
+  "kirui kipkorir victor",
+];
+
+function normalizeTutorRankName(value?: string | null) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, " ");
+}
+
+function getPremiumTutorRank(tutor: Tutor) {
+  const fullName = normalizeTutorRankName(tutor.full_name);
+  const publicName = normalizeTutorRankName(
+    getDefaultPublicTutorName(tutor.full_name)
+  );
+
+  const index = premiumTutorOrder.findIndex((priorityName) => {
+    const target = normalizeTutorRankName(priorityName);
+
+    return (
+      fullName === target ||
+      publicName === target ||
+      fullName.startsWith(`${target} `) ||
+      publicName.startsWith(target)
+    );
+  });
+
+  return index === -1 ? 9999 : index;
+}
+
+function sortTutorsForPublicDisplay(tutors: Tutor[]) {
+  return [...tutors].sort((a, b) => {
+    const rankA = getPremiumTutorRank(a);
+    const rankB = getPremiumTutorRank(b);
+
+    if (rankA !== rankB) return rankA - rankB;
+
+    const nameA = normalizeTutorRankName(a.full_name);
+    const nameB = normalizeTutorRankName(b.full_name);
+
+    return nameA.localeCompare(nameB);
+  });
+}
+
 function getTutorNameCounts(tutors: Tutor[]) {
   return tutors.reduce<Record<string, number>>((counts, tutor) => {
     const defaultName = getDefaultPublicTutorName(tutor.full_name);
@@ -128,11 +182,15 @@ export default async function TutorsPage() {
               Approved Tutors
             </h1>
 
+            <p className="mt-5 text-base font-bold uppercase tracking-[0.18em] text-[#8F1F36]">
+              Exceptional tutors for exceptional students.
+            </p>
+
             <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
-              Meet approved educators supporting Cambridge, Edexcel, A Level,
-              and IB learners through structured, premium academic support. When
-              tutors share the same first name and last initial, their full names
-              are shown to avoid confusion.
+              A curated faculty for Cambridge, Edexcel, A Level, and IB. Expect
+              structured, premium support from educators held to the highest
+              standards. Duplicate first names and last initials are shown in
+              full to ensure precision.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
@@ -185,7 +243,7 @@ export default async function TutorsPage() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {(() => {
-              const tutorList = tutors as Tutor[];
+              const tutorList = sortTutorsForPublicDisplay(tutors as Tutor[]);
               const nameCounts = getTutorNameCounts(tutorList);
 
               return tutorList.map((tutor) => {
