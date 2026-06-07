@@ -132,6 +132,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           email: parentEmail,
           amount: Math.round(officialAmount * 100),
+           currency: "USD",
           reference,
           callback_url: callbackUrl,
           metadata: {
