@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
+import PlatformMomentumStats from "@/components/PlatformMomentumStats";
 
 const curriculumCards = [
   {
@@ -585,6 +586,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <PlatformMomentumStats />
     </main>
   );
 }
