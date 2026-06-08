@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 type SubjectRate = {
   curriculum_level: string;
   class_level?: string | null;
