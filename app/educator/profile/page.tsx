@@ -22,11 +22,6 @@ function getImageUrl(path?: string | null) {
   return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${path}`;
 }
 
-function getExtension(file: File) {
-  const parts = file.name.split(".");
-  return parts.length > 1 ? parts.pop()?.toLowerCase() || "jpg" : "jpg";
-}
-
 function sameCalendarMonth(dateA: Date, dateB: Date) {
   return (
     dateA.getUTCFullYear() === dateB.getUTCFullYear() &&
@@ -44,6 +39,16 @@ export default function EducatorProfilePage() {
   useEffect(() => {
     loadProfile();
   }, []);
+
+  async function getSessionToken() {
+    const supabase = getSupabaseBrowserClient();
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    return session?.access_token || "";
+  }
 
   async function loadProfile() {
     setLoading(true);
@@ -63,9 +68,7 @@ export default function EducatorProfilePage() {
 
       const { data, error } = await supabase
         .from("educator_directory")
-        .select(
-          "email,full_name,profile_photo_url,profile_photo_updated_at"
-        )
+        .select("email,full_name,profile_photo_url,profile_photo_updated_at")
         .eq("email", user.email.toLowerCase())
         .eq("approval_status", "approved")
         .single();
@@ -115,44 +118,33 @@ export default function EducatorProfilePage() {
         }
       }
 
-      const supabase = getSupabaseBrowserClient();
+      const token = await getSessionToken();
 
-      const extension = getExtension(file);
-      const safeEmail = profile.email.replace(/[^a-zA-Z0-9]/g, "-");
-
-      const path = `educator-${safeEmail}-${Date.now()}.${extension}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("educator-profile-images")
-        .upload(path, file, {
-          contentType: file.type,
-          upsert: false,
-        });
-
-      if (uploadError) {
-        throw new Error(uploadError.message);
+      if (!token) {
+        window.location.href = "/auth/sign-in";
+        return;
       }
 
-      const res = await fetch("/api/educator/profile-photo", {
-        method: "PATCH",
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/educator/profile-photo/upload", {
+        method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          profile_photo_url: path,
-        }),
+        body: formData,
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(
-          data.error || "Failed to update profile picture."
-        );
+        throw new Error(data.error || "Failed to update profile picture.");
       }
 
       setMessage(
-        "Profile picture updated successfully. Your public tutor profile will now display the new image."
+        data.message ||
+          "Profile picture updated successfully. Your public tutor profile will now display the new image."
       );
 
       await loadProfile();
@@ -172,23 +164,26 @@ export default function EducatorProfilePage() {
   return (
     <main className="min-h-screen bg-white text-slate-900">
       <section className="mx-auto max-w-5xl px-6 py-16 lg:px-8 lg:py-20">
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#379CD6]">
           The Alkebula School
         </p>
 
-        <h1 className="mt-4 text-4xl font-bold">
+        <h1 className="mt-4 text-4xl font-bold text-slate-950">
           Educator Profile Picture
         </h1>
 
         <p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">
-          Upload and manage your professional educator profile picture.
-          Your profile image appears publicly on tutor listings and
-          booking pages viewed by parents and students.
+          Upload and manage your professional educator profile picture. Your
+          profile image appears publicly on tutor listings and booking pages
+          viewed by parents and students.
         </p>
 
-        {loading ? (
-          <p className="mt-8">Loading profile...</p>
-        ) : null}
+        <div className="mt-6 rounded-2xl border border-[#379CD6]/20 bg-[#F7FCFF] p-5 text-sm leading-7 text-slate-700">
+          Profile pictures are uploaded securely through The Alkebula School
+          server and linked to your approved educator profile.
+        </div>
+
+        {loading ? <p className="mt-8">Loading profile...</p> : null}
 
         {message ? (
           <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5 text-green-700">
@@ -204,10 +199,10 @@ export default function EducatorProfilePage() {
 
         {!loading && profile ? (
           <div className="mt-10 grid gap-8 lg:grid-cols-[320px_1fr]">
-            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+            <div className="rounded-[2rem] border border-slate-200 bg-[#F7FCFF] p-6 shadow-sm">
               <div className="overflow-hidden rounded-2xl bg-white">
                 {imageUrl ? (
-                  <div className="flex h-80 items-center justify-center bg-slate-50">
+                  <div className="flex h-80 items-center justify-center bg-white">
                     <img
                       src={imageUrl}
                       alt={profile.full_name}
@@ -225,21 +220,17 @@ export default function EducatorProfilePage() {
                 {profile.full_name}
               </h2>
 
-              <p className="mt-2 text-sm text-slate-600">
-                {profile.email}
-              </p>
+              <p className="mt-2 text-sm text-slate-600">{profile.email}</p>
 
               {profile.profile_photo_updated_at ? (
                 <p className="mt-4 text-xs text-slate-500">
                   Last updated:{" "}
-                  {new Date(
-                    profile.profile_photo_updated_at
-                  ).toLocaleString()}
+                  {new Date(profile.profile_photo_updated_at).toLocaleString()}
                 </p>
               ) : null}
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6">
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-2xl font-semibold">
                 Upload New Profile Picture
               </h3>
@@ -250,43 +241,29 @@ export default function EducatorProfilePage() {
                 </p>
 
                 <ul className="mt-4 space-y-3 text-sm leading-7 text-amber-800">
+                  <li>• Use a clear professional headshot.</li>
+                  <li>• Face the camera directly with good lighting.</li>
+                  <li>• Use a plain or clean background.</li>
+                  <li>• Wear professional or smart-casual clothing.</li>
                   <li>
-                    • Use a clear professional headshot.
+                    • Avoid selfies, passport/photo-me booth photos, filters,
+                    screenshots, sunglasses, group photos, cropped social media
+                    images, or inappropriate content.
                   </li>
-
                   <li>
-                    • Face the camera directly with good lighting.
-                  </li>
-
-                  <li>
-                    • Use a plain or clean background.
-                  </li>
-
-                  <li>
-                    • Wear professional or smart-casual clothing.
-                  </li>
-
-                  <li>
-                    • Avoid selfies, passport/photo-me booth photos,
-                    filters, screenshots, sunglasses, group photos,
-                    cropped social media images, or inappropriate content.
-                  </li>
-
-                  <li>
-                    • The Alkebula School may reject or remove images
-                    that do not meet educator professionalism standards.
+                    • The Alkebula School may reject or remove images that do
+                    not meet educator professionalism standards.
                   </li>
                 </ul>
               </div>
 
-              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-[#F7FCFF] p-5">
                 <p className="font-medium">
                   JPG or PNG only. Maximum file size: 5MB.
                 </p>
 
                 <p className="mt-2 text-sm text-slate-600">
-                  Profile pictures may only be updated once per
-                  calendar month.
+                  Profile pictures may only be updated once per calendar month.
                 </p>
 
                 <input
@@ -308,7 +285,7 @@ export default function EducatorProfilePage() {
                   disabled
                   className="mt-5 rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white opacity-70"
                 >
-                  {uploading ? "Uploading..." : "Ready for Upload"}
+                  {uploading ? "Uploading..." : "Choose a file to upload"}
                 </button>
               </div>
             </div>
