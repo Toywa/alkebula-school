@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 export const metadata: Metadata = {
@@ -79,6 +80,13 @@ const curricula = [
   },
 ];
 
+const impactStats = [
+  { label: "Curricula", value: "4" },
+  { label: "Support Style", value: "Premium" },
+  { label: "Lesson Delivery", value: "Global" },
+  { label: "Focus", value: "Structured" },
+];
+
 export default function AboutPage() {
   return (
     <main className="overflow-x-hidden bg-white text-slate-900">
@@ -86,38 +94,90 @@ export default function AboutPage() {
         <div className="absolute right-0 top-16 hidden h-80 w-80 rounded-full bg-[#EEF9FF] blur-3xl lg:block" />
         <div className="absolute bottom-0 left-0 hidden h-72 w-72 rounded-full bg-[#FFF5F7] blur-3xl lg:block" />
 
-        <div className="relative mx-auto max-w-7xl px-6 py-18 lg:px-8 lg:py-20">
-          <div className="max-w-4xl">
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
-              About The Alkebula School
-            </p>
+        <div className="relative mx-auto max-w-7xl px-6 py-14 lg:px-8 lg:py-18">
+          <div className="grid items-center gap-10 lg:grid-cols-[0.92fr_1.08fr] xl:gap-14">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-[#379CD6]">
+                About The Alkebula School
+              </p>
 
-            <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight text-slate-950 md:text-5xl">
-              A premium global online learning system built around structured
-              progress.
-            </h1>
+              <h1 className="mt-5 max-w-3xl text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-[3.4rem] lg:leading-[1.05]">
+                <span className="block">Premium Online Learning.</span>
+                <span className="block text-[#8F1F36]">
+                  Structured Progress.
+                </span>
+              </h1>
 
-            <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
-              The Alkebula School supports ambitious families through global
-              tutors, secure online teaching, automated booking, automated
-              support, and a professionally managed academic experience for
-              international curriculum learners.
-            </p>
+              <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+                The Alkebula School supports ambitious families through global
+                tutors, secure online teaching, automated booking, automated
+                support, and a professionally managed academic experience for
+                international curriculum learners.
+              </p>
 
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link
-                href="/educators"
-                className="rounded-xl bg-[#8F1F36] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
-              >
-                Find Tutors
-              </Link>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <Link
+                  href="/educators"
+                  className="rounded-xl bg-[#8F1F36] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
+                >
+                  Find Tutors
+                </Link>
 
-              <Link
-                href="/auth/sign-up"
-                className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-6 py-3 text-sm font-semibold text-[#156B96] shadow-sm transition hover:bg-[#EEF9FF]"
-              >
-                Parent Sign Up
-              </Link>
+                <Link
+                  href="/get-matched"
+                  className="rounded-xl border border-[#8F1F36]/20 bg-white px-6 py-3 text-sm font-bold text-[#8F1F36] shadow-sm transition hover:bg-[#FFF5F7]"
+                >
+                  Get Matched
+                </Link>
+
+                <Link
+                  href="/auth/sign-up"
+                  className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-6 py-3 text-sm font-semibold text-[#156B96] shadow-sm transition hover:bg-[#EEF9FF]"
+                >
+                  Parent Sign Up
+                </Link>
+              </div>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                {impactStats.map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-4 shadow-sm"
+                  >
+                    <p className="text-xl font-bold text-slate-950">
+                      {item.value}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      {item.label}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-2xl shadow-slate-200/70">
+                <div className="relative aspect-[16/11] w-full">
+                  <Image
+                    src="/about-hero.png"
+                    alt="A teacher in London teaching an African student in Nairobi through an online lesson"
+                    fill
+                    priority
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 54vw"
+                  />
+                </div>
+              </div>
+
+              <div className="absolute -bottom-5 left-4 right-4 rounded-2xl border border-white/60 bg-white/95 px-5 py-4 shadow-lg backdrop-blur md:left-8 md:right-auto md:w-[78%]">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#379CD6]">
+                  Global Learning Connection
+                </p>
+                <p className="mt-2 text-sm leading-7 text-slate-600">
+                  Designed for internationally minded families who want premium,
+                  well-coordinated academic support across time zones.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -325,10 +385,10 @@ export default function AboutPage() {
             </Link>
 
             <Link
-              href="/auth/sign-up"
+              href="/get-matched"
               className="rounded-xl border border-white/25 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
             >
-              Parent Sign Up
+              Get Matched
             </Link>
           </div>
         </div>
