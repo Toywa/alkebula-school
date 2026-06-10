@@ -139,48 +139,55 @@ export default function HomePage() {
                 Premium Online International Tutoring
               </div>
 
-              <h1 className="mt-6 max-w-4xl text-4xl font-bold leading-tight text-slate-950 sm:text-5xl lg:text-7xl">
-                Gentle structure.
+              <h1 className="mt-6 max-w-5xl text-3xl font-bold leading-tight text-slate-950 sm:text-4xl lg:text-5xl xl:text-6xl">
+                Find the Right Tutor.
                 <span className="block text-[#8F1F36]">
-                  Serious academic progress.
+                  Start Lessons This Summer.
                 </span>
               </h1>
 
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-                The Alkebula School supports Cambridge IGCSE, Edexcel IGCSE,
-                A Level, and IB learners with calm, structured online tutoring
-                designed to close learning gaps and build lasting confidence.
+                Premium online tutoring for Cambridge, Edexcel, A Level, IB,
+                and homeschool students — delivered by approved educators who
+                understand international curricula and measurable academic
+                progress.
+              </p>
+
+              <p className="mt-4 max-w-2xl text-base leading-8 text-slate-600">
+                Whether your child needs exam preparation, subject recovery,
+                confidence building, or structured homeschool support, The
+                Alkebula School helps you find the right tutor and begin with
+                confidence.
               </p>
 
               <div className="mt-8 flex flex-col gap-4 sm:flex-row">
                 <Link
-                  href="/auth/sign-up"
+                  href="/get-matched"
                   className="inline-flex items-center justify-center rounded-xl bg-[#8F1F36] px-7 py-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
                 >
-                  Parent Sign Up
+                  Get Matched With a Tutor
                 </Link>
 
                 <Link
                   href="/educators"
                   className="inline-flex items-center justify-center rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-7 py-4 text-sm font-semibold text-[#156B96] shadow-sm transition hover:bg-[#EEF9FF]"
                 >
-                  Find Tutors
-                </Link>
-
-                <Link
-                  href="/get-matched"
-                  className="inline-flex items-center justify-center rounded-xl border border-[#8F1F36]/20 bg-white px-7 py-4 text-sm font-bold text-[#8F1F36] shadow-sm transition hover:bg-[#FFF5F7]"
-                >
-                  Get Matched
+                  Browse Approved Tutors
                 </Link>
 
                 <a
                   href="#enquiry"
-                  className="inline-flex items-center justify-center rounded-xl px-7 py-4 text-sm font-semibold text-slate-600 transition hover:bg-[#F7FCFF]"
+                  className="inline-flex items-center justify-center rounded-xl border border-[#8F1F36]/20 bg-white px-7 py-4 text-sm font-bold text-[#8F1F36] shadow-sm transition hover:bg-[#FFF5F7]"
                 >
                   Make Enquiry
                 </a>
               </div>
+
+              <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-500">
+                Not sure where to begin? Tell us your child’s curriculum,
+                subject, level, and learning goals — we’ll help recommend the
+                right tutor.
+              </p>
 
               <div className="mt-8 flex flex-wrap gap-3 text-xs font-bold uppercase tracking-wide text-slate-600">
                 {[
@@ -595,27 +602,27 @@ export default function HomePage() {
       <section className="bg-white px-6 py-16">
         <div className="mx-auto max-w-5xl rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-white to-[#F7FCFF] p-8 text-center shadow-sm lg:p-12">
           <h2 className="text-3xl font-bold text-slate-950 sm:text-5xl">
-            Give your learner structure, clarity, and serious academic support.
+            Ready to begin structured lessons this summer?
           </h2>
 
           <p className="mx-auto mt-5 max-w-2xl text-slate-600">
-            Parent sign-up is the best first step toward bookings, tutor access,
-            and structured lesson support.
+            Choose an approved tutor or let us help match your child with the
+            right academic support for their curriculum, subject, and goals.
           </p>
 
           <div className="mt-8 flex flex-col justify-center gap-4 sm:flex-row">
             <Link
-              href="/auth/sign-up"
+              href="/get-matched"
               className="rounded-xl bg-[#8F1F36] px-7 py-4 text-sm font-bold text-white hover:bg-[#6F1729]"
             >
-              Parent Sign Up
+              Get Matched With a Tutor
             </Link>
 
             <Link
               href="/educators"
               className="rounded-xl border border-[#379CD6]/30 bg-[#F7FCFF] px-7 py-4 text-sm font-semibold text-[#156B96] hover:bg-[#EEF9FF]"
             >
-              View Tutors
+              Browse Approved Tutors
             </Link>
           </div>
         </div>
