@@ -41,6 +41,7 @@ type Application = {
   high_school_certificate_url?: string | null;
 
   signed_profile_photo_url?: string | null;
+  public_profile_photo_url?: string | null;
   signed_cv_url?: string | null;
   signed_degree_certificate_url?: string | null;
   signed_high_school_certificate_url?: string | null;
@@ -64,6 +65,36 @@ function getRateLevel(item: SubjectRate) {
 
 function yesNo(value?: boolean | null) {
   return value ? "Yes" : "No";
+}
+
+function cleanProfilePhotoPath(path?: string | null) {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+
+  let cleanPath = path.replace(/^\/+/, "");
+
+  if (cleanPath.startsWith("educator-profile-images/")) {
+    cleanPath = cleanPath.replace("educator-profile-images/", "");
+  }
+
+  return cleanPath;
+}
+
+function getPublicProfilePhotoUrl(path?: string | null) {
+  const cleanPath = cleanProfilePhotoPath(path);
+
+  if (!cleanPath) return null;
+  if (cleanPath.startsWith("http")) return cleanPath;
+
+  return `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/educator-profile-images/${cleanPath}`;
+}
+
+function getProfilePhotoLink(app: Application) {
+  return (
+    app.signed_profile_photo_url ||
+    app.public_profile_photo_url ||
+    getPublicProfilePhotoUrl(app.profile_photo_url)
+  );
 }
 
 export default function TutorApplicationsAdminPage() {
@@ -303,9 +334,9 @@ export default function TutorApplicationsAdminPage() {
               >
                 <div className="flex flex-wrap items-start justify-between gap-6">
                   <div className="flex flex-wrap gap-5">
-                    {app.signed_profile_photo_url ? (
+                    {getProfilePhotoLink(app) ? (
                       <img
-                        src={app.signed_profile_photo_url}
+                        src={getProfilePhotoLink(app) || ""}
                         alt={app.full_name}
                         className="h-32 w-32 rounded-2xl object-cover ring-1 ring-slate-200"
                       />
@@ -453,16 +484,20 @@ export default function TutorApplicationsAdminPage() {
                   </h3>
 
                   <div className="mt-4 flex flex-wrap gap-3 text-sm">
-                    {app.signed_profile_photo_url ? (
+                    {getProfilePhotoLink(app) ? (
                       <a
-                        href={app.signed_profile_photo_url}
+                        href={getProfilePhotoLink(app) || "#"}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-700 hover:bg-slate-100"
                       >
                         View Profile Photo
                       </a>
-                    ) : null}
+                    ) : (
+                      <span className="rounded-xl border border-slate-200 bg-slate-100 px-4 py-2 font-semibold text-slate-500">
+                        No Profile Photo
+                      </span>
+                    )}
 
                     {app.signed_cv_url ? (
                       <a
@@ -498,7 +533,7 @@ export default function TutorApplicationsAdminPage() {
                     ) : null}
                   </div>
 
-                  {!app.signed_profile_photo_url &&
+                  {!getProfilePhotoLink(app) &&
                   !app.signed_cv_url &&
                   !app.signed_degree_certificate_url &&
                   !app.signed_high_school_certificate_url ? (
