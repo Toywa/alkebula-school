@@ -1,14 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 
 const curriculumOptions = [
   "Cambridge IGCSE",
   "Edexcel IGCSE",
-  "A Levels",
-  "IB",
+  "Cambridge AS & A Levels",
+  "Edexcel International A Levels",
+  "IB Diploma Programme",
+  "Cambridge Checkpoint",
+  "Common Entrance",
   "Homeschool Support",
+  "Not sure yet",
+];
+
+const examWindowOptions = [
+  "October/November 2026 revision",
+  "Edexcel IAL October 2026",
+  "Edexcel IAL January 2027",
+  "May/June 2027 preparation",
+  "Ongoing academic support",
+  "Homeschool structure",
   "Not sure yet",
 ];
 
@@ -25,7 +38,8 @@ const urgencyOptions = [
   "Start this week",
   "Start next week",
   "Start within 2 weeks",
-  "Planning for July",
+  "October/November exam revision",
+  "Planning ahead",
   "Just exploring",
 ];
 
@@ -43,6 +57,47 @@ const timezoneOptions = [
   "Other / not sure",
 ];
 
+const learnerTypes = [
+  "International-school learner",
+  "Homeschool learner",
+  "Private candidate",
+  "Boarding school learner",
+  "Globally mobile family",
+  "Not sure yet",
+];
+
+const supportHighlights = [
+  "Cambridge, Edexcel, A Level, IB and Checkpoint focus",
+  "Guided tutor matching instead of endless browsing",
+  "Online tutoring across time zones",
+  "Local in-person support considered where available",
+];
+
+const processSteps = [
+  {
+    title: "1. Share the learning situation",
+    description:
+      "Tell us the curriculum, subject, exam window, current challenge and preferred schedule.",
+  },
+  {
+    title: "2. We review the best fit",
+    description:
+      "We look at tutor strengths, curriculum experience, availability and the learner’s academic need.",
+  },
+  {
+    title: "3. Start with confidence",
+    description:
+      "You receive guidance toward suitable tutor support, whether for revision, recovery or ongoing learning.",
+  },
+];
+
+const trustNotes = [
+  "Best for parents who are unsure which tutor to choose",
+  "Useful for exam revision, homeschool support and subject recovery",
+  "Built for international-school, homeschool and private-candidate pathways",
+  "Suitable for families in Kenya, across the region and abroad",
+];
+
 export default function GetMatchedPage() {
   const [form, setForm] = useState({
     parent_name: "",
@@ -51,7 +106,9 @@ export default function GetMatchedPage() {
     student_name: "",
     student_age: "",
     year_group: "",
+    learner_type: "",
     curriculum: "",
+    exam_window: "",
     subject_needed: "",
     current_challenge: "",
     preferred_timezone: "Africa/Nairobi",
@@ -64,7 +121,7 @@ export default function GetMatchedPage() {
   const [success, setSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     setLoading(true);
@@ -75,12 +132,16 @@ export default function GetMatchedPage() {
       const detailedMessage = [
         "GET MATCHED WITH A TUTOR REQUEST",
         "",
+        `Learner type: ${form.learner_type || "Not provided"}`,
         `Student age: ${form.student_age || "Not provided"}`,
         `Year group / class: ${form.year_group || "Not provided"}`,
+        `Exam window / support goal: ${form.exam_window || "Not provided"}`,
         `Subject needed: ${form.subject_needed || "Not provided"}`,
         `Current challenge: ${form.current_challenge || "Not provided"}`,
         `Preferred timezone: ${form.preferred_timezone || "Not provided"}`,
-        `Preferred lesson frequency: ${form.lesson_frequency || "Not provided"}`,
+        `Preferred lesson frequency: ${
+          form.lesson_frequency || "Not provided"
+        }`,
         `Urgency: ${form.urgency || "Not provided"}`,
         "",
         `Additional message: ${form.message || "None"}`,
@@ -117,7 +178,9 @@ export default function GetMatchedPage() {
         student_name: "",
         student_age: "",
         year_group: "",
+        learner_type: "",
         curriculum: "",
+        exam_window: "",
         subject_needed: "",
         current_challenge: "",
         preferred_timezone: "Africa/Nairobi",
@@ -137,34 +200,52 @@ export default function GetMatchedPage() {
   }
 
   return (
-    <main className="min-h-screen bg-white text-slate-900">
-      <section className="relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,#FFF5F7,transparent_24%),radial-gradient(circle_at_top_right,#EEF9FF,transparent_34%),#FFFFFF]">
-        <div className="absolute right-0 top-12 hidden h-80 w-80 rounded-full bg-[#EEF9FF] blur-3xl lg:block" />
-        <div className="absolute bottom-0 left-0 hidden h-72 w-72 rounded-full bg-[#FFF5F7] blur-3xl lg:block" />
+    <main className="min-h-screen bg-[#FFFDFB] text-slate-900">
+      <section className="relative overflow-hidden border-b border-slate-200 bg-[radial-gradient(circle_at_top_left,#FFF5F7,transparent_28%),radial-gradient(circle_at_top_right,#F7FCFF,transparent_30%),#FFFDFB]">
+        <div className="absolute left-0 top-0 h-48 w-48 rounded-full bg-[#FFF5F7] blur-3xl" />
+        <div className="absolute bottom-0 right-0 h-56 w-56 rounded-full bg-[#F7FCFF] blur-3xl" />
 
-        <div className="relative mx-auto grid max-w-7xl gap-12 px-6 py-16 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:py-24">
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.25em] text-[#379CD6]">
+        <div className="relative mx-auto grid max-w-7xl gap-10 px-6 py-10 lg:grid-cols-[0.92fr_1.08fr] lg:px-8 lg:py-14">
+          <div className="flex flex-col justify-center">
+            <p className="inline-flex w-fit rounded-full border border-[#8F1F36]/15 bg-white px-4 py-2 text-[11px] font-bold uppercase tracking-[0.24em] text-[#8F1F36] shadow-sm">
               Get Matched With a Tutor
             </p>
 
-            <h1 className="mt-5 text-4xl font-bold tracking-tight text-slate-950 sm:text-5xl lg:text-6xl">
-              Let Alkebula help you choose the right tutor.
+            <h1 className="mt-5 max-w-4xl text-3xl font-bold leading-tight tracking-tight text-slate-950 sm:text-4xl lg:text-[3rem]">
+              Let us help you choose the right tutor for your learner.
             </h1>
 
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-              Share your child’s curriculum, subject needs, learning challenge,
-              and preferred schedule. Our team will review the request and guide
-              you toward the most suitable approved tutor.
+            <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600">
+              Share your child’s curriculum, subject needs, exam window,
+              learning challenge and preferred schedule. Alkebula will help you
+              narrow the choice toward suitable academic support.
             </p>
 
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              {[
-                "Cambridge, Edexcel, A Level and IB focus",
-                "Homeschool support guidance",
-                "Tutor matching based on learner needs",
-                "Premium, parent-first support",
-              ].map((item) => (
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">
+              This matching route is ideal for parents who do not want to browse
+              every tutor profile first — especially where the learner needs
+              urgent revision, homeschool structure, subject recovery or
+              international-curriculum guidance.
+            </p>
+
+            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="#matching-form"
+                className="inline-flex items-center justify-center rounded-xl bg-[#8F1F36] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
+              >
+                Start Matching Request
+              </a>
+
+              <Link
+                href="/educators"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-900 shadow-sm transition hover:border-[#379CD6]/30 hover:bg-[#F7FCFF]"
+              >
+                Browse Tutors Instead
+              </Link>
+            </div>
+
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              {supportHighlights.map((item) => (
                 <div
                   key={item}
                   className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-semibold leading-7 text-slate-700 shadow-sm"
@@ -174,34 +255,53 @@ export default function GetMatchedPage() {
               ))}
             </div>
 
-            <div className="mt-8 rounded-3xl border border-[#379CD6]/20 bg-[#F7FCFF] p-5">
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-[#156B96]">
-                Best for parents who are unsure
+            <div className="mt-7 rounded-[1.6rem] border border-[#8F1F36]/10 bg-white p-5 shadow-sm">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#8F1F36]">
+                Personal but global
               </p>
 
               <p className="mt-3 text-sm leading-7 text-slate-600">
-                You do not need to browse every tutor first. Tell us the academic
-                situation, and we will help you narrow the choice professionally.
+                We support learners in international-school, homeschool and
+                private-candidate pathways — from families in Kenya and the
+                wider region to globally mobile students abroad.
               </p>
             </div>
           </div>
 
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.08)] lg:p-8">
-            <p className="text-sm font-bold uppercase tracking-[0.22em] text-[#8F1F36]">
-              Parent Matching Request
-            </p>
+          <div
+            id="matching-form"
+            className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_30px_80px_rgba(15,23,42,0.08)] lg:p-8"
+          >
+            <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-start">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#8F1F36]">
+                  Parent Matching Request
+                </p>
 
-            <h2 className="mt-3 text-3xl font-bold text-slate-950">
-              Tell us what your child needs.
-            </h2>
+                <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950">
+                  Tell us what your child needs.
+                </h2>
+              </div>
 
-            <form onSubmit={handleSubmit} className="mt-8 grid gap-5 md:grid-cols-2">
+              <div className="rounded-2xl border border-[#379CD6]/15 bg-[#F7FCFF] px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#156B96]">
+                  Current focus
+                </p>
+                <p className="mt-1 text-sm font-bold text-slate-900">
+                  Oct/Nov 2026 revision
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="mt-6 grid gap-5 md:grid-cols-2">
               <input
                 placeholder="Parent Name"
                 value={form.parent_name}
-                onChange={(e) => setForm({ ...form, parent_name: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, parent_name: e.target.value })
+                }
                 required
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
               />
 
               <input
@@ -210,7 +310,7 @@ export default function GetMatchedPage() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 required
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
               />
 
               <input
@@ -218,39 +318,73 @@ export default function GetMatchedPage() {
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 required
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
               />
 
               <input
                 placeholder="Student Name"
                 value={form.student_name}
-                onChange={(e) => setForm({ ...form, student_name: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, student_name: e.target.value })
+                }
                 required
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
               />
 
               <input
                 placeholder="Student Age"
                 value={form.student_age}
-                onChange={(e) => setForm({ ...form, student_age: e.target.value })}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
+                onChange={(e) =>
+                  setForm({ ...form, student_age: e.target.value })
+                }
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
               />
 
               <input
                 placeholder="Year Group / Class"
                 value={form.year_group}
-                onChange={(e) => setForm({ ...form, year_group: e.target.value })}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
+                onChange={(e) =>
+                  setForm({ ...form, year_group: e.target.value })
+                }
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
               />
 
               <select
+                value={form.learner_type}
+                onChange={(e) =>
+                  setForm({ ...form, learner_type: e.target.value })
+                }
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
+              >
+                <option value="">Learner Type</option>
+                {learnerTypes.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+
+              <select
                 value={form.curriculum}
-                onChange={(e) => setForm({ ...form, curriculum: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, curriculum: e.target.value })
+                }
                 required
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
               >
                 <option value="">Select Curriculum</option>
                 {curriculumOptions.map((item) => (
+                  <option key={item}>{item}</option>
+                ))}
+              </select>
+
+              <select
+                value={form.exam_window}
+                onChange={(e) =>
+                  setForm({ ...form, exam_window: e.target.value })
+                }
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
+              >
+                <option value="">Exam Window / Support Goal</option>
+                {examWindowOptions.map((item) => (
                   <option key={item}>{item}</option>
                 ))}
               </select>
@@ -262,7 +396,7 @@ export default function GetMatchedPage() {
                   setForm({ ...form, subject_needed: e.target.value })
                 }
                 required
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
               />
 
               <select
@@ -270,7 +404,7 @@ export default function GetMatchedPage() {
                 onChange={(e) =>
                   setForm({ ...form, preferred_timezone: e.target.value })
                 }
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
               >
                 {timezoneOptions.map((item) => (
                   <option key={item}>{item}</option>
@@ -283,7 +417,7 @@ export default function GetMatchedPage() {
                   setForm({ ...form, lesson_frequency: e.target.value })
                 }
                 required
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10"
               >
                 <option value="">Preferred Lesson Frequency</option>
                 {frequencyOptions.map((item) => (
@@ -295,7 +429,7 @@ export default function GetMatchedPage() {
                 value={form.urgency}
                 onChange={(e) => setForm({ ...form, urgency: e.target.value })}
                 required
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15 md:col-span-2"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10 md:col-span-2"
               >
                 <option value="">How soon do you want to start?</option>
                 {urgencyOptions.map((item) => (
@@ -311,7 +445,7 @@ export default function GetMatchedPage() {
                 }
                 required
                 rows={4}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15 md:col-span-2"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10 md:col-span-2"
               />
 
               <textarea
@@ -319,7 +453,7 @@ export default function GetMatchedPage() {
                 value={form.message}
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
                 rows={3}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#379CD6] focus:outline-none focus:ring-2 focus:ring-[#379CD6]/15 md:col-span-2"
+                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:border-[#8F1F36] focus:outline-none focus:ring-2 focus:ring-[#8F1F36]/10 md:col-span-2"
               />
 
               <button
@@ -348,30 +482,17 @@ export default function GetMatchedPage() {
         </div>
       </section>
 
-      <section className="bg-white px-6 py-16">
+      <section className="bg-white px-6 py-12 lg:py-16">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-3">
-          {[
-            {
-              title: "1. Tell us the need",
-              description:
-                "Share the curriculum, subject, current challenge, and preferred schedule.",
-            },
-            {
-              title: "2. We review the match",
-              description:
-                "We look at tutor strengths, curriculum fit, availability, and learner needs.",
-            },
-            {
-              title: "3. Book with confidence",
-              description:
-                "You receive guidance toward a suitable tutor and can proceed with structured lessons.",
-            },
-          ].map((item) => (
+          {processSteps.map((item) => (
             <div
               key={item.title}
               className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
             >
-              <h3 className="text-xl font-bold text-slate-950">{item.title}</h3>
+              <h3 className="text-xl font-bold text-slate-950">
+                {item.title}
+              </h3>
+
               <p className="mt-3 text-sm leading-7 text-slate-600">
                 {item.description}
               </p>
@@ -379,22 +500,99 @@ export default function GetMatchedPage() {
           ))}
         </div>
 
-        <div className="mx-auto mt-10 max-w-5xl rounded-[2rem] border border-slate-200 bg-[#F7FCFF] p-8 text-center">
-          <h2 className="text-3xl font-bold text-slate-950">
+        <div className="mx-auto mt-10 max-w-5xl rounded-[2rem] border border-slate-200 bg-[#FFFDFB] p-8 text-center shadow-sm">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#8F1F36]">
             Prefer to browse tutors yourself?
+          </p>
+
+          <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+            You can still explore approved tutors directly.
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-600">
-            You can still explore approved tutors directly and choose a tutor
-            based on curriculum, subject, profile, and availability.
+            Browse tutor profiles based on curriculum, subject, profile and
+            availability. The matching route is simply there for parents who
+            want guidance before choosing.
           </p>
 
-          <Link
-            href="/educators"
-            className="mt-6 inline-flex rounded-xl border border-[#379CD6]/30 bg-white px-6 py-3 text-sm font-semibold text-[#156B96] hover:bg-[#EEF9FF]"
+          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
+              href="/educators"
+              className="inline-flex justify-center rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-900 shadow-sm hover:bg-[#F7FCFF]"
+            >
+              View Approved Tutors
+            </Link>
+
+            <Link
+              href="/exam-revision"
+              className="inline-flex justify-center rounded-xl border border-[#8F1F36]/15 bg-[#FFF5F7] px-6 py-3 text-sm font-bold text-[#8F1F36] hover:bg-white"
+            >
+              View Revision Pages
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-y border-slate-200 bg-[#FFF8F9] px-6 py-12 lg:py-16">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8F1F36]">
+              Why Matching Helps
+            </p>
+
+            <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+              Not every parent wants to start by comparing tutor profiles.
+            </h2>
+
+            <p className="mt-4 text-sm leading-7 text-slate-600">
+              Some learners need urgent exam revision. Others need a calm
+              academic reset, homeschool structure, or support across time zones.
+              Matching helps us understand the situation first, then guide the
+              next step more professionally.
+            </p>
+
+            <p className="mt-4 text-sm leading-7 text-slate-500">
+              Subtle local and global context matters too: families may be in
+              Kenya, elsewhere in the region, or abroad, while still following
+              Cambridge, Edexcel, IB or other international pathways.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {trustNotes.map((item) => (
+              <div
+                key={item}
+                className="rounded-3xl border border-[#8F1F36]/10 bg-white p-5 text-sm font-bold leading-7 text-slate-800 shadow-sm"
+              >
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white px-6 py-12 lg:py-16">
+        <div className="mx-auto max-w-5xl rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-[#FFFDFB] to-[#FFF5F7] p-8 text-center shadow-sm lg:p-10">
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-[#8F1F36]">
+            Start With Clarity
+          </p>
+
+          <h2 className="mt-3 text-2xl font-bold tracking-tight text-slate-950 sm:text-4xl">
+            Tell us the challenge. We will help you find the right support.
+          </h2>
+
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-600">
+            Use the matching form to share the learner’s curriculum, subject,
+            exam window and current academic need. The Alkebula team will review
+            it and guide the next step.
+          </p>
+
+          <a
+            href="#matching-form"
+            className="mt-7 inline-flex rounded-xl bg-[#8F1F36] px-7 py-4 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
           >
-            View Approved Tutors
-          </Link>
+            Complete Matching Form
+          </a>
         </div>
       </section>
     </main>

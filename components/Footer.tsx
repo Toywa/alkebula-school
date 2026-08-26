@@ -4,20 +4,32 @@ import LiveActivityTicker from "@/components/LiveActivityTicker";
 
 const programmeLinks = [
   {
-    href: "/online-cambridge-igcse-tutors",
-    label: "Cambridge IGCSE Tutors",
+    href: "/exam-revision",
+    label: "Exam Revision Hub",
   },
   {
-    href: "/edexcel-igcse-tutors",
-    label: "Edexcel IGCSE Tutors",
+    href: "/exam-revision/cambridge-igcse-november-2026",
+    label: "Cambridge IGCSE Revision",
   },
   {
-    href: "/a-level-online-tutors",
-    label: "A Level Online Tutors",
+    href: "/exam-revision/edexcel-igcse-november-2026",
+    label: "Edexcel IGCSE Revision",
   },
   {
-    href: "/ib-online-tutors",
-    label: "IB Online Tutors",
+    href: "/exam-revision/cambridge-a-level-november-2026",
+    label: "Cambridge A Level Revision",
+  },
+  {
+    href: "/exam-revision/edexcel-ial-october-2026",
+    label: "Edexcel IAL Revision",
+  },
+  {
+    href: "/exam-revision/ib-diploma-november-2026",
+    label: "IB Diploma Revision",
+  },
+  {
+    href: "/exam-revision/cambridge-checkpoint-october-2026",
+    label: "Cambridge Checkpoint",
   },
   {
     href: "/homeschool-support",
@@ -28,15 +40,19 @@ const programmeLinks = [
 const exploreLinks = [
   {
     href: "/about",
-    label: "About",
+    label: "About Alkebula",
   },
   {
-    href: "/testimonials",
-    label: "Testimonials",
+    href: "/educators",
+    label: "Find Tutors",
   },
   {
     href: "/get-matched",
     label: "Get Matched",
+  },
+  {
+    href: "/testimonials",
+    label: "Parent Testimonials",
   },
   {
     href: "/faq",
@@ -47,12 +63,31 @@ const exploreLinks = [
     label: "Contact",
   },
   {
-    href: "/educators",
-    label: "Find Tutors",
-  },
-  {
     href: "/tutors/apply",
     label: "Apply as Tutor",
+  },
+];
+
+const parentLinks = [
+  {
+    href: "/auth/sign-up",
+    label: "Parent Sign Up",
+  },
+  {
+    href: "/auth/sign-in",
+    label: "Parent Sign In",
+  },
+  {
+    href: "/get-matched",
+    label: "Request Tutor Matching",
+  },
+  {
+    href: "/exam-revision",
+    label: "View Revision Pages",
+  },
+  {
+    href: "/homeschool-support",
+    label: "Homeschool Support",
   },
 ];
 
@@ -62,16 +97,16 @@ const platformLinks = [
     label: "Sign In",
   },
   {
-    href: "/auth/sign-up",
-    label: "Parent Sign Up",
-  },
-  {
     href: "/admin/resolutions",
     label: "Admin Login",
   },
   {
     href: "/admin/tutor-applications",
     label: "Tutor Applications",
+  },
+  {
+    href: "/educator/dashboard",
+    label: "Educator Dashboard",
   },
 ];
 
@@ -119,7 +154,7 @@ const socialLinks = [
   },
   {
     href: "https://x.com/alkebulaschool",
-    label: "Twitter / X",
+    label: "X",
     icon: (
       <svg width="16" height="16" fill="currentColor" aria-hidden="true">
         <path d="M9.6 6.8 15.5 0h-1.4L9 5.9 4.9 0H0l6.2 8.9L0 16h1.4l5.4-6.2L11.1 16H16L9.6 6.8Zm-1.9 2.2-.6-.9-5-7h2.1l4 5.7.6.9 5.2 7.4h-2.1L7.7 9Z" />
@@ -139,7 +174,7 @@ const socialLinks = [
 
 function FooterHeading({ children }: { children: ReactNode }) {
   return (
-    <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.22em] text-white">
+    <h4 className="mb-4 text-xs font-black uppercase tracking-[0.22em] text-[#8F1F36]">
       {children}
     </h4>
   );
@@ -155,7 +190,7 @@ function FooterLink({
   return (
     <Link
       href={href}
-      className="text-sm text-white/75 transition hover:text-white"
+      className="text-sm font-medium text-slate-600 transition hover:text-[#8F1F36]"
     >
       {children}
     </Link>
@@ -164,10 +199,63 @@ function FooterLink({
 
 export default function Footer() {
   return (
-    <footer className="mt-20 bg-[#8F1F36] text-white">
+    <footer className="mt-20 border-t border-slate-200 bg-[#FFFDFB] text-slate-900">
       <LiveActivityTicker />
 
-      <div className="mx-auto grid max-w-7xl gap-8 px-6 py-10 md:grid-cols-2 lg:grid-cols-5">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-10 lg:grid-cols-[1.15fr_0.85fr] lg:px-8 lg:py-12">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.24em] text-[#8F1F36]">
+              The Alkebula School
+            </p>
+
+            <h2 className="mt-3 max-w-3xl text-2xl font-bold tracking-tight text-slate-950 sm:text-3xl">
+              Premium tutoring for international-curriculum learners.
+            </h2>
+
+            <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
+              Structured online academic support for Cambridge, Edexcel, A
+              Level, IB, Checkpoint, Common Entrance and homeschool pathways —
+              with guided tutor matching available for parents who need help
+              choosing.
+            </p>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/get-matched"
+                className="inline-flex justify-center rounded-xl bg-[#8F1F36] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#6F1729]"
+              >
+                Get Matched With a Tutor
+              </Link>
+
+              <Link
+                href="/exam-revision"
+                className="inline-flex justify-center rounded-xl border border-[#8F1F36]/15 bg-[#FFF5F7] px-6 py-3 text-sm font-bold text-[#8F1F36] transition hover:bg-white"
+              >
+                View Revision Pages
+              </Link>
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] border border-slate-200 bg-gradient-to-br from-white via-[#FFFDFB] to-[#FFF5F7] p-6 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-[#8F1F36]">
+              Current Focus
+            </p>
+
+            <p className="mt-3 text-lg font-bold text-slate-950">
+              October/November 2026 revision support
+            </p>
+
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              Focused support for learners preparing for Cambridge, Edexcel,
+              A Level, IB and Checkpoint exam windows, with longer-term planning
+              available for January and May/June sessions.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto grid max-w-7xl gap-8 px-6 py-10 md:grid-cols-2 lg:grid-cols-5 lg:px-8">
         <div>
           <FooterHeading>Social</FooterHeading>
 
@@ -178,9 +266,9 @@ export default function Footer() {
                   href={item.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 text-sm text-white/75 transition hover:text-white"
+                  className="flex items-center gap-3 text-sm font-medium text-slate-600 transition hover:text-[#8F1F36]"
                 >
-                  <span className="text-white">{item.icon}</span>
+                  <span className="text-[#8F1F36]">{item.icon}</span>
                   {item.label}
                 </a>
               </li>
@@ -213,10 +301,10 @@ export default function Footer() {
         </div>
 
         <div>
-          <FooterHeading>Platform</FooterHeading>
+          <FooterHeading>Parents</FooterHeading>
 
           <ul className="space-y-3">
-            {platformLinks.map((item) => (
+            {parentLinks.map((item) => (
               <li key={item.href}>
                 <FooterLink href={item.href}>{item.label}</FooterLink>
               </li>
@@ -225,9 +313,15 @@ export default function Footer() {
         </div>
 
         <div>
-          <FooterHeading>Legal</FooterHeading>
+          <FooterHeading>Platform & Legal</FooterHeading>
 
           <ul className="space-y-3">
+            {platformLinks.map((item) => (
+              <li key={item.href}>
+                <FooterLink href={item.href}>{item.label}</FooterLink>
+              </li>
+            ))}
+
             {legalLinks.map((item) => (
               <li key={item.href}>
                 <FooterLink href={item.href}>{item.label}</FooterLink>
@@ -235,11 +329,21 @@ export default function Footer() {
             ))}
           </ul>
         </div>
-      </div>
+      </section>
 
-      <div className="border-t border-white/15 px-6 py-5 text-center text-xs text-white/65">
-        © {new Date().getFullYear()} The Alkebula School. All rights reserved.
-      </div>
+      <section className="border-t border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 text-xs text-slate-500 md:flex-row md:items-center md:justify-between lg:px-8">
+          <p>
+            © {new Date().getFullYear()} The Alkebula School. All rights
+            reserved.
+          </p>
+
+          <p>
+            International curriculum support for learners in school, homeschool
+            and private-candidate pathways.
+          </p>
+        </div>
+      </section>
     </footer>
   );
 }
