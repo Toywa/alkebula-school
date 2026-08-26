@@ -15,105 +15,105 @@ const visitorItems: VisitorItem[] = [
     city: "Nairobi",
     country: "Kenya",
     page: "Get Matched",
-    minutesAgo: 12,
+    minutesAgo: 8,
     pathway: "Cambridge IGCSE",
   },
   {
     city: "Kisumu",
     country: "Kenya",
     page: "Approved Tutors",
-    minutesAgo: 28,
+    minutesAgo: 16,
     pathway: "A Level Mathematics",
   },
   {
     city: "Nanyuki",
     country: "Kenya",
     page: "Homeschool Support",
-    minutesAgo: 44,
+    minutesAgo: 24,
     pathway: "Homeschool Support",
   },
   {
     city: "Mombasa",
     country: "Kenya",
     page: "Exam Revision Hub",
-    minutesAgo: 58,
+    minutesAgo: 31,
     pathway: "Edexcel IGCSE",
   },
   {
     city: "Kampala",
     country: "Uganda",
     page: "IB Diploma Revision",
-    minutesAgo: 76,
+    minutesAgo: 39,
     pathway: "IB Diploma",
   },
   {
     city: "Dar es Salaam",
     country: "Tanzania",
     page: "Cambridge IGCSE",
-    minutesAgo: 92,
+    minutesAgo: 52,
     pathway: "Cambridge IGCSE",
   },
   {
     city: "Kigali",
     country: "Rwanda",
     page: "Get Matched",
-    minutesAgo: 118,
-    pathway: "Cambridge Checkpoint",
+    minutesAgo: 67,
+    pathway: "Checkpoint",
   },
   {
     city: "Addis Ababa",
     country: "Ethiopia",
     page: "Approved Tutors",
-    minutesAgo: 147,
-    pathway: "Cambridge A Levels",
+    minutesAgo: 84,
+    pathway: "A Levels",
   },
   {
     city: "Lusaka",
     country: "Zambia",
     page: "Exam Revision Hub",
-    minutesAgo: 173,
-    pathway: "Edexcel International A Levels",
+    minutesAgo: 96,
+    pathway: "Edexcel IAL",
   },
   {
     city: "Harare",
     country: "Zimbabwe",
     page: "Homeschool Support",
-    minutesAgo: 204,
+    minutesAgo: 121,
     pathway: "International Homeschooling",
   },
   {
     city: "London",
     country: "United Kingdom",
     page: "Approved Tutors",
-    minutesAgo: 238,
+    minutesAgo: 138,
     pathway: "Cambridge A Levels",
   },
   {
     city: "Manchester",
     country: "United Kingdom",
     page: "Common Entrance",
-    minutesAgo: 271,
-    pathway: "11+ / 13+ Common Entrance",
+    minutesAgo: 166,
+    pathway: "11+ / 13+",
   },
   {
     city: "Dubai",
     country: "United Arab Emirates",
     page: "Get Matched",
-    minutesAgo: 316,
+    minutesAgo: 184,
     pathway: "IB Diploma",
   },
   {
     city: "Doha",
     country: "Qatar",
     page: "Exam Revision Hub",
-    minutesAgo: 352,
+    minutesAgo: 211,
     pathway: "Edexcel IGCSE",
   },
   {
     city: "New York",
     country: "United States",
     page: "Parent Testimonials",
-    minutesAgo: 418,
+    minutesAgo: 244,
     pathway: "International Tutoring",
   },
 ];
@@ -122,7 +122,6 @@ function formatTimeAgo(minutes: number) {
   if (minutes < 60) return `${minutes} min ago`;
 
   const hours = Math.floor(minutes / 60);
-
   if (hours === 1) return "1 hr ago";
 
   return `${hours} hrs ago`;
@@ -143,7 +142,7 @@ export default function VisitorDisplayWidget() {
   useEffect(() => {
     const interval = window.setInterval(() => {
       setActiveIndex((current) => (current + 1) % visitorItems.length);
-    }, 15000);
+    }, 4500);
 
     return () => window.clearInterval(interval);
   }, []);
@@ -170,7 +169,7 @@ export default function VisitorDisplayWidget() {
         {visibleItems.map((item, index) => (
           <div
             key={`${item.city}-${item.page}-${index}`}
-            className="rounded-2xl border border-slate-200 bg-[#FFFDFB] p-4 transition"
+            className="rounded-2xl border border-slate-200 bg-[#FFFDFB] p-4"
           >
             <p className="text-sm leading-6 text-slate-700">
               Interest from{" "}

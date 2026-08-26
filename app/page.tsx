@@ -2,16 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useState, type FormEvent } from "react";
-
-const PlatformMomentumStats = dynamic(
-  () => import("@/components/PlatformMomentumStats"),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-);
+import VisitorDisplayWidget from "@/components/VisitorDisplayWidget";
 
 const examWindows = [
   {
@@ -388,6 +380,7 @@ export default function HomePage() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-[#8F1F36]">
                     Current Priority
                   </p>
+
                   <p className="mt-1 text-sm font-bold text-slate-950">
                     Winter / Oct-Nov 2026 exams
                   </p>
@@ -435,6 +428,7 @@ export default function HomePage() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#8F1F36]">
                     Start with clarity
                   </p>
+
                   <p className="mt-1 text-sm font-bold">
                     Tutor matching available
                   </p>
@@ -454,6 +448,12 @@ export default function HomePage() {
               </Link>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="bg-white px-6 py-10 lg:py-14">
+        <div className="mx-auto max-w-5xl">
+          <VisitorDisplayWidget />
         </div>
       </section>
 
@@ -1035,8 +1035,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      <PlatformMomentumStats />
     </main>
   );
 }
